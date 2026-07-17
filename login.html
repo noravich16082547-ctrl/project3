@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบ / สมัครสมาชิก — DormCRU</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar"><div class="container" id="site-nav">
+  <a href="index.html" class="brand"><span class="dot"></span>DormCRU เชียงราย</a>
+</div></header>
+
+<div class="container" style="padding-top:16px"><div class="setup-banner" id="setupBanner"></div></div>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div style="display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line)">
+      <button class="tab-btn active" data-tab="login" style="flex:1;padding:10px;border:none;background:none;border-bottom:2px solid var(--forest);font-weight:600;cursor:pointer">เข้าสู่ระบบ</button>
+      <button class="tab-btn" data-tab="student" style="flex:1;padding:10px;border:none;background:none;border-bottom:2px solid transparent;font-weight:600;cursor:pointer;color:var(--ink-soft)">สมัครนักศึกษา</button>
+      <button class="tab-btn" data-tab="owner" style="flex:1;padding:10px;border:none;background:none;border-bottom:2px solid transparent;font-weight:600;cursor:pointer;color:var(--ink-soft)">สมัครเจ้าของหอ</button>
+    </div>
+
+    <!-- เข้าสู่ระบบ -->
+    <div id="pane-login">
+      <h2 style="margin-top:0">เข้าสู่ระบบ</h2>
+      <p class="muted" style="margin-top:-8px">ใช้ได้ทั้งนักศึกษาและเจ้าของหอพัก ระบบพาไปหน้าที่ถูกต้องให้อัตโนมัติ</p>
+      <form id="loginForm">
+        <div class="form-field"><label>อีเมล</label><input type="email" id="loginEmail" required></div>
+        <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="loginPassword" required>
+          <div class="form-error" id="loginErr">อีเมลหรือรหัสผ่านไม่ถูกต้อง</div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
+      </form>
+    </div>
+
+    <!-- สมัครนักศึกษา -->
+    <div id="pane-student" style="display:none">
+      <h2 style="margin-top:0">สมัครสมาชิกนักศึกษา</h2>
+      <form id="studentForm">
+        <div class="form-field"><label>ชื่อ-นามสกุล</label><input type="text" id="stName" required></div>
+        <div class="form-field"><label>รหัสนักศึกษา</label><input type="text" id="stSid" required></div>
+        <div class="form-field"><label>อีเมล</label><input type="email" id="stEmail" required></div>
+        <div class="form-field"><label>เบอร์โทรศัพท์</label><input type="tel" id="stPhone" required></div>
+        <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="stPassword" required minlength="6">
+          <div class="form-error" id="stErr">สมัครไม่สำเร็จ</div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">สมัครสมาชิก</button>
+      </form>
+    </div>
+
+    <!-- สมัครเจ้าของหอพัก -->
+    <div id="pane-owner" style="display:none">
+      <h2 style="margin-top:0">สมัครเป็นเจ้าของหอพัก</h2>
+      <p class="muted" style="margin-top:-8px">ต้องรอแอดมินอนุมัติก่อนถึงจะเพิ่ม/แก้ไขหอพักได้</p>
+      <form id="ownerForm">
+        <div class="form-field"><label>ชื่อ-นามสกุลผู้ติดต่อ</label><input type="text" id="ownName" required></div>
+        <div class="form-field"><label>ชื่อกิจการ/หอพัก</label><input type="text" id="ownOrg" required></div>
+        <div class="form-field"><label>อีเมล</label><input type="email" id="ownEmail" required></div>
+        <div class="form-field"><label>เบอร์โทรศัพท์</label><input type="tel" id="ownPhone" required></div>
+        <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="ownPassword" required minlength="6">
+          <div class="form-error" id="ownErr">สมัครไม่สำเร็จ</div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">ส่งคำขอสมัคร</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+(async ()=>{ await showSetupBannerIfNeeded(); await renderNav(); })();
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.remove('active'); b.style.borderBottomColor='transparent'; b.style.color='var(--ink-soft)'; });
+    btn.classList.add('active'); btn.style.borderBottomColor='var(--forest)'; btn.style.color='var(--forest)';
+    ['login','student','owner'].forEach(p=> document.getElementById('pane-'+p).style.display = (p===btn.dataset.tab)?'block':'none');
+  });
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  document.getElementById('loginErr').style.display='none';
+  try{
+    const profile = await login(
+      document.getElementById('loginEmail').value.trim().toLowerCase(),
+      document.getElementById('loginPassword').value
+    );
+    toast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ '+profile.name,'success');
+    setTimeout(()=>{
+      location.href = (profile.role==='owner' || profile.role==='admin') ? 'admin.html' : 'index.html';
+    }, 500);
+  }catch(err){
+    console.error(err);
+    document.getElementById('loginErr').textContent = err.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    document.getElementById('loginErr').style.display='block';
+  }
+});
+
+document.getElementById('studentForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  document.getElementById('stErr').style.display='none';
+  try{
+    await registerStudent({
+      name: document.getElementById('stName').value.trim(),
+      sid: document.getElementById('stSid').value.trim(),
+      email: document.getElementById('stEmail').value.trim().toLowerCase(),
+      phone: document.getElementById('stPhone').value.trim(),
+      password: document.getElementById('stPassword').value
+    });
+    toast('สมัครสมาชิกสำเร็จ ยินดีต้อนรับ','success');
+    setTimeout(()=> location.href = 'index.html', 600);
+  }catch(err){
+    console.error(err);
+    document.getElementById('stErr').textContent = err.message || 'สมัครไม่สำเร็จ';
+    document.getElementById('stErr').style.display='block';
+  }
+});
+
+document.getElementById('ownerForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  document.getElementById('ownErr').style.display='none';
+  try{
+    await registerOwner({
+      name: document.getElementById('ownName').value.trim(),
+      orgName: document.getElementById('ownOrg').value.trim(),
+      email: document.getElementById('ownEmail').value.trim().toLowerCase(),
+      phone: document.getElementById('ownPhone').value.trim(),
+      password: document.getElementById('ownPassword').value
+    });
+    toast('ส่งคำขอสมัครสำเร็จ รอการอนุมัติจากแอดมิน','success');
+    setTimeout(()=> location.href = 'admin.html', 800);
+  }catch(err){
+    console.error(err);
+    document.getElementById('ownErr').textContent = err.message || 'สมัครไม่สำเร็จ';
+    document.getElementById('ownErr').style.display='block';
+  }
+});
+</script>
+</body>
+</html>
