@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://uhtkwvayfayzbrfqsenp.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVodGt3dmF5ZmF5emJyZnFzZW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNjMzNjUsImV4cCI6MjA5OTgzOTM2NX0.xhKL4K59HSRF0aLK5aEvlf7xw977QL5UzqFDFyJRyD0";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -24,6 +24,26 @@ try{
 }catch(err){
   console.error('สร้าง Supabase client ไม่สำเร็จ:', err);
   sb = null;
+}
+
+// ---------------------------------------------------------------------------
+// ช่องทางติดต่อของเว็บไซต์ DormCRU (แสดงที่ footer และหน้าเข้าสู่ระบบ)
+// *** แก้ค่าด้านล่างเป็นช่องทางจริงของคุณ — ช่องไหนยังไม่มีให้ปล่อย '' ว่างไว้ ปุ่มจะไม่แสดง ***
+// ---------------------------------------------------------------------------
+const SITE_CONTACT = {
+  phone: '',                                  // เช่น '081-234-5678'
+  line: '',                                   // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
+  facebook: ''                                // ลิงก์เพจ เช่น 'https://facebook.com/dormcru'
+};
+function siteContactHtml(){
+  const btns = [];
+  if(SITE_CONTACT.phone) btns.push(`<a href="tel:${SITE_CONTACT.phone}" style="color:inherit">📞 ${SITE_CONTACT.phone}</a>`);
+  if(SITE_CONTACT.line){
+    const href = SITE_CONTACT.line.startsWith('http') ? SITE_CONTACT.line : `https://line.me/R/ti/p/~${encodeURIComponent(SITE_CONTACT.line)}`;
+    btns.push(`<a href="${href}" target="_blank" rel="noopener" style="color:inherit">💬 LINE: ${SITE_CONTACT.line}</a>`);
+  }
+  if(SITE_CONTACT.facebook) btns.push(`<a href="${SITE_CONTACT.facebook}" target="_blank" rel="noopener" style="color:inherit">📘 Facebook</a>`);
+  return btns.join(' &nbsp;·&nbsp; ');
 }
 
 // เรียกจากทุกหน้าตอนเริ่มโหลด — คืนค่า true ถ้าพร้อมใช้งาน, false ถ้ายังไม่ได้ตั้งค่า/เชื่อมต่อไม่ได้
