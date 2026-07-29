@@ -97,82 +97,93 @@ function roomImgSet(i){
   return [pexelsUrl(a), pexelsUrl(b), pexelsUrl(c)];
 }
 // ---------------------------------------------------------------------------
-// ข้อมูลหอพักตั้งต้น: รวบรวมจากประกาศสาธารณะ (RentHub/Hongpak ฯลฯ) เป็น "หอพักที่มีอยู่จริง"
-// รอบมหาวิทยาลัยราชภัฏเชียงราย ต.บ้านดู่ — แต่ราคา/ห้องว่าง/พิกัดเป็นข้อมูลโดยประมาณ ณ วันที่รวบรวม
-// จึงตั้งค่า verified:false ทั้งหมด = ระบบจะแสดงป้าย "รอเจ้าของหอยืนยันข้อมูล" และเปิดเฉพาะ
-// การขอนัดดูห้อง/จองคิวไว้ก่อน (ไม่เปิดรับโอนมัดจำ) จนกว่าเจ้าของหอตัวจริงจะเข้ามารับช่วง
-// ดูแลข้อมูล (claim) แล้วแอดมินติ๊ก verified ให้ — ป้องกันการจอง/โอนเงินจากข้อมูลที่ยังไม่ยืนยัน
+// ข้อมูลหอพักตั้งต้น: รายชื่อ "หอพักเครือข่าย" ทางการทั้งหมด 61 หอ จากเว็บไซต์
+// สำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย
+// แหล่งข้อมูล: https://aso.crru.ac.th/asoblog/dormnetwork
+//
+// เว็บต้นทางให้เฉพาะ ชื่อหอ / ประเภทหอ (ชาย-หญิง) / ลิงก์ Facebook (บางหอ) เท่านั้น
+// ***ไม่มี ราคา จำนวนห้องว่าง ระยะทางจากประตู เบอร์โทร*** — ระบบจึงเว้นไว้เป็น "ยังไม่ระบุ"
+// ให้เจ้าของหอเข้ามากรอกเอง (เมนู "รับช่วงดูแลหอของฉัน" ในหลังบ้าน) แทนการเดาตัวเลข
 // ---------------------------------------------------------------------------
 const SEED_DORMS_RAW = [
-  { name:'เวสธิมา คอร์ท', hallType:'หอรวม', gates:{gate1:0.1,gate2:1.0,gate3:1.4}, lat:19.9074,lng:99.8232,
-    facilities:['wifi','parking','cctv','guard'],
-    rooms:[{code:'fan',label:'พัดลม',price:2500,total:0,vacant:0},{code:'air',label:'แอร์',price:3500,total:0,vacant:0}],
-    desc:'อพาร์ตเมนต์ 4 ชั้น ~67 ห้อง อยู่หน้ามอราชภัฏเชียงราย ห่างจากมอประมาณ 50 เมตร เดินเข้าเรียนได้ทันที (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอพักหญิง ฮักล้านนา (ประตู 2)', hallType:'หอหญิงล้วน', gates:{gate1:1.4,gate2:0.3,gate3:1.6}, lat:19.9100,lng:99.8200,
-    facilities:['wifi','parking','cctv'],
-    rooms:[{code:'air',label:'แอร์',price:3000,total:0,vacant:0}],
-    desc:'หอพักหญิง ซ.บ้านป่าแฝก ใกล้ประตู 2 ราชภัฏเชียงราย ใกล้บิ๊กซี 2 และโรงพยาบาลกรุงเทพ (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'ฮักล้านนา เรสซิเดนซ์', hallType:'หอรวม', gates:{gate1:1.5,gate2:0.8,gate3:2.0}, lat:19.9090,lng:99.8180,
-    facilities:['wifi','parking','cctv','guard'],
-    rooms:[{code:'air',label:'แอร์',price:3800,total:0,vacant:0}],
-    desc:'ถ.พหลโยธิน บ้านดู่ ใกล้ราชภัฏเชียงราย ~1.5 กม. ใกล้สนามบิน บิ๊กซี แม็คโคร ตลาดสด ราคาประกาศ ~3,800-4,500 บาท/เดือน (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอพักบัณฑิตา', hallType:'หอรวม', gates:{gate1:0.3,gate2:1.2,gate3:1.5}, lat:19.9076,lng:99.8228,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:2200,total:0,vacant:0}],
-    desc:'ถนนหน้า ม.ราชภัฏเชียงราย บ้านดู่ เดินเข้าประตูหลักได้สะดวก (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอพักสุนทรี (ประตู 2)', hallType:'หอรวม', gates:{gate1:1.3,gate2:0.4,gate3:1.7}, lat:19.9098,lng:99.8196,
-    facilities:['wifi','parking','cctv'],
-    rooms:[{code:'fan',label:'พัดลม',price:2300,total:0,vacant:0},{code:'air',label:'แอร์',price:3200,total:0,vacant:0}],
-    desc:'บ้านดู่ ใกล้ ม.ราชภัฏเชียงราย ฝั่งประตู 2 (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอพักจงไพศาล 2', hallType:'หอรวม', gates:{gate1:1.2,gate2:1.0,gate3:1.4}, lat:19.9050,lng:99.8260,
-    facilities:['wifi','parking','cctv'],
-    rooms:[{code:'fan',label:'พัดลม',price:2300,total:0,vacant:0}],
-    desc:'อพาร์ตเมนต์ 3 ชั้น ~30 ห้อง ใกล้ตลาดสดบ้านดู่ บิ๊กซี 2 แม็คโคร ห่างมอ ~1.2 กม. ราคาประกาศ ~2,300 บาท/เดือน (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'เอ็ม เรสซิเดนซ์ @เชียงราย', hallType:'หอรวม', gates:{gate1:0.4,gate2:1.3,gate3:1.6}, lat:19.9072,lng:99.8226,
-    facilities:['wifi','parking','cctv','keycard'],
-    rooms:[{code:'air',label:'แอร์',price:3500,total:0,vacant:0}],
-    desc:'ถนนหน้า ม.ราชภัฏ บ้านดู่ (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'กันต์ดนัย เพลส', hallType:'หอรวม', gates:{gate1:1.0,gate2:1.5,gate3:1.2}, lat:19.9040,lng:99.8240,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:2200,total:0,vacant:0},{code:'air',label:'แอร์',price:3000,total:0,vacant:0}],
-    desc:'ถ.พหลโยธิน บ้านดู่ เมืองเชียงราย (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'P&P Apartment', hallType:'หอรวม', gates:{gate1:0.8,gate2:1.6,gate3:1.0}, lat:19.9058,lng:99.8244,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:2000,total:0,vacant:0}],
-    desc:'ซ.4/7 ถ.บ้านดู่ เมืองเชียงราย (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'บุญมณี อพาร์ทเม้นท์', hallType:'หอรวม', gates:{gate1:1.1,gate2:1.8,gate3:0.7}, lat:19.9045,lng:99.8218,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:2000,total:0,vacant:0}],
-    desc:'ซ.11/1 บ้านดู่ เมืองเชียงราย ฝั่งใกล้ประตู 3 (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอแนน', hallType:'หอรวม', gates:{gate1:0.9,gate2:1.4,gate3:0.9}, lat:19.9052,lng:99.8236,
-    facilities:['wifi'],
-    rooms:[{code:'fan',label:'พัดลม',price:1800,total:0,vacant:0}],
-    desc:'ซ.2 บ้านดู่ เมืองเชียงราย (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'เดอะ แจ๊ส วิลเลจ', hallType:'หอรวม', gates:{gate1:0.6,gate2:1.4,gate3:1.1}, lat:19.9066,lng:99.8240,
-    facilities:['wifi','parking','cctv'],
-    rooms:[{code:'air',label:'แอร์',price:3200,total:0,vacant:0}],
-    desc:'ซ.ราชภัฏ ถ.ราชภัฏ บ้านดู่ (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'โกลเด้นเวลล์ อพาร์ตเมนต์', hallType:'หอรวม', gates:{gate1:1.0,gate2:1.7,gate3:0.8}, lat:19.9048,lng:99.8230,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:2100,total:0,vacant:0},{code:'air',label:'แอร์',price:2900,total:0,vacant:0}],
-    desc:'บ้านดู่ เมืองเชียงราย ฝั่งใกล้ประตู 3 (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'สุขพระพร อพาร์ทเมนท์', hallType:'หอรวม', gates:{gate1:1.2,gate2:1.9,gate3:0.6}, lat:19.9042,lng:99.8214,
-    facilities:['wifi','parking'],
-    rooms:[{code:'fan',label:'พัดลม',price:1900,total:0,vacant:0}],
-    desc:'บ้านดู่ เมืองเชียงราย ฝั่งใกล้ประตู 3 (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' },
-  { name:'หอพักประหยัด อพาร์ทเม้นท์', hallType:'หอรวม', gates:{gate1:0.7,gate2:1.2,gate3:1.3}, lat:19.9062,lng:99.8234,
-    facilities:['wifi'],
-    rooms:[{code:'fan',label:'พัดลม',price:1700,total:0,vacant:0}],
-    desc:'บ้านดู่ เมืองเชียงราย ราคาประหยัดเหมาะน้องปี 1 (ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน)' }
+  { name:"ทริปเปิลพี", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100009134251032", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ภูชมดาว", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100012000224471", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"PPSP", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ธนณัฐ", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100006856248956", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อภิสรา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/1455613048023448/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"เงินยวง", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100024388698688", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ไทเสรีปาร์ค", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/pages/251804134878673", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บ้านน้ำอุ่น", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ชยานีคอร์ท", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/chayaneecourt", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"เทียมจันทร์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/599661180135782/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"จ่าพันธ์ศักดิ์ 2", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"แอลเอ", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/ppech.la", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"น้ำอินทร์", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/pages/420211831355174", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อรวรรณ", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/ratana.rakpanale", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"แฮปปี้โฮมคอร์ท", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100004807893321", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"รักษา", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100016663201133", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ภัทรวดี", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100004715538790", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ณิชชาพัชร์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ศุภาพร", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สุดารัตน์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100012848528545", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"รัตนาวดี 1", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/rattanavadee2/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"รัตนาวดี 2", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สองปั้น", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/1481698028712243/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"วัฒนา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"วัฒนา 2", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บ้านฝ้าย", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100009741480531", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บ้านแสนสบาย", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"พลอยชมภู", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/ploy.chompoo.313", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บุษราคัม", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บุษราคัม 2", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อภิญษยา 1", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100092527032637", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อภิญษยา 2", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100092527032637", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ศุภญา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/supaya240/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บ้าน 235", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สตรีศรีวรรณ", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สุขสถิตย์", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"จตุพร", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ทิพากร", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"พีเจเพลส", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"แก้วตา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/profile.php?id=100006143896462", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"เพชรพลอย", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"https://www.facebook.com/160190551305126/", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สตรีวันทนีย์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"นิลักษณ์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"บ้านสวนนภา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อัจจุดา", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"สมพร", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"วิจักขณาภรณ์ 2", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"พชรวรรณ", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"ยามาโตะ", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"เจริญรัตน์ 3", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"พิศมัย", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"มณีจันทร์สุข", hallType:"หอชายล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"อารีรัตน์", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"", category:"เครือข่าย", desc:"หอพักเครือข่ายที่ขึ้นทะเบียนกับสำนักงานบริการที่พักอาศัย กองพัฒนานักศึกษา มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ราคา ห้องว่าง ระยะทาง และเบอร์ติดต่อ รอเจ้าของหอเข้ามากรอกข้อมูล" },
+  { name:"UniHouse-Single", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"บุคลากร", desc:"หอพักบุคลากร มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ติดต่อสำนักงานบริการที่พักอาศัย โทร. 0-5377-6273" },
+  { name:"UniHouse-Family", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"บุคลากร", desc:"หอพักบุคลากร มหาวิทยาลัยราชภัฏเชียงราย (สถานะ: ให้บริการ) — ติดต่อสำนักงานบริการที่พักอาศัย โทร. 0-5377-6273" },
+  { name:"Uni-dorm 1", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" },
+  { name:"Uni-dorm 2", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" },
+  { name:"Uni-dorm 3", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" },
+  { name:"Uni-dorm 4", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" },
+  { name:"Uni-dorm 5", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" },
+  { name:"Uni-dorm 6", hallType:"หอหญิงล้วน", gates:null, lat:null, lng:null, facilities:[], rooms:[], facebook:"", phone:"053-776273", category:"หอใน", desc:"หอพักในมหาวิทยาลัยราชภัฏเชียงราย (Uni-dorm) — จองผ่านระบบหอพักนักศึกษาที่ https://otim.crru.ac.th/unidorm หรือติดต่อ โทร. 0-5377-6273" }
 ];
 
 function nearestGate(dorm){
+  if(!dorm.gates) return null;
   let best = 'gate1';
   Object.keys(dorm.gates).forEach(g=>{ if(dorm.gates[g] < dorm.gates[best]) best = g; });
   return best;
 }
-function totalVacancy(dorm){ return dorm.rooms.reduce((s,r)=>s+r.vacant,0); }
-function minPrice(dorm){ return Math.min(...dorm.rooms.map(r=>r.price)); }
+function totalVacancy(dorm){ return (dorm.rooms||[]).reduce((s,r)=>s+r.vacant,0); }
+// คืน null เมื่อยังไม่มีข้อมูลราคา (หอที่เจ้าของยังไม่เข้ามากรอก) — อย่าคืนตัวเลขมั่ว
+function minPrice(dorm){
+  if(!dorm.rooms || dorm.rooms.length===0) return null;
+  return Math.min(...dorm.rooms.map(r=>r.price));
+}
+function hasPrice(dorm){ return minPrice(dorm) !== null; }
+function hasGates(dorm){ return !!dorm.gates && dorm.gates.gate1 !== null && dorm.gates.gate1 !== undefined; }
+function priceLabel(dorm){ return hasPrice(dorm) ? fmtBaht(minPrice(dorm)) + ' <small>บาท/เดือน เริ่มต้น</small>' : '<small class="muted">สอบถามราคากับหอโดยตรง</small>'; }
 function fmtBaht(n){ return Number(n).toLocaleString('th-TH'); }
 function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`; }
 function facilityIcons(codes){
@@ -210,7 +221,7 @@ function contactButtonsHtml(d){
 function toDormRow(d){
   const row = {
     name: d.name, hall_type: d.hallType,
-    gate1: d.gates.gate1, gate2: d.gates.gate2, gate3: d.gates.gate3,
+    gate1: d.gates ? d.gates.gate1 : null, gate2: d.gates ? d.gates.gate2 : null, gate3: d.gates ? d.gates.gate3 : null,
     lat: d.lat, lng: d.lng, facilities: d.facilities, rooms: d.rooms,
     images: d.images, description: d.desc,
     phone: d.phone || null, line_id: d.lineId || null, facebook: d.facebook || null
@@ -221,8 +232,9 @@ function toDormRow(d){
 function mapDormRow(row){
   return {
     id: row.id, ownerId: row.owner_id, name: row.name, hallType: row.hall_type,
-    gates: { gate1: Number(row.gate1), gate2: Number(row.gate2), gate3: Number(row.gate3) },
-    lat: Number(row.lat), lng: Number(row.lng),
+    gates: (row.gate1===null||row.gate1===undefined) ? null
+           : { gate1: Number(row.gate1), gate2: Number(row.gate2), gate3: Number(row.gate3) },
+    lat: row.lat===null?null:Number(row.lat), lng: row.lng===null?null:Number(row.lng),
     facilities: row.facilities || [], rooms: row.rooms || [],
     images: row.images || [], desc: row.description,
     phone: row.phone || '', lineId: row.line_id || '', facebook: row.facebook || '',
@@ -285,7 +297,8 @@ async function registerOwner({ name, orgName, email, phone, password }){
   if(!data.session){
     throw new Error('สมัครสำเร็จแต่ยังไม่ได้ล็อกอินอัตโนมัติ — ต้องปิด "Confirm email" ใน Supabase Auth Settings ก่อน (ดู SETUP-SUPABASE.md)');
   }
-  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'owner', name, org_name: orgName, email, phone, approved: false });
+  // เจ้าของหอใช้งานได้ทันทีหลังสมัคร ไม่ต้องรอแอดมินอนุมัติ (approved: true)
+  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'owner', name, org_name: orgName, email, phone, approved: true });
   if(e2) throw e2;
   return data.user;
 }
@@ -353,13 +366,25 @@ async function deleteDorm(id){
   const { error } = await sb.from('dorms').delete().eq('id', id);
   if(error) throw error;
 }
+// หอพักที่ยังไม่มีเจ้าของยืนยันดูแล (verified = false) — เปิดให้เจ้าของหอตัวจริงกดรับช่วงดูแลได้
+async function getUnclaimedDorms(){
+  if(!sb) return [];
+  const { data, error } = await sb.from('dorms').select('*').eq('verified', false);
+  if(error) throw error;
+  return data.map(mapDormRow);
+}
+async function claimDorm(dormId){
+  requireSupabase();
+  const { error } = await sb.rpc('claim_dorm', { p_dorm_id: dormId });
+  if(error) throw error;
+}
 async function seedSampleDormsIfEmpty(ownerId){
   requireSupabase();
   const { count, error: ce } = await sb.from('dorms').select('*', { count: 'exact', head: true });
   if(ce) throw ce;
   if(count && count > 0) return 0;
   const rows = SEED_DORMS_RAW.map((d,i)=>{
-    const row = toDormRow({ ...d, images: roomImgSet(i) });
+    const row = toDormRow({ ...d, images: roomImgSet(i), lineId: '' });
     row.owner_id = ownerId;
     return row;
   });
