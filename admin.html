@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>หลังบ้าน — DormCRU</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <a href="admin.html" class="brand"><span class="dot"></span>DormCRU หลังบ้าน</a>
+    <div class="nav-links">
+      <a href="index.html">ดูเว็บฝั่งนักศึกษา</a>
+      <a href="#" id="logoutBtn">ออกจากระบบ</a>
+    </div>
+  </div>
+</header>
+
+<div class="container" style="padding-top:16px"><div class="setup-banner" id="setupBanner"></div></div>
+
+<div id="pendingNotice" style="display:none" class="container" style="padding-top:30px">
+  <div class="empty-state">
+    <div class="emoji">⏳</div>
+    <p>บัญชีนี้ถูกระงับการใช้งานชั่วคราวโดยผู้ดูแลระบบ<br>
+    <small class="muted">หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อทีมงานผ่านช่องทางที่แสดงไว้ท้ายหน้าเว็บ</small></p>
+  </div>
+</div>
+
+<div class="dash-shell" id="dashShell" style="display:none">
+  <aside class="dash-side">
+    <div class="side-title">เมนูจัดการ</div>
+    <button class="side-link active" data-sec="overview">📊 ภาพรวม</button>
+    <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
+    <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
+    <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
+  </aside>
+
+  <main class="dash-main">
+    <div id="sec-overview">
+      <h2>ภาพรวมระบบ</h2>
+      <div class="stat-row">
+        <div class="stat-card"><div class="num" id="statDorms">-</div><div class="label">หอพักทั้งหมด</div></div>
+        <div class="stat-card"><div class="num" id="statVacant">-</div><div class="label">ห้องว่างรวม</div></div>
+        <div class="stat-card"><div class="num" id="statContact">-</div><div class="label">หอที่มีช่องทางติดต่อแล้ว</div></div>
+        <div class="stat-card"><div class="num" id="statVerified">-</div><div class="label">หอที่ยืนยันข้อมูลแล้ว</div></div>
+      </div>
+      <div class="qr-box">
+        <div id="qrcode2"></div>
+        <div>
+          <h3 style="color:#fff">QR โค้ดของเว็บไซต์</h3>
+          <p style="color:rgba(255,255,255,.75);margin:0">แชร์ให้เจ้าของหอพักหรือน้องนักศึกษาสแกนเข้าเว็บได้ทันที</p>
+        </div>
+      </div>
+      <div id="seedBox" style="margin-top:20px;display:none">
+        <button class="btn btn-outline" id="btnSeed">โหลดข้อมูลหอพักตัวอย่าง (ครั้งแรกเท่านั้น)</button>
+        <p class="form-hint">ใช้เพื่อทดสอบระบบตอนเริ่มต้น จะทำงานเฉพาะตอนที่ยังไม่มีหอพักในระบบเลย</p>
+      </div>
+    </div>
+
+    <div id="sec-listings" style="display:none">
+      <div class="section-head">
+        <h2>จัดการห้องพัก</h2>
+        <button class="btn btn-primary btn-sm" id="btnAddDorm">+ เพิ่มหอพักใหม่</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>หอพัก</th><th>ประเภท</th><th>ห้อง/ราคา</th><th>ว่าง/ทั้งหมด</th><th>จัดการ</th></tr></thead>
+          <tbody id="listingTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="sec-claim" style="display:none">
+      <div class="section-head"><h2>รับช่วงดูแลหอพักของคุณ</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        หอพักด้านล่างเป็นข้อมูลที่รวบรวมจากประกาศสาธารณะ ยังไม่มีเจ้าของยืนยันดูแล —
+        ถ้าหอไหนเป็นของคุณ กด "นี่คือหอของฉัน" เพื่อรับช่วงดูแล แล้วคุณจะแก้ราคา/ห้องว่าง/รูป/ช่องทางติดต่อได้ทันที
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>หอพัก</th><th>ประเภท</th><th>ราคาที่ประกาศไว้</th><th>รายละเอียด</th><th>จัดการ</th></tr></thead>
+          <tbody id="claimTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="sec-owners" style="display:none">
+      <div class="section-head"><h2>รายชื่อเจ้าของหอในระบบ</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">เจ้าของหอสมัครแล้วใช้งานได้ทันที ไม่ต้องรออนุมัติ — หน้านี้ไว้ให้ผู้ดูแลระบบตรวจสอบย้อนหลังหรือระงับบัญชีที่มีปัญหาเท่านั้น</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ชื่อ</th><th>กิจการ</th><th>อีเมล</th><th>เบอร์โทร</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+          <tbody id="ownerTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="editModal">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-close" id="closeEditModal">✕</button>
+    <h3 id="editTitle">เพิ่ม/แก้ไขหอพัก</h3>
+    <div class="form-field"><label>ชื่อหอพัก</label><input type="text" id="fName"></div>
+    <div class="form-field"><label>ประเภทหอพัก</label>
+      <select id="fHallType"><option value="หอหญิงล้วน">หอหญิงล้วน</option><option value="หอชายล้วน">หอชายล้วน</option><option value="หอรวม">หอรวม</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="form-field"><label>ระยะจากประตู 1 (กม.)</label><input type="number" step="0.1" id="fGate1"></div>
+      <div class="form-field"><label>ระยะจากประตู 2 (กม.)</label><input type="number" step="0.1" id="fGate2"></div>
+      <div class="form-field"><label>ระยะจากประตู 3 (กม.)</label><input type="number" step="0.1" id="fGate3"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-field"><label>ละติจูด (lat)</label><input type="number" step="0.0001" id="fLat"></div>
+      <div class="form-field"><label>ลองจิจูด (lng)</label><input type="number" step="0.0001" id="fLng"></div>
+    </div>
+    <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
+    <div class="form-field">
+      <label>สิ่งอำนวยความสะดวก</label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <label><input type="checkbox" value="wifi" class="fFacility"> Wi-Fi</label>
+        <label><input type="checkbox" value="parking" class="fFacility"> ที่จอดรถ</label>
+        <label><input type="checkbox" value="laundry" class="fFacility"> ซักผ้าหยอดเหรียญ</label>
+        <label><input type="checkbox" value="keycard" class="fFacility"> คีย์การ์ด</label>
+        <label><input type="checkbox" value="cctv" class="fFacility"> กล้องวงจรปิด</label>
+        <label><input type="checkbox" value="guard" class="fFacility"> รปภ.</label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-field"><label>ราคาห้องพัดลม (0 = ไม่มี)</label><input type="number" id="fFanPrice"></div>
+      <div class="form-field"><label>จำนวนห้องพัดลมทั้งหมด</label><input type="number" id="fFanTotal"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-field"><label>ราคาห้องแอร์ (0 = ไม่มี)</label><input type="number" id="fAirPrice"></div>
+      <div class="form-field"><label>จำนวนห้องแอร์ทั้งหมด</label><input type="number" id="fAirTotal"></div>
+    </div>
+    <div class="form-field"><label>ลิงก์รูปภาพ (คั่นด้วย comma , อย่างน้อย 1 รูป)</label><textarea id="fImages" placeholder="https://... , https://... , https://..."></textarea></div>
+    <h4 style="margin:14px 0 6px">ช่องทางติดต่อหอพัก</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-field"><label>เบอร์โทรหอพัก</label><input type="tel" id="fPhone" placeholder="08x-xxx-xxxx"></div>
+      <div class="form-field"><label>LINE ID หรือลิงก์ LINE</label><input type="text" id="fLine" placeholder="@dormcru หรือ https://line.me/..."></div>
+    </div>
+    <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
+    <div class="form-field" id="verifiedWrap" style="display:none">
+      <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการจองเต็มรูปแบบ<br>
+      <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
+    </div>
+    <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="db.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script src="admin.js?v=3"></script>
+</body>
+</html>
