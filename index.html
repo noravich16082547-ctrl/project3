@@ -23,7 +23,7 @@
     <div>
       <span class="eyebrow">🎓 สำหรับน้องปี 1 มร.ชร.</span>
       <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
-      <p class="lead">รวมรายชื่อหอพักเครือข่ายรอบมหาวิทยาลัย เปรียบเทียบราคาและระยะทางจาก 3 ประตูมอ แล้วติดต่อหอโดยตรงได้ทันที</p>
+      <p class="lead">รวมรายชื่อหอพักเครือข่ายทางการรอบมหาวิทยาลัย ดูแผนที่เส้นทางจากมอ แล้วโทรหรือแชทติดต่อหอโดยตรงได้ทันที</p>
     </div>
     <div class="walk-rings" aria-hidden="true">
       <svg viewBox="0 0 340 340">
@@ -47,6 +47,10 @@
   <div class="search-panel">
     <div class="search-grid" id="filterForm">
       <div class="field">
+        <label>ค้นหาชื่อหอพัก</label>
+        <input type="text" id="f-name" placeholder="เช่น ทริปเปิลพี, บ้านฝ้าย">
+      </div>
+      <div class="field">
         <label>ประเภทหอพัก</label>
         <select id="f-hallType">
           <option value="">ทุกประเภท</option>
@@ -54,26 +58,6 @@
           <option value="หอชายล้วน">หอชายล้วน</option>
           <option value="หอรวม">หอรวม</option>
         </select>
-      </div>
-      <div class="field">
-        <label>ประเภทห้อง</label>
-        <select id="f-roomType">
-          <option value="">พัดลม / แอร์</option>
-          <option value="fan">พัดลม</option>
-          <option value="air">แอร์</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>ประตูอ้างอิง</label>
-        <select id="f-gate">
-          <option value="gate1">ประตู 1 (ทางเข้าหลัก)</option>
-          <option value="gate2">ประตู 2</option>
-          <option value="gate3">ประตู 3</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>ระยะไม่เกิน: <span class="price-tag" id="distVal">2.0 กม.</span></label>
-        <input type="range" id="f-dist" min="0.2" max="2" step="0.1" value="2">
       </div>
       <div class="field" style="align-self:end">
         <button class="btn btn-primary btn-block" id="btnSearch">ค้นหา</button>
@@ -162,6 +146,14 @@ if(typeof contactButtonsBlock !== 'function'){
     return b.join('');
   };
 }
+if(typeof mapRouteEmbedUrl !== 'function'){
+  window.dormPlaceQuery = d => (d.lat && d.lng) ? `${d.lat},${d.lng}` : `${d.name} หอพัก บ้านดู่ เชียงราย`;
+  window.mapRouteEmbedUrl = d => `https://maps.google.com/maps?saddr=${encodeURIComponent('มหาวิทยาลัยราชภัฏเชียงราย')}&daddr=${encodeURIComponent(dormPlaceQuery(d))}&hl=th&output=embed`;
+  window.mapDirectionsLink = d => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent('มหาวิทยาลัยราชภัฏเชียงราย')}&destination=${encodeURIComponent(dormPlaceQuery(d))}&travelmode=walking`;
+}
+if(typeof imgFallbackAttr !== 'function'){
+  window.imgFallbackAttr = () => `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='https://images.pexels.com/photos/1034584/pexels-photo-1034584.jpeg?auto=compress&cs=tinysrgb&w=900';}"`;
+}
 if(typeof priceLabel !== 'function'){
   window.priceLabel = d => hasPrice(d)
     ? fmtBaht(Math.min(...d.rooms.map(r=>r.price))) + ' <small>บาท/เดือน เริ่มต้น</small>'
@@ -179,8 +171,6 @@ let showWishlistOnly = false;
 let activeDorm = null;
 
 // ---------- ตัวกรอง+รายการหอพัก ----------
-const distValEl = document.getElementById('distVal');
-document.getElementById('f-dist').addEventListener('input', e=> distValEl.textContent = Number(e.target.value).toFixed(1)+' กม.');
 const priceMinEl = document.getElementById('f-priceMin');
 const priceMaxEl = document.getElementById('f-priceMax');
 const priceValEl = document.getElementById('priceVal');
@@ -208,7 +198,7 @@ function dormCardHtml(d){
   return `
   <div class="card-dorm">
     <div class="card-media" data-open="${d.id}" style="cursor:pointer">
-      <img src="${d.images[0]}" alt="${d.name}" loading="lazy">
+      <img src="${d.images[0]}" alt="${d.name}" loading="lazy" ${imgFallbackAttr()}>
       <span class="badge-type">${d.hallType}</span>
       <span class="badge-vacancy ${(!d.verified||vac===0)?'full':''}">${!d.verified?'สอบถามห้องว่าง':(vac===0?'เต็ม':'ว่าง '+vac+' ห้อง')}</span>
       ${hasContact(d)?'<span class="badge-type" style="top:auto;bottom:10px;left:10px;background:rgba(31,58,46,.85)">📞 ติดต่อได้</span>':''}
@@ -218,7 +208,7 @@ function dormCardHtml(d){
       <h3 data-open="${d.id}" style="cursor:pointer">${d.name}</h3>
       <div class="card-meta">${ng
         ? `<span class="walk-chip">🚶 ${d.gates[ng].toFixed(1)} กม. จาก${CRRU_GATE[ng].label}</span>`
-        : `<span class="walk-chip" style="background:#FDF1DC;border-color:#E8A33D;color:#946A0E">📍 ยังไม่ระบุระยะทาง</span>`}</div>
+        : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
       <div class="card-meta">${facilityIcons(d.facilities)}</div>
       <div class="card-price">
         <div class="amount">${priceLabel(d)}</div>
@@ -231,30 +221,19 @@ function dormCardHtml(d){
 function applyFilters(){
   try{
     const hallType = document.getElementById('f-hallType').value;
-    const roomType = document.getElementById('f-roomType').value;
-    const gate = document.getElementById('f-gate').value;
-    const maxDist = +document.getElementById('f-dist').value;
+    const kw = document.getElementById('f-name').value.trim().toLowerCase();
     const min = +priceMinEl.value, max = +priceMaxEl.value;
     const wishlist = (myProfile && myProfile.wishlist) || [];
-
-    // ตัวกรองแบบ "ไม่ตัดหอที่ข้อมูลยังไม่ครบทิ้งโดยไม่จำเป็น":
-    // หอที่ยังไม่ระบุราคา/ระยะทาง จะยังแสดงอยู่ตราบใดที่ผู้ใช้ยังไม่ได้เลื่อนตัวกรองนั้นให้แคบลง
-    const distNarrowed = maxDist < 2;
+    // หอที่ยังไม่ระบุราคา จะยังแสดงอยู่ ตราบใดที่ผู้ใช้ยังไม่ได้เลื่อนช่วงราคาให้แคบลง
     const priceNarrowed = (min > 1500 || max < 4000);
+
     let dorms = allDorms.filter(d=>{
       if(showWishlistOnly && !wishlist.includes(d.id)) return false;
       if(hallType && d.hallType !== hallType) return false;
-
-      if(hasGates(d)){ if(d.gates[gate] > maxDist) return false; }
-      else if(distNarrowed) return false;
-
+      if(kw && !d.name.toLowerCase().includes(kw)) return false;
       if(hasPrice(d)){
-        const rooms = roomType ? d.rooms.filter(r=>r.code===roomType) : d.rooms;
-        if(rooms.length===0) return false;
-        if(!rooms.some(r => r.price >= min && r.price <= max)) return false;
-      }else{
-        if(priceNarrowed || roomType) return false;
-      }
+        if(!d.rooms.some(r => r.price >= min && r.price <= max)) return false;
+      }else if(priceNarrowed) return false;
       return true;
     });
 
@@ -294,6 +273,8 @@ function applyFilters(){
   }
 }
 document.getElementById('btnSearch').addEventListener('click', applyFilters);
+document.getElementById('f-name').addEventListener('input', applyFilters);
+document.getElementById('f-hallType').addEventListener('change', applyFilters);
 
 // ---------- โมดัลรายละเอียด + จอง ----------
 function openDetail(id){
@@ -304,10 +285,10 @@ function openDetail(id){
   const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
   document.getElementById('detailContent').innerHTML = `
     <div class="gallery">
-      <div class="main-img"><img id="mainImg" src="${d.images[0]}" alt="${d.name}"></div>
+      <div class="main-img"><img id="mainImg" src="${d.images[0]}" alt="${d.name}" ${imgFallbackAttr()}></div>
       <div class="side-imgs">
-        <img src="${d.images[1]||d.images[0]}" data-src="${d.images[1]||d.images[0]}" alt="ห้องพัก">
-        <img src="${d.images[2]||d.images[0]}" data-src="${d.images[2]||d.images[0]}" alt="บรรยากาศรอบๆ">
+        <img src="${d.images[1]||d.images[0]}" data-src="${d.images[1]||d.images[0]}" alt="ห้องพัก" ${imgFallbackAttr()}>
+        <img src="${d.images[2]||d.images[0]}" data-src="${d.images[2]||d.images[0]}" alt="บรรยากาศรอบๆ" ${imgFallbackAttr()}>
       </div>
     </div>
     <div class="detail-layout">
@@ -336,8 +317,16 @@ function openDetail(id){
         <div class="chip-row">${contactButtonsHtml(d)}</div>
         <h3>สิ่งอำนวยความสะดวก</h3>
         <div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>
-        ${(d.lat && d.lng) ? `<h3>แผนที่</h3>
-        <div class="map-embed"><iframe src="${mapEmbedUrl(d.lat, d.lng)}" loading="lazy" title="แผนที่ ${d.name}"></iframe></div>` : ''}
+        <h3>แผนที่และเส้นทางจากมหาวิทยาลัย</h3>
+        <div class="map-embed">
+          <iframe src="${mapRouteEmbedUrl(d)}" loading="lazy" title="เส้นทางจาก มร.ชร. ไป ${d.name}"></iframe>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <a class="btn btn-primary btn-sm" href="${mapDirectionsLink(d)}" target="_blank" rel="noopener" style="text-decoration:none">🧭 เปิดนำทางใน Google Maps</a>
+        </div>
+        ${(d.lat && d.lng) ? '' : `<p class="form-hint" style="margin-top:8px">
+          หอนี้ยังไม่ได้ระบุพิกัดที่แน่นอน แผนที่ด้านบนค้นหาจากชื่อหอในพื้นที่ ต.บ้านดู่
+          ตำแหน่งอาจคลาดเคลื่อน — แนะนำให้โทรสอบถามเส้นทางกับหอโดยตรงอีกครั้ง</p>`}
       </div>
       <div class="booking-card">
         <div class="muted" style="font-size:.85rem">${hasPrice(d)?'ราคาเริ่มต้น':'ราคา'}</div>
