@@ -9,8 +9,9 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
 }
@@ -185,6 +186,33 @@ function hasGates(dorm){ return !!dorm.gates && dorm.gates.gate1 !== null && dor
 function priceLabel(dorm){ return hasPrice(dorm) ? fmtBaht(minPrice(dorm)) + ' <small>บาท/เดือน เริ่มต้น</small>' : '<small class="muted">สอบถามราคากับหอโดยตรง</small>'; }
 function fmtBaht(n){ return Number(n).toLocaleString('th-TH'); }
 function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`; }
+
+// ---------------------------------------------------------------------------
+// แผนที่ + เส้นทาง (ใช้ Google Maps embed แบบไม่ต้องใช้ API key)
+// หอที่ยังไม่มีพิกัด lat/lng จะค้นด้วย "ชื่อหอ + บ้านดู่ เชียงราย" แทน
+// ---------------------------------------------------------------------------
+const CRRU_ORIGIN = 'มหาวิทยาลัยราชภัฏเชียงราย';
+function dormPlaceQuery(d){
+  if(d.lat && d.lng) return `${d.lat},${d.lng}`;
+  return `${d.name} หอพัก บ้านดู่ เชียงราย`;
+}
+// แผนที่แสดงเส้นทางจากมหาวิทยาลัยไปหอพัก (ฝังในหน้าเว็บ)
+function mapRouteEmbedUrl(d){
+  const dest = encodeURIComponent(dormPlaceQuery(d));
+  const from = encodeURIComponent(CRRU_ORIGIN);
+  return `https://maps.google.com/maps?saddr=${from}&daddr=${dest}&hl=th&output=embed`;
+}
+// ลิงก์เปิดเส้นทางในแอป Google Maps (สำหรับกดนำทางจริงบนมือถือ)
+function mapDirectionsLink(d){
+  const dest = encodeURIComponent(dormPlaceQuery(d));
+  const from = encodeURIComponent(CRRU_ORIGIN);
+  return `https://www.google.com/maps/dir/?api=1&origin=${from}&destination=${dest}&travelmode=walking`;
+}
+// รูปสำรองเมื่อรูปต้นทางโหลดไม่ขึ้น
+const FALLBACK_IMG = 'https://images.pexels.com/photos/1034584/pexels-photo-1034584.jpeg?auto=compress&cs=tinysrgb&w=900';
+function imgFallbackAttr(){
+  return `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${FALLBACK_IMG}';}"`;
+}
 function facilityIcons(codes){
   return (codes||[]).map(c => FACILITY_META[c] ? `<span title="${FACILITY_META[c].label}">${FACILITY_META[c].icon}</span>` : '').join(' ');
 }
