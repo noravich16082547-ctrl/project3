@@ -33,6 +33,8 @@
     <div class="side-title">เมนูจัดการ</div>
     <button class="side-link active" data-sec="overview">📊 ภาพรวม</button>
     <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
+    <button class="side-link" data-sec="chats">💬 ข้อความจากนักศึกษา<span id="chatUnreadBadge"></span></button>
+    <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
   </aside>
@@ -70,6 +72,20 @@
           <tbody id="listingTable"></tbody>
         </table>
       </div>
+    </div>
+
+    <div id="sec-chats" style="display:none">
+      <div class="section-head"><h2>ข้อความจากนักศึกษา</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        นักศึกษาที่สนใจหอของคุณจะส่งข้อความเข้ามาที่นี่ — กดที่รายการเพื่อเปิดแชทและตอบกลับ
+      </p>
+      <div id="ownerThreads"></div>
+    </div>
+
+    <div id="sec-messages" style="display:none">
+      <div class="section-head"><h2>ข้อความจากนักศึกษา</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">นักศึกษาที่สนใจหอของคุณจะส่งข้อความมาที่นี่ — ตอบกลับได้ในเว็บเลย</p>
+      <div id="ownerThreads"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
 
     <div id="sec-claim" style="display:none">
@@ -148,6 +164,23 @@
       <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
     </div>
     <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
+  </div>
+</div>
+
+<div class="modal-backdrop chat-modal" id="chatModal">
+  <div class="modal">
+    <div class="chat-head">
+      <div>
+        <h3 id="chatTitle">แชท</h3>
+        <div class="sub" id="chatSub"></div>
+      </div>
+      <button class="modal-close" id="closeChatModal" style="float:none">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-foot">
+      <textarea id="chatInput" placeholder="พิมพ์ข้อความตอบกลับ..." rows="1"></textarea>
+      <button class="btn btn-primary" id="chatSend">ส่ง</button>
+    </div>
   </div>
 </div>
 

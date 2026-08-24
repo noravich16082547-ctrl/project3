@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -497,6 +497,110 @@ async function updateBookingStatus(bookingId, status){
 }
 
 // ---------------------------------------------------------------------------
+// ระบบแชท นักศึกษา <-> เจ้าของหอพัก
+// ห้องแชทหนึ่งห้อง = คู่ของ (หอพัก, นักศึกษา) — นักศึกษาคุยกับแต่ละหอแยกห้องกัน
+// ---------------------------------------------------------------------------
+
+// หอนี้พร้อมรับแชทหรือยัง (ต้องมีเจ้าของหอในระบบก่อน ไม่งั้นข้อความจะไม่มีใครอ่าน)
+function canChat(dorm){ return !!(dorm && dorm.ownerId); }
+
+async function sendMessage({ dorm, studentId, studentName, body }){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนส่งข้อความ');
+  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังส่งข้อความไม่ได้');
+  const { error } = await sb.from('messages').insert({
+    dorm_id: dorm.id, dorm_name: dorm.name,
+    student_id: studentId, student_name: studentName,
+    owner_id: dorm.ownerId, sender_id: user.id,
+    body: body
+  });
+  if(error) throw error;
+}
+
+// ดึงข้อความในห้องแชทเดียว (หอ + นักศึกษา)
+async function getThread(dormId, studentId){
+  if(!sb) return [];
+  const { data, error } = await sb.from('messages').select('*')
+    .eq('dorm_id', dormId).eq('student_id', studentId)
+    .order('created_at', { ascending: true });
+  if(error) throw error;
+  return data;
+}
+
+// ติดตามข้อความใหม่ในห้องแชทแบบเรียลไทม์
+function watchThread(dormId, studentId, callback){
+  if(!sb){ callback([]); return ()=>{}; }
+  let active = true;
+  const refresh = async ()=>{
+    if(!active) return;
+    try{ callback(await getThread(dormId, studentId)); }catch(err){ console.error(err); }
+  };
+  refresh();
+  const ch = sb.channel(`thread-${dormId}-${studentId}`)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages',
+        filter:`dorm_id=eq.${dormId}` }, refresh)
+    .subscribe();
+  return ()=>{ active=false; sb.removeChannel(ch); };
+}
+
+// รายการห้องแชททั้งหมดของฉัน (ใช้ได้ทั้งฝั่งนักศึกษาและฝั่งเจ้าของหอ — RLS กรองให้เองแล้ว)
+async function getMyThreads(){
+  if(!sb) return [];
+  const user = await waitForSession();
+  if(!user) return [];
+  const { data, error } = await sb.from('messages').select('*')
+    .order('created_at', { ascending: false });
+  if(error) throw error;
+
+  const map = new Map();
+  data.forEach(m=>{
+    const key = m.dorm_id + '|' + m.student_id;
+    if(!map.has(key)){
+      map.set(key, {
+        key, dormId: m.dorm_id, dormName: m.dorm_name,
+        studentId: m.student_id, studentName: m.student_name,
+        ownerId: m.owner_id,
+        lastBody: m.body, lastAt: new Date(m.created_at).getTime(),
+        lastSenderId: m.sender_id, unread: 0
+      });
+    }
+    // นับข้อความที่ "คนอื่นส่งมา" และยังไม่ได้อ่าน
+    if(!m.read_at && m.sender_id !== user.id) map.get(key).unread++;
+  });
+  return Array.from(map.values()).sort((a,b)=> b.lastAt - a.lastAt);
+}
+
+// ทำเครื่องหมายว่าอ่านข้อความในห้องแชทนี้แล้ว
+async function markThreadRead(dormId, studentId){
+  if(!sb) return;
+  const user = await waitForSession();
+  if(!user) return;
+  await sb.from('messages').update({ read_at: new Date().toISOString() })
+    .eq('dorm_id', dormId).eq('student_id', studentId)
+    .neq('sender_id', user.id).is('read_at', null);
+}
+
+// จำนวนข้อความที่ยังไม่ได้อ่านทั้งหมด (ใช้แสดงจุดแดงบนเมนู)
+async function getUnreadCount(){
+  if(!sb) return 0;
+  const user = await waitForSession();
+  if(!user) return 0;
+  const { count, error } = await sb.from('messages')
+    .select('id', { count:'exact', head:true })
+    .is('read_at', null).neq('sender_id', user.id);
+  if(error){ console.error(error); return 0; }
+  return count || 0;
+}
+
+function fmtChatTime(ts){
+  const d = new Date(ts), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const t = d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+  return sameDay ? t : d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }) + ' ' + t;
+}
+
+// ---------------------------------------------------------------------------
 // Owners (สำหรับแอดมินอนุมัติ)
 // ---------------------------------------------------------------------------
 async function getPendingOwners(){
@@ -515,4 +619,116 @@ async function approveOwner(uid){
   requireSupabase();
   const { error } = await sb.from('profiles').update({ approved: true }).eq('id', uid);
   if(error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// ระบบแชท นักศึกษา <-> เจ้าของหอพัก
+// "ห้องแชท" 1 ห้อง = คู่ (หอพัก 1 แห่ง + นักศึกษา 1 คน)
+// ---------------------------------------------------------------------------
+
+// หอนี้แชทได้ไหม — ต้องมีเจ้าของหอในระบบก่อน (หอที่ยังไม่มีใครรับช่วงดูแลจะแชทไม่ได้)
+function canChat(dorm){ return !!(dorm && dorm.ownerId); }
+
+function mapMessageRow(r){
+  return {
+    id: r.id, dormId: r.dorm_id, dormName: r.dorm_name,
+    studentId: r.student_id, studentName: r.student_name, ownerId: r.owner_id,
+    senderId: r.sender_id, senderRole: r.sender_role, body: r.body,
+    readAt: r.read_at, createdAt: new Date(r.created_at).getTime()
+  };
+}
+
+// ดึงข้อความทั้งหมดในห้องแชทหนึ่งห้อง
+async function getThread(dormId, studentId){
+  if(!sb) return [];
+  const { data, error } = await sb.from('messages').select('*')
+    .eq('dorm_id', dormId).eq('student_id', studentId)
+    .order('created_at', { ascending: true });
+  if(error) throw error;
+  return data.map(mapMessageRow);
+}
+
+async function sendMessage({ dorm, studentId, studentName, body, profile }){
+  requireSupabase();
+  const text = (body||'').trim();
+  if(!text) return;
+  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของในระบบ จึงยังแชทไม่ได้');
+  const { error } = await sb.from('messages').insert({
+    dorm_id: dorm.id, dorm_name: dorm.name,
+    student_id: studentId, student_name: studentName,
+    owner_id: dorm.ownerId,
+    sender_id: profile.uid, sender_role: (profile.role === 'student' ? 'student' : 'owner'),
+    body: text
+  });
+  if(error) throw error;
+}
+
+// ฟังข้อความใหม่แบบเรียลไทม์ในห้องแชท คืนฟังก์ชันสำหรับยกเลิกการฟัง
+function watchThread(dormId, studentId, callback){
+  if(!sb){ callback([]); return ()=>{}; }
+  let active = true;
+  const refresh = async ()=>{
+    if(!active) return;
+    try{ callback(await getThread(dormId, studentId)); }
+    catch(err){ console.error(err); }
+  };
+  refresh();
+  const ch = sb.channel('thread-' + dormId + '-' + studentId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages',
+        filter: `dorm_id=eq.${dormId}` }, refresh)
+    .subscribe();
+  return ()=>{ active = false; sb.removeChannel(ch); };
+}
+
+// ทำเครื่องหมายว่าอ่านข้อความของอีกฝ่ายแล้ว
+async function markThreadRead(dormId, studentId, myRole){
+  if(!sb) return;
+  const otherRole = myRole === 'student' ? 'owner' : 'student';
+  await sb.from('messages').update({ read_at: new Date().toISOString() })
+    .eq('dorm_id', dormId).eq('student_id', studentId)
+    .eq('sender_role', otherRole).is('read_at', null);
+}
+
+// รายการห้องแชทของฉัน (รวมข้อความล่าสุด + จำนวนที่ยังไม่ได้อ่าน)
+async function getMyConversations(profile){
+  if(!sb || !profile) return [];
+  const col = (profile.role === 'student') ? 'student_id' : 'owner_id';
+  const { data, error } = await sb.from('messages').select('*')
+    .eq(col, profile.uid).order('created_at', { ascending: false });
+  if(error) throw error;
+
+  const threads = new Map();
+  data.map(mapMessageRow).forEach(m=>{
+    const key = m.dormId + '|' + m.studentId;
+    if(!threads.has(key)){
+      threads.set(key, {
+        key, dormId: m.dormId, dormName: m.dormName,
+        studentId: m.studentId, studentName: m.studentName, ownerId: m.ownerId,
+        lastBody: m.body, lastAt: m.createdAt, unread: 0
+      });
+    }
+    // นับข้อความที่อีกฝ่ายส่งมาและเรายังไม่ได้อ่าน
+    const myRole = (profile.role === 'student') ? 'student' : 'owner';
+    if(m.senderRole !== myRole && !m.readAt) threads.get(key).unread++;
+  });
+  return Array.from(threads.values()).sort((a,b)=> b.lastAt - a.lastAt);
+}
+
+// จำนวนข้อความที่ยังไม่ได้อ่านทั้งหมด (ใช้แสดงจุดแดงบนเมนู)
+async function getUnreadTotal(profile){
+  if(!sb || !profile) return 0;
+  const col = (profile.role === 'student') ? 'student_id' : 'owner_id';
+  const otherRole = (profile.role === 'student') ? 'owner' : 'student';
+  const { count, error } = await sb.from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq(col, profile.uid).eq('sender_role', otherRole).is('read_at', null);
+  if(error){ console.error(error); return 0; }
+  return count || 0;
+}
+
+function fmtChatTime(ts){
+  const d = new Date(ts), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const t = d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+  return sameDay ? t : d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }) + ' ' + t;
 }

@@ -16,7 +16,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['overview','listings','claim','owners'].forEach(s=>{
+    ['overview','listings','chats','claim','owners'].forEach(s=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
@@ -191,6 +191,135 @@ async function renderClaim(){
   }
 }
 
+async function renderOwnerThreads(){
+  const box = document.getElementById('ownerThreads');
+  box.innerHTML = '<div class="muted" style="padding:20px">กำลังโหลด…</div>';
+  try{
+    const threads = await getMyConversations(ME);
+    const unread = threads.reduce((s,t)=>s+t.unread, 0);
+    const badge = document.getElementById('chatUnreadBadge');
+    if(badge) badge.innerHTML = unread ? `<span class="chat-badge">${unread}</span>` : '';
+
+    if(threads.length === 0){
+      box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">💬</div>
+        <p>ยังไม่มีข้อความจากนักศึกษา<br>
+        <small class="muted">เมื่อนักศึกษากดแชทจากหน้าหอพักของคุณ ข้อความจะมาแสดงที่นี่</small></p></div>`;
+      return;
+    }
+    box.innerHTML = threads.map(t=>`
+      <div class="thread-item" data-othread="${t.dormId}|${t.studentId}">
+        <div style="min-width:0">
+          <strong>${t.studentName || 'นักศึกษา'}${t.unread?`<span class="chat-badge">${t.unread}</span>`:''}</strong>
+          <span class="muted" style="font-size:.8rem"> · ${t.dormName}</span>
+          <div class="preview">${t.lastBody}</div>
+        </div>
+        <span class="muted" style="font-size:.75rem;white-space:nowrap">${fmtChatTime(t.lastAt)}</span>
+      </div>`).join('');
+
+    document.querySelectorAll('[data-othread]').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        const [dormId, studentId] = el.dataset.othread.split('|');
+        const t = threads.find(x=>x.dormId===dormId && x.studentId===studentId);
+        const dorm = await getDormById(dormId);
+        if(!dorm){ toast('ไม่พบหอพักนี้','error'); return; }
+        openChat({
+          dorm, studentId, studentName: t ? t.studentName : '', profile: ME,
+          title: 'แชทกับ ' + (t && t.studentName ? t.studentName : 'นักศึกษา'),
+          subtitle: 'เกี่ยวกับหอพัก: ' + dorm.name
+        });
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="muted" style="padding:20px">โหลดไม่สำเร็จ: ${err.message||''}</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ข้อความจากนักศึกษา (ฝั่งเจ้าของหอ)
+// ---------------------------------------------------------------------------
+let chatUnsub = null;
+let chatCtx = null;
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function renderMessages(list, myId){
+  const box = document.getElementById('chatBody');
+  if(!list.length){ box.innerHTML = '<div class="chat-empty">ยังไม่มีข้อความ</div>'; return; }
+  box.innerHTML = list.map(m=>{
+    const mine = m.sender_id === myId;
+    return `<div class="msg-row ${mine?'mine':'theirs'}">
+      <div class="bubble">${escapeHtml(m.body)}<span class="msg-time">${fmtChatTime(m.created_at)}</span></div>
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function openOwnerChat(thread){
+  const dorm = await getDormById(thread.dormId);
+  if(!dorm){ toast('ไม่พบหอพักนี้','error'); return; }
+  chatCtx = { dorm, studentId: thread.studentId, studentName: thread.studentName };
+  document.getElementById('chatTitle').textContent = thread.studentName || 'นักศึกษา';
+  document.getElementById('chatSub').textContent = 'สอบถามเรื่อง: ' + (thread.dormName||dorm.name);
+  document.getElementById('chatBody').innerHTML = '<div class="chat-empty">กำลังโหลด...</div>';
+  document.getElementById('chatModal').classList.add('open');
+
+  const user = await waitForSession();
+  if(chatUnsub) chatUnsub();
+  chatUnsub = watchThread(thread.dormId, thread.studentId, (list)=>{
+    renderMessages(list, user.id);
+    markThreadRead(thread.dormId, thread.studentId).then(()=>{ renderOwnerThreads(); refreshOwnerUnread(); });
+  });
+  setTimeout(()=> document.getElementById('chatInput').focus(), 200);
+}
+
+async function ownerSend(){
+  const input = document.getElementById('chatInput');
+  const body = input.value.trim();
+  if(!body || !chatCtx) return;
+  const btn = document.getElementById('chatSend');
+  btn.disabled = true;
+  try{
+    await sendMessage({ dorm: chatCtx.dorm, studentId: chatCtx.studentId, studentName: chatCtx.studentName, body });
+    input.value = ''; input.style.height='auto';
+  }catch(err){ console.error(err); toast('ส่งไม่สำเร็จ: '+(err.message||''),'error'); }
+  finally{ btn.disabled = false; input.focus(); }
+}
+
+async function renderOwnerThreads(){
+  const box = document.getElementById('ownerThreads');
+  try{
+    const threads = await getMyThreads();
+    if(!threads.length){
+      box.innerHTML = '<div class="chat-empty">ยังไม่มีข้อความจากนักศึกษา</div>';
+      return;
+    }
+    box.innerHTML = threads.map((t,i)=>`
+      <div class="thread-item" data-t="${i}">
+        <div class="ti-main">
+          <div class="ti-name">${escapeHtml(t.studentName||'นักศึกษา')}</div>
+          <div class="ti-last">${escapeHtml(t.dormName||'')} · ${escapeHtml(t.lastBody)}</div>
+        </div>
+        <div class="ti-meta">${fmtChatTime(t.lastAt)}<br>${t.unread?`<span class="unread-dot">${t.unread}</span>`:''}</div>
+      </div>`).join('');
+    box.querySelectorAll('[data-t]').forEach(el=>{
+      el.addEventListener('click', ()=> openOwnerChat(threads[+el.dataset.t]));
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = '<div class="chat-empty">โหลดไม่สำเร็จ</div>';
+  }
+}
+
+async function refreshOwnerUnread(){
+  try{
+    const n = await getUnreadCount();
+    const el = document.getElementById('ownerUnread');
+    if(el) el.innerHTML = n ? `<span class="nav-badge">${n}</span>` : '';
+  }catch(err){ console.error(err); }
+}
+
 async function renderOwners(){
   const owners = await getAllOwners();
   document.getElementById('ownerTable').innerHTML = owners.map(o=>`<tr>
@@ -245,6 +374,24 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
 
   try{
     await renderStats(); await renderListings(); await renderClaim();
+    await renderOwnerThreads(); refreshOwnerUnread();
+    setInterval(refreshOwnerUnread, 30000);
+
+    document.getElementById('chatSend').addEventListener('click', ownerSend);
+    document.getElementById('chatInput').addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); ownerSend(); }
+    });
+    document.getElementById('chatInput').addEventListener('input', (e)=>{
+      e.target.style.height='auto';
+      e.target.style.height = Math.min(e.target.scrollHeight,110)+'px';
+    });
+    document.getElementById('closeChatModal').addEventListener('click', ()=>{
+      document.getElementById('chatModal').classList.remove('open');
+      if(chatUnsub){ chatUnsub(); chatUnsub=null; }
+    });
+    document.getElementById('chatModal').addEventListener('click',(e)=>{
+      if(e.target.id==='chatModal') e.currentTarget.classList.remove('open');
+    }); await renderOwnerThreads();
     if(profile.role==='admin') await renderOwners();
   }catch(err){ console.error(err); toast('โหลดข้อมูลบางส่วนไม่สำเร็จ','error'); }
 })();
