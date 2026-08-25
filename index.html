@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -128,11 +128,13 @@
       รายชื่อหอพักอ้างอิงจาก <a href="https://aso.crru.ac.th/asoblog/dormnetwork" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">หอพักเครือข่าย สำนักงานบริการที่พักอาศัย มร.ชร.</a>
       · ราคาและห้องว่างมาจากเจ้าของหอที่ยืนยันข้อมูลในระบบ
     </div>
-    <div id="siteContactFooter" style="margin-top:10px;display:none;padding-top:10px;border-top:1px solid rgba(255,255,255,.15)"></div>
   </div>
 </footer>
 
-<!-- ============== โมดัลรายละเอียดหอพัก + จอง (แทนหน้าแยก) ============== -->
+<!-- ============== แถบติดต่อเจ้าของเว็บ (อยู่ล่างสุดของทุกหน้า) ============== -->
+<div class="site-contact-bar" id="siteContactBar"></div>
+
+<!-- ============== โมดัลรายละเอียดหอพัก (เลย์เอาต์แบบหน้าโรงแรม) ============== -->
 <div class="modal-backdrop detail-modal" id="detailModal">
   <div class="modal">
     <button class="modal-close" id="closeDetailModal">✕</button>
@@ -142,17 +144,6 @@
 
 <div class="modal-backdrop" id="imgModal">
   <div class="modal"><button class="modal-close" id="closeImgModal">✕</button><img id="modalImg" src="" alt=""></div>
-</div>
-
-</div>
-
-<!-- ============== กล่องข้อความของฉัน (นักศึกษา) ============== -->
-<div class="modal-backdrop" id="threadsModal">
-  <div class="modal" style="max-width:560px">
-    <button class="modal-close" id="closeThreadsModal">✕</button>
-    <h3 style="margin-top:0">ข้อความของฉัน</h3>
-    <div id="threadsList"></div>
-  </div>
 </div>
 
 <!-- ============== โมดัลแชทกับเจ้าของหอ ============== -->
@@ -174,7 +165,7 @@
   </div>
 </div>
 
-<!-- ============== โมดัลรายการแชทของฉัน ============== -->
+<!-- ============== โมดัลรายการข้อความของฉัน (มีชุดเดียว) ============== -->
 <div class="modal-backdrop" id="threadsModal">
   <div class="modal" style="max-width:520px">
     <button class="modal-close" id="closeThreadsModal">✕</button>
@@ -185,57 +176,21 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="db.js?v=4"></script>
+<script src="app.js?v=4"></script>
 <script>
-console.log('DormCRU index build v3');
-// ---- ตัวสำรอง: ถ้า db.js เป็นเวอร์ชันเก่าที่ยังไม่มีฟังก์ชันเหล่านี้ ให้สร้างขึ้นเองเพื่อไม่ให้หน้าเว็บพัง ----
-if(typeof hasGates !== 'function'){
-  window.hasGates = d => !!(d && d.gates && d.gates.gate1 !== null && d.gates.gate1 !== undefined);
-}
-if(typeof hasPrice !== 'function'){
-  window.hasPrice = d => !!(d && d.rooms && d.rooms.length > 0);
-}
-if(typeof canChat !== 'function'){
-  window.canChat = d => !!(d && d.ownerId);
-}
-if(typeof hasContact !== 'function'){
-  window.hasContact = d => !!(d && (d.phone || d.lineId || d.facebook));
-}
-if(typeof contactButtonsBlock !== 'function'){
-  window.contactButtonsBlock = d => {
-    const b = [];
-    if(d.phone) b.push(`<a class="btn btn-primary btn-block" href="tel:${d.phone}" style="text-align:center;text-decoration:none;display:block">📞 โทร ${d.phone}</a>`);
-    if(d.facebook) b.push(`<a class="btn btn-outline btn-block" href="${d.facebook}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">📘 เปิดเพจ Facebook</a>`);
-    if(!b.length) b.push('<div class="muted" style="font-size:.86rem">ยังไม่มีช่องทางติดต่อ — สอบถาม สนง.บริการที่พักอาศัย มร.ชร. 0-5377-6273</div>');
-    return b.join('');
-  };
-}
-if(typeof mapRouteEmbedUrl !== 'function'){
-  window.dormPlaceQuery = d => (d.lat && d.lng) ? `${d.lat},${d.lng}` : `${d.name} หอพัก บ้านดู่ เชียงราย`;
-  window.mapRouteEmbedUrl = d => `https://maps.google.com/maps?saddr=${encodeURIComponent('มหาวิทยาลัยราชภัฏเชียงราย')}&daddr=${encodeURIComponent(dormPlaceQuery(d))}&hl=th&output=embed`;
-  window.mapDirectionsLink = d => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent('มหาวิทยาลัยราชภัฏเชียงราย')}&destination=${encodeURIComponent(dormPlaceQuery(d))}&travelmode=walking`;
-}
-if(typeof imgFallbackAttr !== 'function'){
-  window.imgFallbackAttr = () => `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='https://images.pexels.com/photos/1034584/pexels-photo-1034584.jpeg?auto=compress&cs=tinysrgb&w=900';}"`;
-}
-if(typeof priceLabel !== 'function'){
-  window.priceLabel = d => hasPrice(d)
-    ? fmtBaht(Math.min(...d.rooms.map(r=>r.price))) + ' <small>บาท/เดือน เริ่มต้น</small>'
-    : '<small class="muted">สอบถามราคากับหอโดยตรง</small>';
-}
-const _origNearestGate = (typeof nearestGate === 'function') ? nearestGate : null;
-function safeNearestGate(d){
-  if(!hasGates(d)) return null;
-  try{ return _origNearestGate ? _origNearestGate(d) : 'gate1'; }catch(e){ return null; }
-}
+console.log('DormCRU index build v4');
 
 let myProfile = null;
 let allDorms = [];
 let showWishlistOnly = false;
 let activeDorm = null;
 
-// ---------- ตัวกรอง+รายการหอพัก ----------
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+// ---------- ตัวกรอง + รายการหอพัก ----------
 const priceMinEl = document.getElementById('f-priceMin');
 const priceMaxEl = document.getElementById('f-priceMax');
 const priceValEl = document.getElementById('priceVal');
@@ -259,18 +214,18 @@ document.getElementById('btnWishlistFilter').addEventListener('click', ()=>{
 function dormCardHtml(d){
   const vac = totalVacancy(d);
   const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
-  const ng = safeNearestGate(d);
+  const ng = hasGates(d) ? nearestGate(d) : null;
   return `
   <div class="card-dorm">
     <div class="card-media" data-open="${d.id}" style="cursor:pointer">
-      <img src="${d.images[0]}" alt="${d.name}" loading="lazy" ${imgFallbackAttr()}>
+      <img src="${d.images[0]}" alt="${escapeHtml(d.name)}" loading="lazy" ${imgFallbackAttr()}>
       <span class="badge-type">${d.hallType}</span>
       <span class="badge-vacancy ${(!d.verified||vac===0)?'full':''}">${!d.verified?'สอบถามห้องว่าง':(vac===0?'เต็ม':'ว่าง '+vac+' ห้อง')}</span>
       ${hasContact(d)?'<span class="badge-type" style="top:auto;bottom:10px;left:10px;background:rgba(31,58,46,.85)">📞 ติดต่อได้</span>':''}
     </div>
     <button class="wishlist-btn ${wished?'active':''}" data-wish="${d.id}" aria-label="บันทึกที่ถูกใจ">${wished?'❤️':'🤍'}</button>
     <div class="card-body">
-      <h3 data-open="${d.id}" style="cursor:pointer">${d.name}</h3>
+      <h3 data-open="${d.id}" style="cursor:pointer">${escapeHtml(d.name)}</h3>
       <div class="card-meta">${ng
         ? `<span class="walk-chip">🚶 ${d.gates[ng].toFixed(1)} กม. จาก${CRRU_GATE[ng].label}</span>`
         : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
@@ -311,10 +266,10 @@ function applyFilters(){
     }else{
       grid.innerHTML = dorms.map(dormCardHtml).join('');
     }
-    document.querySelectorAll('[data-open]').forEach(el=>{
+    grid.querySelectorAll('[data-open]').forEach(el=>{
       el.addEventListener('click', ()=> openDetail(el.dataset.open));
     });
-    document.querySelectorAll('[data-wish]').forEach(btn=>{
+    grid.querySelectorAll('[data-wish]').forEach(btn=>{
       btn.addEventListener('click', async (e)=>{
         e.stopPropagation();
         if(!myProfile){ toast('เข้าสู่ระบบก่อนเพื่อบันทึกหอพักที่ถูกใจ','error'); return; }
@@ -332,59 +287,171 @@ function applyFilters(){
     document.getElementById('dormGrid').innerHTML =
       `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div>
        <p>เกิดข้อผิดพลาดในการแสดงรายการหอพัก<br>
-       <small class="muted">${(err && err.message) ? err.message : err}</small><br>
-       <small class="muted">มักเกิดจากไฟล์ในเว็บอัปเดตไม่ครบ — ลองอัปโหลด db.js, index.html, admin.js ใหม่ทั้งหมด แล้วกด Ctrl+F5</small></p></div>`;
-    toast('เกิดข้อผิดพลาด: ' + ((err && err.message) ? err.message : err), 'error');
+       <small class="muted">${escapeHtml((err && err.message) ? err.message : err)}</small></p></div>`;
   }
 }
 document.getElementById('btnSearch').addEventListener('click', applyFilters);
 document.getElementById('f-name').addEventListener('input', applyFilters);
 document.getElementById('f-hallType').addEventListener('change', applyFilters);
 
-// ---------- โมดัลรายละเอียด + จอง ----------
+// ===========================================================================
+// หน้ารายละเอียดหอพัก — เลย์เอาต์แบบหน้าโรงแรม (แกลเลอรี / จุดเด่น / การ์ดราคา
+// ติดขวา / ตารางเลือกห้องพัก) แต่ใช้เฉพาะข้อมูลจริงที่มีในระบบเท่านั้น
+// ===========================================================================
+
+// แกลเลอรีรูป: รูปใหญ่ 1 + รูปย่อยด้านขวา (เติมให้เต็มกริดจากรูปที่มีจริง)
+function galleryHtml(d){
+  const imgs = (d.images && d.images.length) ? d.images : [];
+  if(!imgs.length) return '';
+  const side = [];
+  for(let i=1;i<=4;i++) side.push(imgs[i % imgs.length]);
+  return `
+  <div class="td-gallery">
+    <div class="g-main"><img src="${imgs[0]}" alt="${escapeHtml(d.name)}" ${imgFallbackAttr()}></div>
+    <div class="g-side">
+      ${side.map((src,i)=>`
+        <div class="g-cell">
+          <img src="${src}" alt="ภาพหอพัก ${i+2}" ${imgFallbackAttr()}>
+          ${i===3 ? `<span class="g-more">🖼 ดูทั้งหมด ${imgs.length} รูป</span>` : ''}
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// แถบจุดเด่น (ไอคอนเรียงแนวนอนใต้แกลเลอรี) — สร้างจากข้อมูลจริงของหอ
+function highlightsHtml(d){
+  const items = [];
+  items.push({ ic:'🏠', label: d.hallType });
+  const ng = hasGates(d) ? nearestGate(d) : null;
+  if(ng) items.push({ ic:'🚶', label:`ห่างมอ ${d.gates[ng].toFixed(1)} กม.` });
+  else   items.push({ ic:'📍', label:'ต.บ้านดู่ ใกล้ มร.ชร.' });
+  if(d.verified) items.push({ ic:'✓', label:'เจ้าของหอยืนยันแล้ว' });
+  else items.push({ ic:'⚠', label:'รอเจ้าของหอยืนยัน' });
+  (d.facilities||[]).slice(0,3).forEach(c=>{
+    const m = FACILITY_META[c];
+    if(m) items.push({ ic:m.icon, label:m.label });
+  });
+  if(canChat(d)) items.push({ ic:'💬', label:'แชทในเว็บได้' });
+  return `<div class="td-highlights">${items.map(i=>`
+    <div class="hl"><span class="hl-ic">${i.ic}</span><span>${escapeHtml(i.label)}</span></div>`).join('')}</div>`;
+}
+
+// บล็อกสถานะข้อมูล (ตำแหน่งเดียวกับคะแนนรีวิวในเว็บจองโรงแรม)
+// ไม่มีการปั้นคะแนนปลอม — ใช้ระยะทางจริงและสถานะการยืนยันข้อมูลจริง
+function statusBlockHtml(d){
+  const ng = hasGates(d) ? nearestGate(d) : null;
+  const big = ng ? d.gates[ng].toFixed(1) : '—';
+  const unit = ng ? '<span class="unit">กม.</span>' : '';
+  const head = ng ? `ห่างจาก${CRRU_GATE[ng].label}` : 'ยังไม่ระบุระยะทาง';
+  const note = d.verified
+    ? 'เจ้าของหอเข้ามายืนยันราคาและห้องว่างในระบบแล้ว'
+    : 'ข้อมูลรวบรวมจากประกาศสาธารณะของมหาวิทยาลัย ยังรอเจ้าของหอเข้ามายืนยัน — แนะนำให้สอบถามหอโดยตรงอีกครั้ง';
+  return `
+  <div class="td-status">
+    <div class="ts-score">${big}${unit}</div>
+    <div class="ts-text">
+      <strong>${head}</strong>
+      <span class="muted">${d.verified?'ข้อมูลยืนยันแล้ว':'ข้อมูลเบื้องต้น'}</span>
+    </div>
+    <p class="ts-note">${note}</p>
+  </div>`;
+}
+
+// บริเวณโดยรอบ — ระยะทางจากประตูมอทั้ง 3 (ข้อมูลจริงเท่านั้น)
+function nearbyHtml(d){
+  const rows = Object.keys(CRRU_GATE).map(g=>`
+    <div class="nb-item">
+      <span class="nb-ic">🚪</span>
+      <span class="nb-name">${CRRU_GATE[g].label}</span>
+      <span class="nb-dist">${hasGates(d) ? d.gates[g].toFixed(1)+' กม.' : 'ยังไม่ระบุ'}</span>
+    </div>`).join('');
+  return `<div class="td-nearby">${rows}
+    <div class="nb-item">
+      <span class="nb-ic">🎓</span>
+      <span class="nb-name">มหาวิทยาลัยราชภัฏเชียงราย</span>
+      <span class="nb-dist"><a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทาง</a></span>
+    </div></div>`;
+}
+
+// แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บจองที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
+function roomRowsHtml(d){
+  if(!d.rooms || d.rooms.length === 0){
+    return `<div class="td-room-empty">
+      <strong>ยังไม่มีข้อมูลประเภทห้องและราคาในระบบ</strong>
+      <p class="muted">หอนี้ยังไม่ได้กรอกราคาห้องเข้ามา — สอบถามราคาและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน</p>
+      ${canChat(d) ? `<button class="btn btn-primary" data-chat="1">💬 ส่งข้อความถามเจ้าของหอ</button>` : ''}
+    </div>`;
+  }
+  const img = (d.images && d.images[1]) || (d.images && d.images[0]) || '';
+  return `<div class="td-rooms">${d.rooms.map(r=>`
+    <div class="room-row">
+      <div class="rr-img">${img?`<img src="${img}" alt="${escapeHtml(r.label)}" ${imgFallbackAttr()}>`:''}</div>
+      <div class="rr-info">
+        <h4>${escapeHtml(r.label)}</h4>
+        <div class="rr-specs">
+          <span>🏠 ${d.hallType}</span>
+          ${(d.facilities||[]).slice(0,3).map(c=> FACILITY_META[c] ? `<span>${FACILITY_META[c].icon} ${FACILITY_META[c].label}</span>` : '').join('')}
+        </div>
+      </div>
+      <div class="rr-book">
+        <div class="rr-status ${d.verified ? (r.vacant>0?'ok':'full') : 'ask'}">
+          ${d.verified ? (r.vacant>0 ? `ว่าง ${r.vacant} ห้อง` : 'เต็มแล้ว') : 'สอบถามห้องว่าง'}
+        </div>
+        <div class="rr-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
+        ${canChat(d)
+          ? `<button class="btn btn-primary btn-block" data-chat="1">💬 สอบถามห้องนี้</button>`
+          : (d.phone ? `<a class="btn btn-primary btn-block" href="tel:${d.phone}" style="text-align:center;text-decoration:none">📞 โทรสอบถาม</a>`
+                     : `<span class="muted" style="font-size:.8rem">ติดต่อผ่านช่องทางด้านบน</span>`)}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
 function openDetail(id){
   activeDorm = allDorms.find(d=>d.id===id);
   if(!activeDorm) return;
   const d = activeDorm;
-  const vac = totalVacancy(d);
   const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
+
   document.getElementById('detailContent').innerHTML = `
-    <div class="gallery">
-      <div class="main-img"><img id="mainImg" src="${d.images[0]}" alt="${d.name}" ${imgFallbackAttr()}></div>
-      <div class="side-imgs">
-        <img src="${d.images[1]||d.images[0]}" data-src="${d.images[1]||d.images[0]}" alt="ห้องพัก" ${imgFallbackAttr()}>
-        <img src="${d.images[2]||d.images[0]}" data-src="${d.images[2]||d.images[0]}" alt="บรรยากาศรอบๆ" ${imgFallbackAttr()}>
+  <div class="trip-detail">
+
+    <div class="td-titlerow">
+      <div class="td-title">
+        <h1>${escapeHtml(d.name)}
+          <span class="td-tag ${d.verified?'ok':''}">${d.verified?'✓ ยืนยันข้อมูลแล้ว':'⚠ รอยืนยัน'}</span>
+        </h1>
+        <div class="td-addr">
+          📍 ต.บ้านดู่ อ.เมือง จ.เชียงราย
+          <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">แสดงบนแผนที่</a>
+        </div>
+      </div>
+      <div class="td-actions">
+        <button class="td-act" id="wishBtn">${wished?'❤️':'🤍'} <span>บันทึก</span></button>
+        <button class="td-act" id="shareBtn">🔗 <span>แชร์</span></button>
       </div>
     </div>
-    <div class="detail-layout">
-      <div>
-        <div class="detail-title-row">
-          <div>
-            <h1 style="margin-top:14px">${d.name}</h1>
-            <div class="card-meta">${hasGates(d) ? `
-              <span class="walk-chip">🚶 ${d.gates.gate1.toFixed(1)} กม. จากประตู 1</span>
-              <span class="walk-chip">🚶 ${d.gates.gate2.toFixed(1)} กม. จากประตู 2</span>
-              <span class="walk-chip">🚶 ${d.gates.gate3.toFixed(1)} กม. จากประตู 3</span>`
-              : `<span class="walk-chip" style="background:#FDF1DC;border-color:#E8A33D;color:#946A0E">📍 ยังไม่ระบุระยะทางจากประตูมอ</span>`}
-            </div>
-          </div>
-          <button class="wishlist-btn active" style="position:static" id="wishBtn">${wished?'❤️':'🤍'}</button>
-        </div>
-        <div class="chip-row">
-          <span class="chip">${d.hallType}</span>
-          <span class="chip">${d.verified ? vac+' ห้องว่าง' : 'สอบถามห้องว่างกับหอโดยตรง'}</span>
-          ${d.verified
-            ? '<span class="chip" style="background:#E4F2E7;color:#1F6D3D;border-color:#BFE0C8">✓ เจ้าของหอยืนยันข้อมูลแล้ว</span>'
-            : '<span class="chip" style="background:#FDF1DC;color:#946A0E;border-color:#E8A33D">⚠ ข้อมูลรวบรวมจากประกาศสาธารณะ รอเจ้าของหอยืนยัน — ราคา/ห้องว่างอาจไม่เป็นปัจจุบัน</span>'}
-        </div>
-        <p>${d.desc}</p>
-        <h3>ช่องทางติดต่อหอพัก</h3>
-        <div class="chip-row">${contactButtonsHtml(d)}</div>
-        <h3>สิ่งอำนวยความสะดวก</h3>
-        <div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>
-        <h3>แผนที่และเส้นทางจากมหาวิทยาลัย</h3>
+
+    ${galleryHtml(d)}
+    ${highlightsHtml(d)}
+
+    <div class="td-layout">
+      <div class="td-main">
+        ${statusBlockHtml(d)}
+
+        <h3 class="td-h">รายละเอียดหอพัก</h3>
+        <p class="td-desc">${escapeHtml(d.desc||'')}</p>
+
+        <h3 class="td-h">บริเวณโดยรอบ</h3>
+        ${nearbyHtml(d)}
+
+        <h3 class="td-h">สิ่งอำนวยความสะดวก</h3>
+        ${(d.facilities && d.facilities.length)
+          ? `<div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>`
+          : `<p class="muted" style="font-size:.88rem">ยังไม่มีข้อมูลสิ่งอำนวยความสะดวกในระบบ — สอบถามกับหอโดยตรงได้เลย</p>`}
+
+        <h3 class="td-h">แผนที่และเส้นทางจากมหาวิทยาลัย</h3>
         <div class="map-embed">
-          <iframe src="${mapRouteEmbedUrl(d)}" loading="lazy" title="เส้นทางจาก มร.ชร. ไป ${d.name}"></iframe>
+          <iframe src="${mapRouteEmbedUrl(d)}" loading="lazy" title="เส้นทางจาก มร.ชร. ไป ${escapeHtml(d.name)}"></iframe>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
           <a class="btn btn-primary btn-sm" href="${mapDirectionsLink(d)}" target="_blank" rel="noopener" style="text-decoration:none">🧭 เปิดนำทางใน Google Maps</a>
@@ -393,122 +460,83 @@ function openDetail(id){
           หอนี้ยังไม่ได้ระบุพิกัดที่แน่นอน แผนที่ด้านบนค้นหาจากชื่อหอในพื้นที่ ต.บ้านดู่
           ตำแหน่งอาจคลาดเคลื่อน — แนะนำให้โทรสอบถามเส้นทางกับหอโดยตรงอีกครั้ง</p>`}
       </div>
-      <div class="booking-card">
-        <div class="muted" style="font-size:.85rem">${hasPrice(d)?'ราคาเริ่มต้น':'ราคา'}</div>
-        <div class="amount-big">${hasPrice(d)
-          ? fmtBaht(minPrice(d))+' บาท<span style="font-size:.9rem;font-weight:400"> /เดือน</span>'
-          : '<span style="font-size:1rem">ยังไม่ระบุ</span>'}</div>
-        <div class="room-type-list">
-          ${d.rooms.length===0
-            ? '<div class="muted" style="font-size:.86rem;padding:8px 0">ยังไม่มีข้อมูลประเภทห้องและราคาในระบบ — สอบถามกับหอโดยตรงได้เลย</div>'
-            : d.rooms.map(r=>`
-            <div class="room-type-item">
-              <span>${r.label}</span>
-              <span>${fmtBaht(r.price)} บาท${d.verified ? ' · '+(r.vacant>0? r.vacant+' ว่าง':'เต็ม') : ''}</span>
-            </div>`).join('')}
+
+      <aside class="td-side">
+        <div class="td-price-card">
+          <div class="pc-head">${hasPrice(d) ? 'ราคาเริ่มต้น' : 'ราคา'}</div>
+          <div class="pc-amount">${hasPrice(d)
+            ? fmtBaht(minPrice(d))+' <span class="cur">บาท<small>/เดือน</small></span>'
+            : '<span class="pc-ask">สอบถามกับหอโดยตรง</span>'}</div>
+          ${d.verified
+            ? `<div class="pc-note ok">✓ ราคาและห้องว่างยืนยันโดยเจ้าของหอ</div>`
+            : `<div class="pc-note">⚠ ข้อมูลยังไม่ได้ยืนยัน — โปรดสอบถามก่อนตัดสินใจ</div>`}
+
+          <ul class="pc-list">
+            <li>✓ ติดต่อหอโดยตรง ไม่มีค่านายหน้า</li>
+            <li>✓ ดูเส้นทางจากมอก่อนไปดูห้องจริง</li>
+            <li>✓ เว็บไม่รับจองและไม่รับเงินแทนหอ</li>
+          </ul>
+
+          ${canChat(d)
+            ? `<button class="btn btn-primary btn-block pc-cta" data-chat="1">💬 ส่งข้อความหาเจ้าของหอ</button>`
+            : `<div class="pc-nochat">หอนี้ยังไม่มีเจ้าของหอลงทะเบียนในระบบ จึงยังแชทในเว็บไม่ได้ — ใช้ช่องทางติดต่อด้านล่าง</div>`}
+
+          <div class="pc-contact">${contactButtonsBlock(d)}</div>
+          <p class="form-hint" style="margin-top:10px">ระวังการโอนเงินมัดจำก่อนเห็นห้องจริง</p>
         </div>
-
-        <h4 style="margin:16px 0 8px">💬 แชทกับเจ้าของหอ</h4>
-        ${d.ownerId
-          ? `<button class="btn btn-primary btn-block" id="btnChat">💬 ส่งข้อความหาเจ้าของหอ</button>
-             <p class="form-hint" style="margin-top:6px">คุยในเว็บได้เลย ไม่ต้องให้เบอร์ส่วนตัว — เจ้าของหอจะเห็นข้อความในระบบ</p>`
-          : `<div class="muted" style="font-size:.86rem;background:var(--sage-bg);border:1px solid var(--line);border-radius:8px;padding:12px">
-               หอนี้ยังไม่มีเจ้าของลงทะเบียนในระบบ จึงยังแชทไม่ได้<br>
-               ใช้ช่องทางติดต่อด้านล่างแทนได้เลย</div>`}
-
-        <h4 style="margin:16px 0 8px">💬 คุยกับเจ้าของหอในเว็บ</h4>
-        ${canChat(d)
-          ? `<button class="btn btn-primary btn-block" id="btnChat">💬 ส่งข้อความหาเจ้าของหอ</button>
-             <p class="form-hint" style="margin-top:6px">สอบถามห้องว่าง ราคา นัดดูห้อง ได้ในเว็บเลย ไม่ต้องออกไปแอปอื่น</p>`
-          : `<div class="muted" style="font-size:.85rem;background:var(--sage-bg);border:1px solid var(--line);border-radius:8px;padding:12px">
-               หอนี้ยังไม่มีเจ้าของหอลงทะเบียนในระบบ จึงยังแชทในเว็บไม่ได้<br>
-               กรุณาใช้ช่องทางติดต่อด้านล่างแทน
-             </div>`}
-
-        <h4 style="margin:16px 0 8px">📞 ติดต่อหอพักโดยตรง</h4>
-        <div style="display:flex;flex-direction:column;gap:8px">${contactButtonsBlock(d)}</div>
-        <p class="form-hint" style="margin-top:12px">
-          สอบถามห้องว่าง ราคา และนัดดูห้องกับหอโดยตรงได้เลย<br>
-          เว็บนี้เป็นแหล่งรวมข้อมูลหอพัก ไม่ได้รับจองหรือรับเงินแทนหอ
-        </p>
-      </div>
-      </div>
+      </aside>
     </div>
-  `;
-  document.getElementById('detailModal').classList.add('open');
 
-  document.querySelectorAll('.side-imgs img').forEach(img=>{
-    img.addEventListener('click', ()=>{ document.getElementById('mainImg').src = img.dataset.src; });
-  });
-  document.querySelectorAll('#mainImg, .side-imgs img').forEach(img=>{
+    <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
+    ${roomRowsHtml(d)}
+  </div>`;
+
+  document.getElementById('detailModal').classList.add('open');
+  document.querySelector('#detailModal .modal').scrollTop = 0;
+
+  // เปิดรูปใหญ่เมื่อกดที่รูปในแกลเลอรี
+  document.querySelectorAll('#detailContent .td-gallery img').forEach(img=>{
     img.addEventListener('click', ()=>{
       document.getElementById('modalImg').src = img.src;
       document.getElementById('imgModal').classList.add('open');
     });
   });
-  const chatBtn = document.getElementById('btnChat');
-  if(chatBtn) chatBtn.addEventListener('click', ()=> openChat(d));
+
+  // ปุ่มแชททุกจุดในหน้านี้
+  document.querySelectorAll('#detailContent [data-chat]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openChat(d));
+  });
+
+  const shareBtn = document.getElementById('shareBtn');
+  if(shareBtn) shareBtn.addEventListener('click', async ()=>{
+    const url = location.href.split('#')[0] + '#dorm=' + d.id;
+    try{
+      if(navigator.share){ await navigator.share({ title: d.name, url }); }
+      else { await navigator.clipboard.writeText(url); toast('คัดลอกลิงก์หอพักแล้ว','success'); }
+    }catch(err){ /* ผู้ใช้กดยกเลิกการแชร์ ไม่ต้องแจ้งอะไร */ }
+  });
 
   document.getElementById('wishBtn').addEventListener('click', async ()=>{
     if(!myProfile){ toast('เข้าสู่ระบบก่อนเพื่อบันทึกหอพักที่ถูกใจ','error'); return; }
     try{
       const now = await toggleWishlist(d.id);
       myProfile = await getProfile((await waitForSession()).id);
-      document.getElementById('wishBtn').textContent = now ? '❤️' : '🤍';
+      document.getElementById('wishBtn').innerHTML = (now ? '❤️' : '🤍') + ' <span>บันทึก</span>';
+      applyFilters();
       toast(now ? 'บันทึกเข้ารายการที่ถูกใจแล้ว' : 'นำออกจากรายการที่ถูกใจแล้ว','success');
     }catch(err){ console.error(err); toast('เกิดข้อผิดพลาด','error'); }
   });
-
 }
+
 document.getElementById('closeDetailModal').addEventListener('click', ()=> document.getElementById('detailModal').classList.remove('open'));
 document.getElementById('closeImgModal').addEventListener('click', ()=> document.getElementById('imgModal').classList.remove('open'));
-['detailModal','imgModal','chatModal','threadsModal'].forEach(id=>{
+['detailModal','imgModal','threadsModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
 });
 
-
-// ---------- กล่องข้อความของฉัน ----------
-async function openMyThreads(){
-  document.getElementById('threadsModal').classList.add('open');
-  const box = document.getElementById('threadsList');
-  box.innerHTML = '<div class="muted" style="text-align:center;padding:24px">กำลังโหลด…</div>';
-  try{
-    const threads = await getMyConversations(myProfile);
-    if(threads.length === 0){
-      box.innerHTML = `<div class="empty-state" style="padding:30px 10px"><div class="emoji">💬</div>
-        <p>ยังไม่มีการสนทนา<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "ส่งข้อความหาเจ้าของหอ" ได้เลย</small></p></div>`;
-      return;
-    }
-    box.innerHTML = threads.map(t=>`
-      <div class="thread-item" data-thread="${t.dormId}">
-        <div style="min-width:0">
-          <strong>${t.dormName}${t.unread?`<span class="chat-badge">${t.unread}</span>`:''}</strong>
-          <div class="preview">${t.lastBody}</div>
-        </div>
-        <span class="muted" style="font-size:.75rem;white-space:nowrap">${fmtChatTime(t.lastAt)}</span>
-      </div>`).join('');
-
-    document.querySelectorAll('[data-thread]').forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        const dorm = allDorms.find(x=>x.id===el.dataset.thread)
-          || await getDormById(el.dataset.thread);
-        if(!dorm){ toast('ไม่พบหอพักนี้แล้ว','error'); return; }
-        document.getElementById('threadsModal').classList.remove('open');
-        openChat({
-          dorm, studentId: myProfile.uid, studentName: myProfile.name, profile: myProfile,
-          title: 'แชทกับ ' + dorm.name, subtitle: 'ข้อความจะส่งถึงเจ้าของหอพักโดยตรง'
-        });
-      });
-    });
-  }catch(err){
-    console.error(err);
-    box.innerHTML = `<div class="muted" style="text-align:center;padding:24px">โหลดไม่สำเร็จ: ${err.message||''}</div>`;
-  }
-}
-document.getElementById('closeThreadsModal').addEventListener('click', ()=> document.getElementById('threadsModal').classList.remove('open'));
-document.getElementById('threadsModal').addEventListener('click', e=>{ if(e.target.id==='threadsModal') e.currentTarget.classList.remove('open'); });
-
-// ---------- ระบบแชท ----------
+// ===========================================================================
+// ระบบแชท (ฝั่งนักศึกษา)
+// ===========================================================================
 let chatUnsub = null;
 let chatCtx = null;   // { dorm, studentId, studentName }
 
@@ -519,15 +547,12 @@ function renderMessages(list, myId){
     return;
   }
   box.innerHTML = list.map(m=>{
-    const mine = m.sender_id === myId;
+    const mine = m.senderId === myId;
     return `<div class="msg-row ${mine?'mine':'theirs'}">
-      <div class="bubble">${escapeHtml(m.body)}<span class="msg-time">${fmtChatTime(m.created_at)}</span></div>
+      <div class="bubble">${escapeHtml(m.body)}<span class="msg-time">${fmtChatTime(m.createdAt)}</span></div>
     </div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
 
 async function openChat(dorm){
@@ -536,10 +561,10 @@ async function openChat(dorm){
   if(!canChat(dorm)){ toast('หอนี้ยังไม่มีเจ้าของหอในระบบ','error'); return; }
 
   const user = await waitForSession();
-  // ถ้าเป็นเจ้าของหอนี้เอง ไม่ต้องเปิดแชทฝั่งนักศึกษา
+  // ถ้าเป็นเจ้าของหอนี้เอง ให้ไปดูข้อความที่หลังบ้านแทน
   if(dorm.ownerId === user.id){ toast('นี่คือหอของคุณเอง ดูข้อความได้ที่เมนูหลังบ้าน','error'); return; }
 
-  chatCtx = { dorm, studentId: user.id, studentName: p.name };
+  chatCtx = { dorm, studentId: user.id, studentName: p.name, profile: p };
   document.getElementById('chatTitle').textContent = dorm.name;
   document.getElementById('chatSub').textContent = 'คุยกับเจ้าของหอพัก';
   document.getElementById('chatNotice').style.display = 'none';
@@ -551,7 +576,7 @@ async function openChat(dorm){
   if(chatUnsub) chatUnsub();
   chatUnsub = watchThread(dorm.id, user.id, (list)=>{
     renderMessages(list, user.id);
-    markThreadRead(dorm.id, user.id).then(refreshUnreadBadge);
+    markThreadRead(dorm.id, user.id, 'student').then(refreshUnreadBadge);
   });
   setTimeout(()=> document.getElementById('chatInput').focus(), 200);
 }
@@ -563,7 +588,10 @@ async function doSendMessage(){
   const btn = document.getElementById('chatSend');
   btn.disabled = true;
   try{
-    await sendMessage({ dorm: chatCtx.dorm, studentId: chatCtx.studentId, studentName: chatCtx.studentName, body });
+    await sendMessage({
+      dorm: chatCtx.dorm, studentId: chatCtx.studentId,
+      studentName: chatCtx.studentName, body, profile: chatCtx.profile
+    });
     input.value = '';
     input.style.height = 'auto';
   }catch(err){
@@ -583,8 +611,14 @@ document.getElementById('closeChatModal').addEventListener('click', ()=>{
   document.getElementById('chatModal').classList.remove('open');
   if(chatUnsub){ chatUnsub(); chatUnsub = null; }
 });
+document.getElementById('chatModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'chatModal'){
+    e.currentTarget.classList.remove('open');
+    if(chatUnsub){ chatUnsub(); chatUnsub = null; }
+  }
+});
 
-// ---------- รายการแชทของฉัน ----------
+// ---------- รายการข้อความของฉัน (ชุดเดียว เปิดจากปุ่มบนแถบเมนู) ----------
 async function openThreads(){
   document.getElementById('threadsModal').classList.add('open');
   const box = document.getElementById('threadsList');
@@ -592,7 +626,8 @@ async function openThreads(){
   try{
     const threads = await getMyThreads();
     if(!threads.length){
-      box.innerHTML = '<div class="chat-empty">ยังไม่มีข้อความ<br>เปิดหน้าหอพักที่สนใจแล้วกด "ส่งข้อความหาเจ้าของหอ" ได้เลย</div>';
+      box.innerHTML = `<div class="empty-state" style="padding:30px 10px"><div class="emoji">💬</div>
+        <p>ยังไม่มีการสนทนา<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "ส่งข้อความหาเจ้าของหอ" ได้เลย</small></p></div>`;
       return;
     }
     box.innerHTML = threads.map(t=>`
@@ -637,40 +672,29 @@ async function refreshUnreadBadge(){
   }); }catch(err){ console.error(err); }
 
   await showSetupBannerIfNeeded();
-  const sc = siteContactHtml();
-  if(sc){
-    const f = document.getElementById('siteContactFooter');
-    f.innerHTML = 'ติดต่อทีมงาน DormCRU: &nbsp;' + sc;
-    f.style.display = 'block';
-  }
+
+  // แถบติดต่อเจ้าของเว็บ ล่างสุดของหน้า
+  document.getElementById('siteContactBar').innerHTML = siteContactBarHtml();
+
   myProfile = await renderNav('search');
-  if(myProfile){
-    const navLinks = document.getElementById('navLinks');
-    if(navLinks){
-      const a = document.createElement('a');
-      a.href = '#';
-      a.innerHTML = 'ข้อความของฉัน<span id="navUnread"></span>';
-      a.addEventListener('click', (e)=>{ e.preventDefault(); openThreads(); });
-      navLinks.insertBefore(a, navLinks.children[1] || null);
-      refreshUnreadBadge();
-      setInterval(refreshUnreadBadge, 30000);
+
+  // ปุ่ม "ข้อความของฉัน" บนแถบเมนู (renderNav สร้างให้ปุ่มเดียว)
+  const msgBtn = document.getElementById('navMsgBtn');
+  if(msgBtn){
+    msgBtn.addEventListener('click', (e)=>{ e.preventDefault(); openThreads(); });
+    refreshUnreadBadge();
+    setInterval(refreshUnreadBadge, 30000);
+  }
+
+  watchDorms((dorms)=>{
+    allDorms = dorms;
+    applyFilters();
+    // เปิดหอพักตามลิงก์ที่แชร์มา เช่น index.html#dorm=<id>
+    const m = location.hash.match(/dorm=([^&]+)/);
+    if(m && !document.getElementById('detailModal').classList.contains('open')){
+      openDetail(decodeURIComponent(m[1]));
     }
-  }
-
-  // เมนู "ข้อความของฉัน" สำหรับนักศึกษาที่ล็อกอินแล้ว
-  if(myProfile && myProfile.role === 'student'){
-    try{
-      const unread = await getUnreadTotal(myProfile);
-      const navLinks = document.getElementById('navLinks');
-      const a = document.createElement('a');
-      a.href = '#';
-      a.innerHTML = 'ข้อความของฉัน' + (unread ? `<span class="chat-badge">${unread}</span>` : '');
-      a.addEventListener('click', (e)=>{ e.preventDefault(); openMyThreads(); });
-      navLinks.insertBefore(a, navLinks.firstChild.nextSibling);
-    }catch(err){ console.error(err); }
-  }
-
-  watchDorms((dorms)=>{ allDorms = dorms; applyFilters(); });
+  });
 })();
 </script>
 </body>

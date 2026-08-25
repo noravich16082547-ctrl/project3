@@ -329,26 +329,11 @@ footer a:hover{ color: var(--gold); }
   background-size:600px; animation:shimmer 1.4s infinite linear; }
 @keyframes shimmer{ from{background-position:-600px 0} to{background-position:600px 0} }
 
-/* ---------- ระบบแชท ---------- */
-.chat-modal{ max-width: 560px; display:flex; flex-direction:column; }
-.chat-log{
-  border:1px solid var(--line); border-radius: var(--radius-sm); background: var(--sage-bg);
-  height: 45vh; min-height: 260px; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:8px;
-}
-.chat-row{ display:flex; }
-.chat-row.mine{ justify-content:flex-end; }
-.chat-bubble{
-  max-width: 78%; background: var(--white); border:1px solid var(--line);
-  padding: 8px 12px; border-radius: 14px 14px 14px 4px; font-size:.92rem; line-height:1.45;
-  word-break: break-word;
-}
-.chat-bubble.mine{ background: var(--forest); color: var(--white); border-color: var(--forest); border-radius: 14px 14px 4px 14px; }
-.chat-time{ font-size:.68rem; opacity:.6; margin-top:4px; }
-.chat-input-row{ display:flex; gap:8px; margin-top:10px; align-items:flex-end; }
-.chat-input-row textarea{
-  flex:1; padding:10px 12px; border-radius: var(--radius-sm); border:1px solid var(--line);
-  font-family:inherit; font-size:.95rem; background: var(--sage-bg); resize:none;
-}
+/* ---------- ระบบแชท ----------
+   หมายเหตุสำคัญ: ห้ามใส่ max-width/display ให้ .chat-modal เพราะคลาสนี้อยู่บน
+   ตัว "ฉากหลัง" (.modal-backdrop.chat-modal) ถ้าไปบีบความกว้างของฉากหลัง
+   กล่องแชทจะหลุดไปกองอยู่ขอบซ้ายของจอแทนที่จะอยู่กลางจอ
+   ------------------------------------------------------------------ */
 .chat-badge{
   display:inline-block; background: var(--coral); color:#fff; font-size:.7rem; font-weight:700;
   min-width:18px; height:18px; line-height:18px; text-align:center; border-radius:999px; padding:0 5px; margin-left:6px;
@@ -387,3 +372,170 @@ footer a:hover{ color: var(--gold); }
 .thread-item .ti-meta{ text-align:right; font-size:.72rem; color:var(--ink-soft); white-space:nowrap; }
 .unread-dot{ display:inline-block; min-width:20px; height:20px; line-height:20px; text-align:center; background:var(--coral); color:#fff; border-radius:999px; font-size:.72rem; font-weight:700; padding:0 6px; }
 .nav-badge{ display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center; background:var(--coral); color:#fff; border-radius:999px; font-size:.7rem; font-weight:700; margin-left:5px; padding:0 5px; }
+
+/* ==========================================================================
+   ปุ่มบนแถบเมนูด้านบน (รวมปุ่ม "ข้อความของฉัน")
+   ========================================================================== */
+.nav-links a.active{ background: rgba(255,255,255,.14); }
+.nav-links .nav-msg{
+  display:inline-flex; align-items:center; gap:6px;
+  background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.22);
+  color: var(--white); padding:7px 14px; border-radius:999px; font-size:.92rem; font-weight:600;
+}
+.nav-links .nav-msg:hover{ background: rgba(255,255,255,.2); }
+
+/* ==========================================================================
+   แถบ "ติดต่อเจ้าของเว็บ" — อยู่ล่างสุดของทุกหน้า
+   ========================================================================== */
+.site-contact-bar{ background:#0F1D16; color: rgba(255,255,255,.82); padding: 18px 0 22px; }
+.site-contact-inner{
+  max-width:1180px; margin:0 auto; padding: 0 20px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+}
+.site-contact-head strong{ display:block; font-family: var(--font-display); color: var(--gold); font-size:1rem; }
+.site-contact-head span{ font-size:.82rem; opacity:.75; }
+.site-contact-links{ display:flex; gap:10px; flex-wrap:wrap; }
+.site-contact-item{
+  display:inline-flex; align-items:center; gap:8px;
+  background: rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16);
+  padding:8px 14px; border-radius:999px; font-size:.88rem; color: rgba(255,255,255,.9);
+}
+a.site-contact-item:hover{ background: var(--gold); border-color: var(--gold); color: var(--forest-2); }
+.site-contact-item code{ background: rgba(255,255,255,.12); padding:1px 5px; border-radius:4px; font-size:.85em; }
+.site-contact-item.muted-light{ opacity:.7; }
+footer{ margin-bottom: 0; }
+
+/* ==========================================================================
+   หน้ารายละเอียดหอพัก — เลย์เอาต์แบบหน้าโรงแรม
+   ========================================================================== */
+.detail-modal .modal{ max-width: 1080px; width: 96%; padding: 0; }
+.trip-detail{ padding: 22px 26px 30px; }
+
+/* ---- หัวเรื่อง + ปุ่มบันทึก/แชร์ ---- */
+.td-titlerow{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding-right:34px; }
+.td-title h1{ font-size:1.5rem; margin:0 0 6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.td-tag{
+  font-family: var(--font-body); font-size:.72rem; font-weight:600; padding:3px 10px; border-radius:999px;
+  background:#FDF1DC; color:#946A0E; border:1px solid #E8A33D;
+}
+.td-tag.ok{ background:#E4F2E7; color:#1F6D3D; border-color:#BFE0C8; }
+.td-addr{ font-size:.86rem; color: var(--ink-soft); }
+.td-addr a{ color: var(--gold-deep); text-decoration:underline; margin-left:6px; }
+.td-actions{ display:flex; gap:8px; flex-shrink:0; }
+.td-act{
+  background:none; border:1px solid var(--line); border-radius:999px; padding:7px 14px;
+  font-size:.85rem; color: var(--forest); display:inline-flex; align-items:center; gap:6px;
+}
+.td-act:hover{ border-color: var(--gold-deep); background: var(--sage-bg); }
+
+/* ---- แกลเลอรีรูป: รูปใหญ่ซ้าย + ตารางรูปย่อยขวา ---- */
+.td-gallery{ display:grid; grid-template-columns: 1.35fr 1fr; gap:8px; margin:16px 0 18px; border-radius: var(--radius); overflow:hidden; }
+.td-gallery .g-main{ aspect-ratio: 4/3; background: var(--sage-bg); }
+.td-gallery .g-side{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:8px; }
+.td-gallery .g-cell{ position:relative; overflow:hidden; background: var(--sage-bg); }
+.td-gallery img{ width:100%; height:100%; object-fit:cover; cursor:pointer; transition: transform .25s ease; }
+.td-gallery img:hover{ transform: scale(1.04); }
+.g-more{
+  position:absolute; inset:0; background: rgba(20,30,22,.55); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:600;
+  pointer-events:none; text-align:center; padding:6px;
+}
+
+/* ---- แถบจุดเด่นใต้แกลเลอรี ---- */
+.td-highlights{
+  display:flex; gap:10px; flex-wrap:wrap; padding:14px 0 18px;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+}
+.td-highlights .hl{
+  display:inline-flex; align-items:center; gap:8px; font-size:.85rem; color: var(--forest);
+  background: var(--sage-bg); border:1px solid var(--line); border-radius: var(--radius-sm); padding:8px 13px;
+}
+.td-highlights .hl-ic{ font-size:1.05rem; }
+
+/* ---- โครง 2 คอลัมน์: เนื้อหา + การ์ดราคาติดขวา ---- */
+.td-layout{ display:grid; grid-template-columns: 1.6fr .9fr; gap:28px; margin-top:20px; align-items:start; }
+.td-h{ font-size:1.05rem; margin:22px 0 10px; }
+.td-main > .td-h:first-of-type{ margin-top:16px; }
+.td-desc{ font-size:.92rem; margin:0; }
+
+/* ---- บล็อกสถานะ (ตำแหน่งเดียวกับคะแนนรีวิวของเว็บจองที่พัก) ---- */
+.td-status{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; }
+.ts-score{
+  font-family: var(--font-display); font-size:2.1rem; font-weight:700; color: var(--forest);
+  background: var(--sage-bg); border:1px solid var(--line); border-radius: var(--radius);
+  padding:8px 16px; line-height:1.1; white-space:nowrap;
+}
+.ts-score .unit{ font-size:.85rem; font-weight:600; margin-left:3px; }
+.ts-text strong{ display:block; font-family: var(--font-display); color: var(--forest); font-size:1rem; }
+.ts-text .muted{ font-size:.84rem; }
+.ts-note{ grid-column:1/-1; margin:4px 0 0; font-size:.84rem; color: var(--ink-soft); }
+
+/* ---- บริเวณโดยรอบ ---- */
+.td-nearby{ display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; }
+.nb-item{ display:flex; align-items:center; gap:10px; font-size:.88rem; padding:7px 0; border-bottom:1px dashed var(--line); }
+.nb-ic{ font-size:1rem; }
+.nb-name{ flex:1; min-width:0; }
+.nb-dist{ color: var(--ink-soft); white-space:nowrap; font-size:.84rem; }
+.nb-dist a{ color: var(--gold-deep); text-decoration:underline; }
+
+/* ---- การ์ดราคาติดขวา ---- */
+.td-price-card{
+  background: var(--white); border:1px solid var(--line); border-radius: var(--radius);
+  padding:18px; box-shadow: var(--shadow); position:sticky; top:12px;
+}
+.pc-head{ font-size:.82rem; color: var(--ink-soft); }
+.pc-amount{ font-family: var(--font-display); font-size:1.9rem; font-weight:700; color: var(--gold-deep); line-height:1.2; margin-top:2px; }
+.pc-amount .cur{ font-size:.95rem; color: var(--forest); font-weight:600; }
+.pc-amount .cur small{ font-weight:400; color: var(--ink-soft); }
+.pc-ask{ font-size:1rem; color: var(--forest); }
+.pc-note{ font-size:.8rem; margin-top:8px; padding:7px 10px; border-radius: var(--radius-sm); background:#FDF1DC; color:#946A0E; }
+.pc-note.ok{ background:#E4F2E7; color:#1F6D3D; }
+.pc-list{ list-style:none; padding:0; margin:14px 0; display:flex; flex-direction:column; gap:6px; font-size:.85rem; color: var(--forest); }
+.pc-cta{ margin-bottom:12px; }
+.pc-nochat{
+  font-size:.84rem; color: var(--ink-soft); background: var(--sage-bg);
+  border:1px solid var(--line); border-radius: var(--radius-sm); padding:11px; margin-bottom:12px;
+}
+.pc-contact{ display:flex; flex-direction:column; gap:8px; }
+
+/* ---- ตารางเลือกห้องพัก ---- */
+.td-rooms-h{ font-size:1.25rem; margin:30px 0 14px; padding-top:22px; border-top:1px solid var(--line); }
+.td-rooms{ display:flex; flex-direction:column; gap:12px; }
+.room-row{
+  display:grid; grid-template-columns: 190px 1fr 220px; gap:16px;
+  border:1px solid var(--line); border-radius: var(--radius); overflow:hidden; background: var(--white);
+}
+.rr-img{ background: var(--sage-bg); }
+.rr-img img{ width:100%; height:100%; object-fit:cover; min-height:130px; }
+.rr-info{ padding:14px 0; }
+.rr-info h4{ margin:0 0 8px; font-size:1rem; }
+.rr-specs{ display:flex; flex-direction:column; gap:5px; font-size:.83rem; color: var(--ink-soft); }
+.rr-book{ padding:14px 16px; border-left:1px dashed var(--line); display:flex; flex-direction:column; justify-content:center; gap:7px; }
+.rr-status{ font-size:.78rem; font-weight:700; padding:3px 10px; border-radius:999px; align-self:flex-start; }
+.rr-status.ok{ background:#E4F2E7; color:#1F6D3D; }
+.rr-status.full{ background:#FBE7E3; color:#B23A24; }
+.rr-status.ask{ background:#FDF1DC; color:#946A0E; }
+.rr-price{ font-family: var(--font-display); font-size:1.35rem; font-weight:700; color: var(--gold-deep); }
+.rr-price span{ font-family: var(--font-body); font-size:.78rem; font-weight:400; color: var(--ink-soft); }
+.td-room-empty{
+  border:1px dashed var(--line); border-radius: var(--radius); background: var(--sage-bg);
+  padding:22px; text-align:center;
+}
+.td-room-empty p{ font-size:.88rem; margin:6px 0 14px; }
+
+/* ---- จอเล็ก ---- */
+@media (max-width: 980px){
+  .td-layout{ grid-template-columns:1fr; }
+  .td-price-card{ position:static; }
+  .td-nearby{ grid-template-columns:1fr; }
+  .room-row{ grid-template-columns: 140px 1fr; }
+  .rr-book{ grid-column:1/-1; border-left:none; border-top:1px dashed var(--line); flex-direction:row; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+}
+@media (max-width: 640px){
+  .trip-detail{ padding:18px 16px 24px; }
+  .td-gallery{ grid-template-columns:1fr; }
+  .td-gallery .g-side{ grid-template-rows:1fr; }
+  .td-titlerow{ flex-direction:column; }
+  .room-row{ grid-template-columns:1fr; }
+  .site-contact-inner{ flex-direction:column; align-items:flex-start; }
+}

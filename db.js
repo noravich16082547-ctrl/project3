@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -31,19 +31,49 @@ try{
 // *** แก้ค่าด้านล่างเป็นช่องทางจริงของคุณ — ช่องไหนยังไม่มีให้ปล่อย '' ว่างไว้ ปุ่มจะไม่แสดง ***
 // ---------------------------------------------------------------------------
 const SITE_CONTACT = {
+  name:  '',                                  // ชื่อผู้ดูแลเว็บ เช่น 'ทีมงาน DormCRU'
   phone: '',                                  // เช่น '081-234-5678'
-  line: '',                                   // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
+  email: '',                                  // เช่น 'dormcru@example.com'
+  line:  '',                                  // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
   facebook: ''                                // ลิงก์เพจ เช่น 'https://facebook.com/dormcru'
 };
-function siteContactHtml(){
-  const btns = [];
-  if(SITE_CONTACT.phone) btns.push(`<a href="tel:${SITE_CONTACT.phone}" style="color:inherit">📞 ${SITE_CONTACT.phone}</a>`);
+
+// รายการช่องทางติดต่อเจ้าของเว็บ (คืนเป็น array ของ {icon, label, href})
+function siteContactList(){
+  const out = [];
+  if(SITE_CONTACT.phone) out.push({ icon:'📞', label: SITE_CONTACT.phone, href:`tel:${SITE_CONTACT.phone}` });
+  if(SITE_CONTACT.email) out.push({ icon:'✉️', label: SITE_CONTACT.email, href:`mailto:${SITE_CONTACT.email}` });
   if(SITE_CONTACT.line){
     const href = SITE_CONTACT.line.startsWith('http') ? SITE_CONTACT.line : `https://line.me/R/ti/p/~${encodeURIComponent(SITE_CONTACT.line)}`;
-    btns.push(`<a href="${href}" target="_blank" rel="noopener" style="color:inherit">💬 LINE: ${SITE_CONTACT.line}</a>`);
+    out.push({ icon:'💬', label:`LINE: ${SITE_CONTACT.line}`, href });
   }
-  if(SITE_CONTACT.facebook) btns.push(`<a href="${SITE_CONTACT.facebook}" target="_blank" rel="noopener" style="color:inherit">📘 Facebook</a>`);
-  return btns.join(' &nbsp;·&nbsp; ');
+  if(SITE_CONTACT.facebook) out.push({ icon:'📘', label:'Facebook', href: SITE_CONTACT.facebook });
+  return out;
+}
+
+// แบบบรรทัดเดียว (ใช้ในหน้าเข้าสู่ระบบ) — คืนค่าว่างถ้ายังไม่ได้กรอกช่องทางใดเลย
+function siteContactHtml(){
+  return siteContactList()
+    .map(c=>`<a href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''} style="color:inherit">${c.icon} ${c.label}</a>`)
+    .join(' &nbsp;·&nbsp; ');
+}
+
+// แถบ "ติดต่อเจ้าของเว็บ" ท้ายเว็บ — แสดงเสมอ ถ้ายังไม่กรอกจะขึ้นข้อความบอกวิธีกรอก
+function siteContactBarHtml(){
+  const list = siteContactList();
+  const who = SITE_CONTACT.name || 'ผู้ดูแลเว็บ DormCRU';
+  const items = list.length
+    ? list.map(c=>`<a class="site-contact-item" href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''}>
+         <span class="ic">${c.icon}</span><span>${c.label}</span></a>`).join('')
+    : `<span class="site-contact-item muted-light">ยังไม่ได้กรอกช่องทางติดต่อ — เปิดไฟล์ <code>db.js</code> แล้วเติมค่าในตัวแปร <code>SITE_CONTACT</code></span>`;
+  return `
+    <div class="site-contact-inner">
+      <div class="site-contact-head">
+        <strong>ติดต่อเจ้าของเว็บ</strong>
+        <span>${who} · แจ้งข้อมูลหอพักผิดพลาด เพิ่มหอใหม่ หรือสอบถามการใช้งาน</span>
+      </div>
+      <div class="site-contact-links">${items}</div>
+    </div>`;
 }
 
 // เรียกจากทุกหน้าตอนเริ่มโหลด — คืนค่า true ถ้าพร้อมใช้งาน, false ถ้ายังไม่ได้ตั้งค่า/เชื่อมต่อไม่ได้
@@ -501,48 +531,9 @@ async function updateBookingStatus(bookingId, status){
 // ห้องแชทหนึ่งห้อง = คู่ของ (หอพัก, นักศึกษา) — นักศึกษาคุยกับแต่ละหอแยกห้องกัน
 // ---------------------------------------------------------------------------
 
-// หอนี้พร้อมรับแชทหรือยัง (ต้องมีเจ้าของหอในระบบก่อน ไม่งั้นข้อความจะไม่มีใครอ่าน)
-function canChat(dorm){ return !!(dorm && dorm.ownerId); }
-
-async function sendMessage({ dorm, studentId, studentName, body }){
-  requireSupabase();
-  const user = await waitForSession();
-  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนส่งข้อความ');
-  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังส่งข้อความไม่ได้');
-  const { error } = await sb.from('messages').insert({
-    dorm_id: dorm.id, dorm_name: dorm.name,
-    student_id: studentId, student_name: studentName,
-    owner_id: dorm.ownerId, sender_id: user.id,
-    body: body
-  });
-  if(error) throw error;
-}
-
-// ดึงข้อความในห้องแชทเดียว (หอ + นักศึกษา)
-async function getThread(dormId, studentId){
-  if(!sb) return [];
-  const { data, error } = await sb.from('messages').select('*')
-    .eq('dorm_id', dormId).eq('student_id', studentId)
-    .order('created_at', { ascending: true });
-  if(error) throw error;
-  return data;
-}
-
-// ติดตามข้อความใหม่ในห้องแชทแบบเรียลไทม์
-function watchThread(dormId, studentId, callback){
-  if(!sb){ callback([]); return ()=>{}; }
-  let active = true;
-  const refresh = async ()=>{
-    if(!active) return;
-    try{ callback(await getThread(dormId, studentId)); }catch(err){ console.error(err); }
-  };
-  refresh();
-  const ch = sb.channel(`thread-${dormId}-${studentId}`)
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages',
-        filter:`dorm_id=eq.${dormId}` }, refresh)
-    .subscribe();
-  return ()=>{ active=false; sb.removeChannel(ch); };
-}
+// หมายเหตุ: ฟังก์ชันแชทหลัก (canChat, sendMessage, getThread, watchThread,
+// markThreadRead) อยู่ในหมวด "ระบบแชท" ด้านล่างของไฟล์นี้เพียงชุดเดียว
+// เพื่อไม่ให้นิยามซ้ำกันแล้วทับกันเองจนพฤติกรรมเพี้ยน
 
 // รายการห้องแชททั้งหมดของฉัน (ใช้ได้ทั้งฝั่งนักศึกษาและฝั่งเจ้าของหอ — RLS กรองให้เองแล้ว)
 async function getMyThreads(){
@@ -571,16 +562,6 @@ async function getMyThreads(){
   return Array.from(map.values()).sort((a,b)=> b.lastAt - a.lastAt);
 }
 
-// ทำเครื่องหมายว่าอ่านข้อความในห้องแชทนี้แล้ว
-async function markThreadRead(dormId, studentId){
-  if(!sb) return;
-  const user = await waitForSession();
-  if(!user) return;
-  await sb.from('messages').update({ read_at: new Date().toISOString() })
-    .eq('dorm_id', dormId).eq('student_id', studentId)
-    .neq('sender_id', user.id).is('read_at', null);
-}
-
 // จำนวนข้อความที่ยังไม่ได้อ่านทั้งหมด (ใช้แสดงจุดแดงบนเมนู)
 async function getUnreadCount(){
   if(!sb) return 0;
@@ -591,13 +572,6 @@ async function getUnreadCount(){
     .is('read_at', null).neq('sender_id', user.id);
   if(error){ console.error(error); return 0; }
   return count || 0;
-}
-
-function fmtChatTime(ts){
-  const d = new Date(ts), now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  const t = d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
-  return sameDay ? t : d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }) + ' ' + t;
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>เข้าสู่ระบบ / สมัครสมาชิก — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <header class="topbar"><div class="container" id="site-nav">
@@ -68,9 +68,13 @@
   </div>
 </div>
 
+
+<!-- แถบติดต่อเจ้าของเว็บ (อยู่ล่างสุดของทุกหน้า) -->
+<div class="site-contact-bar" id="siteContactBar"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="db.js?v=4"></script>
+<script src="app.js?v=4"></script>
 <script>
 (async ()=>{
   await showSetupBannerIfNeeded();
@@ -149,6 +153,9 @@ document.getElementById('ownerForm').addEventListener('submit', async (e)=>{
     document.getElementById('ownErr').style.display='block';
   }
 });
+</script>
+<script>
+try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
 </body>
 </html>

@@ -191,50 +191,6 @@ async function renderClaim(){
   }
 }
 
-async function renderOwnerThreads(){
-  const box = document.getElementById('ownerThreads');
-  box.innerHTML = '<div class="muted" style="padding:20px">กำลังโหลด…</div>';
-  try{
-    const threads = await getMyConversations(ME);
-    const unread = threads.reduce((s,t)=>s+t.unread, 0);
-    const badge = document.getElementById('chatUnreadBadge');
-    if(badge) badge.innerHTML = unread ? `<span class="chat-badge">${unread}</span>` : '';
-
-    if(threads.length === 0){
-      box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">💬</div>
-        <p>ยังไม่มีข้อความจากนักศึกษา<br>
-        <small class="muted">เมื่อนักศึกษากดแชทจากหน้าหอพักของคุณ ข้อความจะมาแสดงที่นี่</small></p></div>`;
-      return;
-    }
-    box.innerHTML = threads.map(t=>`
-      <div class="thread-item" data-othread="${t.dormId}|${t.studentId}">
-        <div style="min-width:0">
-          <strong>${t.studentName || 'นักศึกษา'}${t.unread?`<span class="chat-badge">${t.unread}</span>`:''}</strong>
-          <span class="muted" style="font-size:.8rem"> · ${t.dormName}</span>
-          <div class="preview">${t.lastBody}</div>
-        </div>
-        <span class="muted" style="font-size:.75rem;white-space:nowrap">${fmtChatTime(t.lastAt)}</span>
-      </div>`).join('');
-
-    document.querySelectorAll('[data-othread]').forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        const [dormId, studentId] = el.dataset.othread.split('|');
-        const t = threads.find(x=>x.dormId===dormId && x.studentId===studentId);
-        const dorm = await getDormById(dormId);
-        if(!dorm){ toast('ไม่พบหอพักนี้','error'); return; }
-        openChat({
-          dorm, studentId, studentName: t ? t.studentName : '', profile: ME,
-          title: 'แชทกับ ' + (t && t.studentName ? t.studentName : 'นักศึกษา'),
-          subtitle: 'เกี่ยวกับหอพัก: ' + dorm.name
-        });
-      });
-    });
-  }catch(err){
-    console.error(err);
-    box.innerHTML = `<div class="muted" style="padding:20px">โหลดไม่สำเร็จ: ${err.message||''}</div>`;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // ข้อความจากนักศึกษา (ฝั่งเจ้าของหอ)
 // ---------------------------------------------------------------------------
@@ -248,9 +204,9 @@ function renderMessages(list, myId){
   const box = document.getElementById('chatBody');
   if(!list.length){ box.innerHTML = '<div class="chat-empty">ยังไม่มีข้อความ</div>'; return; }
   box.innerHTML = list.map(m=>{
-    const mine = m.sender_id === myId;
+    const mine = m.senderId === myId;
     return `<div class="msg-row ${mine?'mine':'theirs'}">
-      <div class="bubble">${escapeHtml(m.body)}<span class="msg-time">${fmtChatTime(m.created_at)}</span></div>
+      <div class="bubble">${escapeHtml(m.body)}<span class="msg-time">${fmtChatTime(m.createdAt)}</span></div>
     </div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
@@ -269,7 +225,7 @@ async function openOwnerChat(thread){
   if(chatUnsub) chatUnsub();
   chatUnsub = watchThread(thread.dormId, thread.studentId, (list)=>{
     renderMessages(list, user.id);
-    markThreadRead(thread.dormId, thread.studentId).then(()=>{ renderOwnerThreads(); refreshOwnerUnread(); });
+    markThreadRead(thread.dormId, thread.studentId, 'owner').then(()=>{ renderOwnerThreads(); refreshOwnerUnread(); });
   });
   setTimeout(()=> document.getElementById('chatInput').focus(), 200);
 }
@@ -281,7 +237,8 @@ async function ownerSend(){
   const btn = document.getElementById('chatSend');
   btn.disabled = true;
   try{
-    await sendMessage({ dorm: chatCtx.dorm, studentId: chatCtx.studentId, studentName: chatCtx.studentName, body });
+    await sendMessage({ dorm: chatCtx.dorm, studentId: chatCtx.studentId,
+      studentName: chatCtx.studentName, body, profile: ME });
     input.value = ''; input.style.height='auto';
   }catch(err){ console.error(err); toast('ส่งไม่สำเร็จ: '+(err.message||''),'error'); }
   finally{ btn.disabled = false; input.focus(); }

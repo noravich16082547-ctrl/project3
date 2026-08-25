@@ -32,15 +32,18 @@ async function renderNav(active){
   <button class="hamburger" id="hamburgerBtn" aria-label="เมนู">☰</button>
   <div class="nav-links" id="navLinks">`;
   links.forEach(l=>{
-    html += `<a href="${l.href}" ${active===l.key?'style="background:rgba(255,255,255,.14)"':''}>${l.label}</a>`;
+    html += `<a href="${l.href}" ${active===l.key?'class="active"':''}>${l.label}</a>`;
   });
   if(profile){
+    // ปุ่ม "ข้อความของฉัน" บนแถบเมนูด้านบน — สร้างที่เดียวตรงนี้เท่านั้น
+    // (แต่ละหน้าไปผูก event ให้ปุ่ม #navMsgBtn เอง)
+    html += `<button type="button" class="nav-msg" id="navMsgBtn">💬 ข้อความของฉัน<span id="navUnread"></span></button>`;
     if(profile.role === 'owner' || profile.role === 'admin'){
       html += `<a href="admin.html">หลังบ้านของฉัน</a>`;
     }
     html += `<a href="#" id="logoutBtn">ออกจากระบบ (${profile.name})</a>`;
   }else{
-    html += `<a href="login.html">เข้าสู่ระบบ / สมัครสมาชิก</a>`;
+    html += `<a href="login.html" class="cta">เข้าสู่ระบบ / สมัครสมาชิก</a>`;
   }
   nav.innerHTML = html;
 
@@ -75,3 +78,7 @@ async function requireLogin(redirectMsg){
   }
   return profile;
 }
+
+// หมายเหตุ: โค้ดหน้าต่างแชทเดิมที่เคยอยู่ในไฟล์นี้ถูกย้ายออกแล้ว
+// ตอนนี้แต่ละหน้า (index.html / admin.js) ใช้กล่องแชทของตัวเองชุดเดียว
+// เพื่อไม่ให้ฟังก์ชัน openChat ถูกนิยามซ้ำแล้วทับกันเอง
