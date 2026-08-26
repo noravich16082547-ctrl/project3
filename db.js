@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -330,6 +330,9 @@ function mapBookingRow(row){
     roomCode: row.room_code, roomLabel: row.room_label, deposit: Number(row.deposit),
     slipUrl: row.slip_url, contactPhone: row.contact_phone || '', note: row.note || '',
     status: row.status,
+    visitDate: row.visit_date || '', ownerEmail: row.owner_email || '',
+    notifiedAt: row.notified_at ? new Date(row.notified_at).getTime() : null,
+    ownerReadAt: row.owner_read_at ? new Date(row.owner_read_at).getTime() : null,
     userId: row.user_id, userName: row.user_name, userEmail: row.user_email,
     createdAt: new Date(row.created_at).getTime()
   };
@@ -487,15 +490,88 @@ async function uploadSlip(uid, file){
   const { data } = sb.storage.from('slips').getPublicUrl(path);
   return data.publicUrl;
 }
-async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, user, profile }){
+// สร้างคำขอจอง แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
+async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, user, profile }){
   requireSupabase();
-  const { error } = await sb.from('bookings').insert({
+  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังจองผ่านเว็บไม่ได้');
+
+  // ขออีเมลเจ้าของหอจากฐานข้อมูล (ฟังก์ชันนี้คืนเฉพาะอีเมลของเจ้าของหอนั้นเท่านั้น)
+  let ownerEmail = null;
+  try{
+    const { data } = await sb.rpc('dorm_owner_email', { p_dorm_id: dorm.id });
+    ownerEmail = data || null;
+  }catch(err){ console.error('ดึงอีเมลเจ้าของหอไม่สำเร็จ:', err); }
+
+  const { data, error } = await sb.from('bookings').insert({
     dorm_id: dorm.id, dorm_name: dorm.name, owner_id: dorm.ownerId,
-    room_code: roomCode, room_label: roomLabel, deposit: deposit || 0,
+    room_code: roomCode || null, room_label: roomLabel || null, deposit: deposit || 0,
     slip_url: slipUrl || null, contact_phone: contactPhone || null, note: note || null,
+    visit_date: visitDate || null, owner_email: ownerEmail,
     status: 'pending', user_id: user.id, user_name: profile.name, user_email: profile.email
-  });
+  }).select().single();
   if(error) throw error;
+  return mapBookingRow(data);
+}
+
+// ---------------------------------------------------------------------------
+// แจ้งเตือนเจ้าของหอทางอีเมล — ยิงไปที่ Vercel Serverless Function /api/notify-booking
+// ถ้ายังไม่ได้ตั้งค่าอีเมล (หรือรันแบบเปิดไฟล์ตรง ๆ) จะคืน {ok:false} เฉย ๆ
+// ไม่ throw error เพราะการจองต้องสำเร็จอยู่ดี แม้เมลจะส่งไม่ออก
+// ---------------------------------------------------------------------------
+async function notifyOwnerByEmail(bookingId){
+  try{
+    const { data } = await sb.auth.getSession();
+    const token = data.session ? data.session.access_token : null;
+    if(!token) return { ok:false, reason:'no-session' };
+
+    const res = await fetch('/api/notify-booking', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+      body: JSON.stringify({ bookingId })
+    });
+    if(!res.ok){
+      const txt = await res.text();
+      console.warn('ส่งอีเมลแจ้งเจ้าของหอไม่สำเร็จ:', res.status, txt);
+      return { ok:false, reason:'http-'+res.status };
+    }
+    return await res.json();
+  }catch(err){
+    console.warn('เรียก /api/notify-booking ไม่สำเร็จ (ยังไม่ได้ตั้งค่าอีเมลหรือรันนอก Vercel):', err.message);
+    return { ok:false, reason:'network' };
+  }
+}
+
+// คำขอจองที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
+async function getUnreadBookingCount(ownerId){
+  if(!sb || !ownerId) return 0;
+  const { count, error } = await sb.from('bookings')
+    .select('id', { count:'exact', head:true })
+    .eq('owner_id', ownerId).eq('status','pending').is('owner_read_at', null);
+  if(error){ console.error(error); return 0; }
+  return count || 0;
+}
+
+// ทำเครื่องหมายว่าเจ้าของหอเปิดอ่านคำขอจองแล้ว
+async function markBookingsRead(ownerId){
+  if(!sb || !ownerId) return;
+  await sb.from('bookings').update({ owner_read_at: new Date().toISOString() })
+    .eq('owner_id', ownerId).is('owner_read_at', null);
+}
+
+// ติดตามคำขอจองใหม่แบบเรียลไทม์ (ฝั่งเจ้าของหอ)
+function watchBookings(ownerId, callback){
+  if(!sb || !ownerId){ callback([]); return ()=>{}; }
+  let active = true;
+  const refresh = async ()=>{
+    if(!active) return;
+    try{ callback(await getBookingsForOwner(ownerId)); }catch(err){ console.error(err); }
+  };
+  refresh();
+  const ch = sb.channel('bookings-' + ownerId)
+    .on('postgres_changes', { event:'*', schema:'public', table:'bookings',
+        filter:`owner_id=eq.${ownerId}` }, refresh)
+    .subscribe();
+  return ()=>{ active = false; sb.removeChannel(ch); };
 }
 async function getMyBookings(uid){
   if(!sb) return [];
@@ -604,10 +680,13 @@ async function approveOwner(uid){
 function canChat(dorm){ return !!(dorm && dorm.ownerId); }
 
 function mapMessageRow(r){
+  // senderRole: ถ้าฐานข้อมูลไม่มีคอลัมน์นี้ (สคีมาเวอร์ชันเก่า) ให้เดาจาก id แทน
+  // จะได้ไม่ต้องพึ่งคอลัมน์ sender_role เลย เว็บทำงานได้กับสคีมาทั้งสองแบบ
+  const role = r.sender_role || ((r.owner_id && r.sender_id === r.owner_id) ? 'owner' : 'student');
   return {
     id: r.id, dormId: r.dorm_id, dormName: r.dorm_name,
     studentId: r.student_id, studentName: r.student_name, ownerId: r.owner_id,
-    senderId: r.sender_id, senderRole: r.sender_role, body: r.body,
+    senderId: r.sender_id, senderRole: role, body: r.body,
     readAt: r.read_at, createdAt: new Date(r.created_at).getTime()
   };
 }
@@ -622,16 +701,24 @@ async function getThread(dormId, studentId){
   return data.map(mapMessageRow);
 }
 
+// ส่งข้อความ
+// *** ไม่ส่งคอลัมน์ sender_role ไปด้วยแล้ว *** — เพราะฐานข้อมูลบางเวอร์ชันไม่มีคอลัมน์นี้
+// (เป็นที่มาของ error "Could not find the 'sender_role' column of 'messages'")
+// ฝั่งฐานข้อมูลมี trigger เติมค่าให้เองแล้วหลังรันไฟล์ fix-chat-booking.sql
 async function sendMessage({ dorm, studentId, studentName, body, profile }){
   requireSupabase();
   const text = (body||'').trim();
   if(!text) return;
   if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของในระบบ จึงยังแชทไม่ได้');
+
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนส่งข้อความ');
+
   const { error } = await sb.from('messages').insert({
     dorm_id: dorm.id, dorm_name: dorm.name,
-    student_id: studentId, student_name: studentName,
+    student_id: studentId, student_name: studentName || (profile && profile.name) || '',
     owner_id: dorm.ownerId,
-    sender_id: profile.uid, sender_role: (profile.role === 'student' ? 'student' : 'owner'),
+    sender_id: user.id,          // ต้องตรงกับ auth.uid() ไม่งั้น RLS จะปฏิเสธ
     body: text
   });
   if(error) throw error;
@@ -655,12 +742,15 @@ function watchThread(dormId, studentId, callback){
 }
 
 // ทำเครื่องหมายว่าอ่านข้อความของอีกฝ่ายแล้ว
+// (myRole ไม่ได้ใช้แล้ว แต่คงพารามิเตอร์ไว้เพื่อไม่ให้โค้ดเดิมที่เรียกอยู่พัง)
 async function markThreadRead(dormId, studentId, myRole){
   if(!sb) return;
-  const otherRole = myRole === 'student' ? 'owner' : 'student';
+  const user = await waitForSession();
+  if(!user) return;
+  // อ่านแล้ว = ข้อความในห้องนี้ที่ "คนอื่นเป็นคนส่ง" และยังไม่ถูกทำเครื่องหมาย
   await sb.from('messages').update({ read_at: new Date().toISOString() })
     .eq('dorm_id', dormId).eq('student_id', studentId)
-    .eq('sender_role', otherRole).is('read_at', null);
+    .neq('sender_id', user.id).is('read_at', null);
 }
 
 // รายการห้องแชทของฉัน (รวมข้อความล่าสุด + จำนวนที่ยังไม่ได้อ่าน)
@@ -681,9 +771,8 @@ async function getMyConversations(profile){
         lastBody: m.body, lastAt: m.createdAt, unread: 0
       });
     }
-    // นับข้อความที่อีกฝ่ายส่งมาและเรายังไม่ได้อ่าน
-    const myRole = (profile.role === 'student') ? 'student' : 'owner';
-    if(m.senderRole !== myRole && !m.readAt) threads.get(key).unread++;
+    // นับข้อความที่อีกฝ่ายส่งมาและเรายังไม่ได้อ่าน (เทียบจาก id คนส่ง ไม่พึ่ง sender_role)
+    if(m.senderId !== profile.uid && !m.readAt) threads.get(key).unread++;
   });
   return Array.from(threads.values()).sort((a,b)=> b.lastAt - a.lastAt);
 }
@@ -692,10 +781,9 @@ async function getMyConversations(profile){
 async function getUnreadTotal(profile){
   if(!sb || !profile) return 0;
   const col = (profile.role === 'student') ? 'student_id' : 'owner_id';
-  const otherRole = (profile.role === 'student') ? 'owner' : 'student';
   const { count, error } = await sb.from('messages')
     .select('id', { count: 'exact', head: true })
-    .eq(col, profile.uid).eq('sender_role', otherRole).is('read_at', null);
+    .eq(col, profile.uid).neq('sender_id', profile.uid).is('read_at', null);
   if(error){ console.error(error); return 0; }
   return count || 0;
 }

@@ -16,10 +16,15 @@ document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['overview','listings','chats','claim','owners'].forEach(s=>{
+    // เดิมลืมใส่ 'messages' ไว้ในรายการนี้ แท็บข้อความจึงกดแล้วไม่ขึ้นอะไรเลย
+    ['overview','listings','bookings','messages','claim','owners'].forEach(s=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
+    // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
+    if(btn.dataset.sec === 'bookings'){
+      markBookingsRead(ME && ME.uid).then(refreshBookingBadge).catch(console.error);
+    }
   });
 });
 
@@ -269,6 +274,105 @@ async function renderOwnerThreads(){
   }
 }
 
+// ---------------------------------------------------------------------------
+// คำขอจองห้อง (ฝั่งเจ้าของหอ)
+// ---------------------------------------------------------------------------
+function fmtBookingDate(s){
+  if(!s) return '';
+  try{ return new Date(s).toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' }); }
+  catch(e){ return s; }
+}
+
+function bookingItemHtml(b){
+  const isNew = !b.ownerReadAt && b.status === 'pending';
+  const cls = b.status === 'confirmed' ? 'done' : (b.status === 'cancelled' ? 'cancelled' : (isNew ? 'is-new' : ''));
+  const row = (k,v)=> v ? `<div><span class="k">${k}:</span> <strong>${escapeHtml(v)}</strong></div>` : '';
+  return `
+  <div class="booking-item ${cls}">
+    <div class="bk-top">
+      <div>
+        <div class="bk-who">${escapeHtml(b.userName || 'นักศึกษา')} ${isNew?'<span class="chat-badge">ใหม่</span>':''}</div>
+        <div class="bk-room">${escapeHtml(b.roomLabel || 'ยังไม่ระบุห้อง')} · ${escapeHtml(b.dormName || '')}</div>
+      </div>
+      ${statusPill(b.status)}
+    </div>
+
+    <div class="bk-grid">
+      ${row('เบอร์ติดต่อ', b.contactPhone)}
+      ${row('อีเมล', b.userEmail)}
+      ${row('วันที่สะดวกดูห้อง', fmtBookingDate(b.visitDate))}
+      ${row('ส่งคำขอเมื่อ', fmtChatTime(b.createdAt))}
+    </div>
+
+    ${b.note ? `<div class="bk-note">💬 ${escapeHtml(b.note)}</div>` : ''}
+
+    <div class="bk-actions">
+      ${b.contactPhone ? `<a class="btn btn-primary btn-sm" href="tel:${escapeHtml(b.contactPhone)}" style="text-decoration:none">📞 โทรหานักศึกษา</a>` : ''}
+      <button class="btn btn-sm btn-outline" data-bkchat="${b.dormId}|${b.userId}|${escapeHtml(b.userName||'')}">💬 ตอบในแชท</button>
+      ${b.status === 'pending' ? `
+        <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับจอง</button>
+        <button class="btn btn-sm btn-reject" data-bkno="${b.id}">✕ ปฏิเสธ</button>` : ''}
+      <span class="bk-mailstate">${b.notifiedAt ? '✉️ ส่งอีเมลแจ้งแล้ว' : '✉️ ยังไม่ได้ส่งอีเมล'}</span>
+    </div>
+  </div>`;
+}
+
+async function renderBookings(){
+  const box = document.getElementById('bookingList');
+  if(!box) return;
+  try{
+    const list = ME.role === 'admin' ? await getAllBookings() : await getBookingsForOwner(ME.uid);
+    const pending = list.filter(b=>b.status==='pending').length;
+    document.getElementById('bookingCount').textContent =
+      list.length ? `ทั้งหมด ${list.length} รายการ · รอดำเนินการ ${pending}` : '';
+
+    if(!list.length){
+      box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">📌</div>
+        <p>ยังไม่มีคำขอจอง<br><small class="muted">เมื่อนักศึกษากดปุ่ม "จองห้องนี้" ในหน้าหอของคุณ คำขอจะมาแสดงที่นี่ทันที</small></p></div>`;
+      return;
+    }
+    box.innerHTML = list.map(bookingItemHtml).join('');
+
+    box.querySelectorAll('[data-bkok]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('ยืนยันรับจองห้องนี้?\n\nระบบจะตัดจำนวนห้องว่างลง 1 ห้องอัตโนมัติ')) return;
+        try{
+          await updateBookingStatus(btn.dataset.bkok, 'confirmed');
+          toast('ยืนยันรับจองแล้ว','success');
+          renderBookings(); renderStats(); renderListings();
+        }catch(err){ console.error(err); toast('ยืนยันไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+    });
+    box.querySelectorAll('[data-bkno]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('ปฏิเสธคำขอจองนี้?')) return;
+        try{
+          await updateBookingStatus(btn.dataset.bkno, 'cancelled');
+          toast('ปฏิเสธคำขอจองแล้ว','success');
+          renderBookings();
+        }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+    });
+    box.querySelectorAll('[data-bkchat]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const [dormId, studentId, studentName] = btn.dataset.bkchat.split('|');
+        openOwnerChat({ dormId, studentId, studentName, dormName:'' });
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดคำขอจองไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+  }
+}
+
+async function refreshBookingBadge(){
+  try{
+    const n = await getUnreadBookingCount(ME && ME.uid);
+    const el = document.getElementById('bookingBadge');
+    if(el) el.innerHTML = n ? `<span class="chat-badge">${n}</span>` : '';
+  }catch(err){ console.error(err); }
+}
+
 async function refreshOwnerUnread(){
   try{
     const n = await getUnreadCount();
@@ -333,6 +437,17 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     await renderStats(); await renderListings(); await renderClaim();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
+
+    // คำขอจอง — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
+    await renderBookings(); refreshBookingBadge();
+    let lastBookingCount = null;
+    watchBookings(ME.uid, (list)=>{
+      if(lastBookingCount !== null && list.length > lastBookingCount){
+        toast('🔔 มีคำขอจองห้องใหม่เข้ามา!','success');
+      }
+      lastBookingCount = list.length;
+      renderBookings(); refreshBookingBadge();
+    });
 
     document.getElementById('chatSend').addEventListener('click', ownerSend);
     document.getElementById('chatInput').addEventListener('keydown', (e)=>{

@@ -539,3 +539,27 @@ footer{ margin-bottom: 0; }
   .room-row{ grid-template-columns:1fr; }
   .site-contact-inner{ flex-direction:column; align-items:flex-start; }
 }
+
+/* ---- ปุ่มจอง / ปุ่มแชท ในแถวห้องพัก (แยกกันคนละปุ่ม) ---- */
+.rr-actions{ display:flex; flex-direction:column; gap:6px; }
+.rr-actions .btn{ padding:8px 12px; font-size:.88rem; }
+.pc-cta{ margin-bottom:8px; }
+.pc-cta2{ margin-bottom:10px; }
+
+/* ---- คำขอจองในหน้าหลังบ้าน ---- */
+.booking-item{
+  border:1px solid var(--line); border-left:4px solid var(--gold);
+  border-radius: var(--radius); background: var(--white); padding:14px 16px; margin-bottom:10px;
+}
+.booking-item.is-new{ border-left-color: var(--coral); background:#FFFDF8; }
+.booking-item.done{ border-left-color:#1F6D3D; opacity:.75; }
+.booking-item.cancelled{ border-left-color:#B23A24; opacity:.6; }
+.bk-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.bk-who{ font-family: var(--font-display); font-weight:600; color: var(--forest); font-size:1rem; }
+.bk-room{ font-size:.86rem; color: var(--gold-deep); font-weight:600; }
+.bk-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:4px 18px; margin:10px 0; font-size:.86rem; }
+.bk-grid .k{ color: var(--ink-soft); }
+.bk-note{ background: var(--sage-bg); border-radius: var(--radius-sm); padding:9px 12px; font-size:.86rem; margin:8px 0; }
+.bk-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.bk-mailstate{ font-size:.75rem; color: var(--ink-soft); }
+@media (max-width:640px){ .bk-grid{ grid-template-columns:1fr; } }

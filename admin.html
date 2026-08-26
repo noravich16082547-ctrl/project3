@@ -33,7 +33,7 @@
     <div class="side-title">เมนูจัดการ</div>
     <button class="side-link active" data-sec="overview">📊 ภาพรวม</button>
     <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
-    <button class="side-link" data-sec="chats">💬 ข้อความจากนักศึกษา<span id="chatUnreadBadge"></span></button>
+    <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
@@ -74,12 +74,16 @@
       </div>
     </div>
 
-    <div id="sec-chats" style="display:none">
-      <div class="section-head"><h2>ข้อความจากนักศึกษา</h2></div>
+    <div id="sec-bookings" style="display:none">
+      <div class="section-head">
+        <h2>คำขอจองห้อง</h2>
+        <span class="count" id="bookingCount"></span>
+      </div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        นักศึกษาที่สนใจหอของคุณจะส่งข้อความเข้ามาที่นี่ — กดที่รายการเพื่อเปิดแชทและตอบกลับ
+        เมื่อนักศึกษากดปุ่ม "จองห้องนี้" ในหน้าหอของคุณ คำขอจะเด้งขึ้นที่นี่ทันที
+        พร้อมส่งอีเมลแจ้งเตือนไปที่อีเมลที่คุณใช้สมัครสมาชิก
       </p>
-      <div id="ownerThreads"></div>
+      <div id="bookingList"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
 
     <div id="sec-messages" style="display:none">
