@@ -81,7 +81,7 @@ function siteContactBarHtml(){
 // *** แก้ 2 ค่านี้เป็นของ OA ที่คุณสร้าง — ดูวิธีหาค่าในไฟล์ README.md ***
 // ---------------------------------------------------------------------------
 const LINE_OA = {
-  basicId: '',        // เช่น '@123abcd'  (Basic ID จาก LINE Official Account Manager)
+  basicId: '@123abcd',        // เช่น '@123abcd'  (Basic ID จาก LINE Official Account Manager)
   addFriendUrl: ''    // เช่น 'https://line.me/R/ti/p/@123abcd'  เว้นว่างจะสร้างจาก basicId ให้เอง
 };
 function lineAddFriendUrl(){
