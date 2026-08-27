@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -446,19 +446,53 @@ function watchDorms(callback){
     .subscribe();
   return () => { active = false; sb.removeChannel(channel); };
 }
+// ---------------------------------------------------------------------------
+// ตัวช่วยกันปัญหา "ไฟล์เว็บใหม่ แต่ยังไม่ได้รัน SQL ในฐานข้อมูล"
+//
+// ถ้าฐานข้อมูลยังไม่มีคอลัมน์ที่โค้ดใหม่ส่งไป Supabase จะตอบว่า
+//   Could not find the 'xxx' column of 'dorms' in the schema cache
+// แทนที่จะให้บันทึกไม่ผ่านทั้งหมด ให้ตัดเฉพาะคอลัมน์นั้นออกแล้วลองใหม่
+// ข้อมูลส่วนที่เหลือจะถูกบันทึกตามปกติ พร้อมเตือนให้ไปรันไฟล์ SQL
+// ---------------------------------------------------------------------------
+const OPTIONAL_DORM_COLUMNS = { contact_email: 'add-contact-email.sql' };
+
+function missingColumnFrom(error){
+  const msg = (error && (error.message || error.hint || '')) || '';
+  const m = msg.match(/Could not find the '([^']+)' column/i);
+  return m ? m[1] : null;
+}
+
+async function saveDormRow(row, runQuery){
+  let attempt = { ...row };
+  for(let i = 0; i < 5; i++){
+    const res = await runQuery(attempt);
+    if(!res.error) return res;
+
+    const col = missingColumnFrom(res.error);
+    if(col && col in attempt && OPTIONAL_DORM_COLUMNS[col]){
+      delete attempt[col];
+      console.warn(`ฐานข้อมูลยังไม่มีคอลัมน์ "${col}" — ข้ามไปก่อน (ไปรันไฟล์ ${OPTIONAL_DORM_COLUMNS[col]} ใน Supabase SQL Editor)`);
+      if(typeof toast === 'function'){
+        toast(`บันทึกแล้ว แต่ยังใช้ช่อง "${col}" ไม่ได้ — ต้องรันไฟล์ ${OPTIONAL_DORM_COLUMNS[col]} ใน Supabase ก่อน`, 'error');
+      }
+      continue;   // ลองใหม่โดยไม่มีคอลัมน์นั้น
+    }
+    throw res.error;
+  }
+  throw new Error('บันทึกไม่สำเร็จ');
+}
+
 async function addDorm(ownerId, dormData){
   requireSupabase();
   const row = toDormRow(dormData);
   row.owner_id = ownerId;
-  const { data, error } = await sb.from('dorms').insert(row).select().single();
-  if(error) throw error;
-  return data.id;
+  const res = await saveDormRow(row, r => sb.from('dorms').insert(r).select().single());
+  return res.data.id;
 }
 async function updateDorm(id, fields){
   requireSupabase();
   const row = toDormRow(fields);
-  const { error } = await sb.from('dorms').update(row).eq('id', id);
-  if(error) throw error;
+  await saveDormRow(row, r => sb.from('dorms').update(r).eq('id', id));
 }
 async function deleteDorm(id){
   requireSupabase();
@@ -610,7 +644,23 @@ async function sendTestNotifyEmail(dormId){
   });
   const text = await res.text();
   try{ return JSON.parse(text); }
-  catch(e){ return { ok:false, reason:'เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (ยังไม่ได้ deploy ไฟล์ api/ หรือรันนอก Vercel)' }; }
+  catch(e){
+    // ตอบกลับมาไม่ใช่ JSON = ไปไม่ถึงฟังก์ชัน บอกสาเหตุตามรหัสสถานะจริง
+    let reason;
+    if(res.status === 404){
+      reason = 'หาไฟล์ /api/notify-booking ไม่เจอ (404) — ตรวจว่าโฟลเดอร์ api/ อยู่ที่ระดับบนสุดของโปรเจกต์ใน Vercel แล้ว Redeploy';
+    }else if(res.status === 405){
+      reason = 'เส้นทาง /api ทำงานแล้ว แต่ถูกเสิร์ฟเป็นไฟล์สถิต ไม่ใช่ฟังก์ชัน (405) — ตรวจการตั้งค่า Output Directory ใน Vercel';
+    }else if(res.status >= 500){
+      reason = `ฟังก์ชันฝั่งเซิร์ฟเวอร์ error (${res.status}) — เปิด Vercel -> โปรเจกต์ -> Logs เพื่อดูรายละเอียด`;
+    }else if(location.protocol === 'file:'){
+      reason = 'กำลังเปิดไฟล์จากเครื่องโดยตรง ไม่ได้ผ่านเซิร์ฟเวอร์ — ระบบอีเมลทดสอบได้เฉพาะบนเว็บที่ deploy บน Vercel แล้ว';
+    }else{
+      reason = `เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (HTTP ${res.status})`;
+    }
+    console.warn('notify-booking ตอบกลับ:', res.status, text.slice(0, 200));
+    return { ok:false, reason, httpStatus: res.status, raw: text.slice(0, 200) };
+  }
 }
 
 // คำขอจองที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
