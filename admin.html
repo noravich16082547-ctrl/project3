@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <header class="topbar">
@@ -35,6 +35,7 @@
     <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
     <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
+    <button class="side-link" data-sec="line">🔔 แจ้งเตือนเข้า LINE<span id="lineStatusDot"></span></button>
     <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
     <button class="side-link" data-sec="claimreview" id="claimReviewTabBtn" style="display:none">🛡️ ตรวจสอบคำขอดูแลหอ<span id="claimReviewBadge"></span></button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
@@ -91,6 +92,15 @@
       <div class="section-head"><h2>ข้อความจากนักศึกษา</h2></div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">นักศึกษาที่สนใจหอของคุณจะส่งข้อความมาที่นี่ — ตอบกลับได้ในเว็บเลย</p>
       <div id="ownerThreads"><div class="chat-empty">กำลังโหลด...</div></div>
+    </div>
+
+    <div id="sec-line" style="display:none">
+      <div class="section-head"><h2>แจ้งเตือนเข้า LINE</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        เชื่อมบัญชี LINE ไว้ แล้วเมื่อมีนักศึกษากดจองห้อง ข้อความจะเด้งเข้า LINE ของคุณทันที
+        เร็วกว่ารออีเมลมาก — และระบบจะยังส่งอีเมลให้ควบคู่กันไปด้วยเสมอ
+      </p>
+      <div id="lineLinkBox"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
 
     <div id="sec-claim" style="display:none">
@@ -216,9 +226,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=8"></script>
-<script src="app.js?v=8"></script>
-<script src="admin.js?v=8"></script>
+<script src="db.js?v=10"></script>
+<script src="app.js?v=10"></script>
+<script src="admin.js?v=10"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

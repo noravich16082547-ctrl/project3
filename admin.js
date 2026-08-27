@@ -17,7 +17,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     // เดิมลืมใส่ 'messages' ไว้ในรายการนี้ แท็บข้อความจึงกดแล้วไม่ขึ้นอะไรเลย
-    ['overview','listings','bookings','messages','claim','claimreview','owners'].forEach(s=>{
+    ['overview','listings','bookings','messages','line','claim','claimreview','owners'].forEach(s=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
@@ -507,6 +507,150 @@ async function renderOwners(){
 ['editModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
 });
+// ---------------------------------------------------------------------------
+// หน้า "แจ้งเตือนเข้า LINE" (ฝั่งเจ้าของหอ)
+// ---------------------------------------------------------------------------
+let lineQrDrawn = false;
+
+async function renderLineLink(){
+  const box = document.getElementById('lineLinkBox');
+  if(!box) return;
+
+  if(!isLineConfigured()){
+    box.innerHTML = `<div class="setup-banner show">
+      ⚠️ ผู้ดูแลเว็บยังไม่ได้ตั้งค่า LINE Official Account —
+      เปิดไฟล์ <code>db.js</code> แล้วกรอก <code>LINE_OA.basicId</code>
+      (ดูขั้นตอนในไฟล์ README.md หัวข้อ "ตั้งค่าแจ้งเตือนเข้า LINE")
+    </div>`;
+    return;
+  }
+
+  try{
+    const link = await getMyLineLink();
+    const dot = document.getElementById('lineStatusDot');
+    if(dot) dot.innerHTML = link ? '' : '<span class="chat-badge">!</span>';
+
+    if(link){
+      box.innerHTML = `
+        <div class="line-card linked">
+          <div class="line-status">✅ เชื่อมต่อแล้ว</div>
+          <p style="margin:6px 0 0">
+            บัญชี LINE: <strong>${escapeHtml(link.displayName || 'ไม่ทราบชื่อ')}</strong><br>
+            <span class="muted" style="font-size:.84rem">เชื่อมเมื่อ ${fmtChatTime(link.linkedAt)}</span>
+          </p>
+          <div class="bk-actions" style="margin-top:14px">
+            <button class="btn btn-sm btn-primary" id="btnTestLine">🔔 ทดสอบส่งเข้า LINE</button>
+            <button class="btn btn-sm btn-ghost" id="btnUnlinkLine">ยกเลิกการเชื่อมต่อ</button>
+          </div>
+        </div>`;
+
+      document.getElementById('btnTestLine').addEventListener('click', async (e)=>{
+        const btn = e.currentTarget;
+        const dorm = myDorms[0];
+        if(!dorm){ toast('ต้องมีหอพักที่คุณดูแลอย่างน้อย 1 แห่งก่อน','error'); return; }
+        btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+        try{
+          const r = await sendTestNotifyEmail(dorm.id, 'line');
+          if(r && r.ok) toast('ส่งเข้า LINE แล้ว — ลองเช็กแชทบอท DormCRU ดูครับ','success');
+          else toast('ส่งไม่สำเร็จ: ' + ((r && (r.reason||r.error)) || 'ไม่ทราบสาเหตุ'), 'error');
+        }catch(err){ toast('ส่งไม่สำเร็จ: '+(err.message||''),'error'); }
+        finally{ btn.disabled = false; btn.textContent = '🔔 ทดสอบส่งเข้า LINE'; }
+      });
+
+      document.getElementById('btnUnlinkLine').addEventListener('click', async ()=>{
+        if(!confirm('ยกเลิกการเชื่อมต่อ LINE?\n\nหลังจากนี้จะได้รับแจ้งเตือนทางอีเมลอย่างเดียว')) return;
+        try{ await unlinkLine(); toast('ยกเลิกการเชื่อมต่อแล้ว','success'); lineQrDrawn = false; renderLineLink(); }
+        catch(err){ toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+      return;
+    }
+
+    // ---- ยังไม่ได้เชื่อม: แสดงขั้นตอน 3 ขั้น ----
+    box.innerHTML = `
+      <div class="line-card">
+        <div class="line-steps">
+          <div class="line-step">
+            <div class="ls-num">1</div>
+            <div>
+              <strong>แอด LINE Official Account ของ DormCRU เป็นเพื่อน</strong>
+              <p class="muted" style="margin:4px 0 10px;font-size:.86rem">
+                สแกน QR ด้วยแอป LINE หรือกดปุ่มด้านล่างถ้าเปิดหน้านี้บนมือถือ
+              </p>
+              <div class="line-qr-row">
+                <div id="lineQr"></div>
+                <div>
+                  <a class="btn btn-sm btn-primary" href="${lineAddFriendUrl()}" target="_blank" rel="noopener"
+                     style="text-decoration:none">เปิดใน LINE เพื่อแอดเพื่อน</a>
+                  ${LINE_OA.basicId ? `<div class="muted" style="font-size:.82rem;margin-top:8px">
+                    หรือค้นหา ID: <strong>${escapeHtml(LINE_OA.basicId)}</strong></div>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="line-step">
+            <div class="ls-num">2</div>
+            <div>
+              <strong>กดขอรหัสยืนยัน</strong>
+              <p class="muted" style="margin:4px 0 10px;font-size:.86rem">รหัสมีอายุ 15 นาที</p>
+              <button class="btn btn-primary" id="btnGetLineCode">ขอรหัส 6 หลัก</button>
+              <div id="lineCodeBox"></div>
+            </div>
+          </div>
+
+          <div class="line-step">
+            <div class="ls-num">3</div>
+            <div>
+              <strong>พิมพ์รหัสส่งในแชท LINE ให้บอท</strong>
+              <p class="muted" style="margin:4px 0 0;font-size:.86rem">
+                บอทจะตอบกลับว่า "เชื่อมต่อสำเร็จ ✅" แล้วกลับมากดปุ่มด้านล่างเพื่อตรวจสอบ
+              </p>
+              <button class="btn btn-outline btn-sm" id="btnRecheckLine" style="margin-top:10px">
+                ตรวจสอบสถานะการเชื่อมต่อ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    // วาด QR แอดเพื่อน
+    try{
+      const qrBox = document.getElementById('lineQr');
+      if(window.QRCode){
+        new QRCode(qrBox, {
+          text: lineAddFriendUrl(), width:120, height:120,
+          colorDark:'#06C755', colorLight:'#ffffff'
+        });
+      }else{
+        // โหลดไลบรารี QR ไม่ได้ (เน็ตมีปัญหา/ตัวบล็อกโฆษณา) — แสดงลิงก์ให้ก๊อปแทน
+        qrBox.innerHTML = `<div class="muted" style="font-size:.8rem;max-width:150px;word-break:break-all">
+          สร้าง QR ไม่ได้ ใช้ลิงก์นี้แทน:<br><strong>${escapeHtml(lineAddFriendUrl())}</strong></div>`;
+      }
+    }catch(err){ console.error('วาด QR ไม่สำเร็จ:', err); }
+
+    document.getElementById('btnGetLineCode').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try{
+        const code = await createLineLinkCode();
+        document.getElementById('lineCodeBox').innerHTML = `
+          <div class="line-code">${escapeHtml(code)}</div>
+          <div class="muted" style="font-size:.82rem">
+            พิมพ์ตัวเลข 6 หลักนี้ส่งในแชท LINE ให้บอท DormCRU ภายใน 15 นาที
+          </div>`;
+      }catch(err){
+        console.error(err);
+        toast('ขอรหัสไม่สำเร็จ: ' + (err.message||''), 'error');
+      }finally{ btn.disabled = false; }
+    });
+
+    document.getElementById('btnRecheckLine').addEventListener('click', ()=> renderLineLink());
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+  }
+}
+
 // ปุ่ม "ส่งอีเมลทดสอบ" ในหน้าต่างแก้ไขหอพัก — เช็คว่าแจ้งเตือนถึงจริงไหม
 document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
   if(!editingId){
@@ -556,14 +700,14 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
   // เพื่อยื่นคำขอ (ถ้าปิดทั้งหมดจะไม่มีทางยื่นคำขอให้แอดมินอนุมัติได้เลย)
   const isPendingOwner = (profile.role === 'owner' && !profile.approved);
   if(isPendingOwner){
-    ['overview','listings','bookings','messages'].forEach(sec=>{
+    ['overview','listings','bookings','messages','line'].forEach(sec=>{
       const btn = document.querySelector(`.side-link[data-sec="${sec}"]`);
       if(btn) btn.style.display = 'none';
     });
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     const claimBtn = document.querySelector('.side-link[data-sec="claim"]');
     if(claimBtn) claimBtn.classList.add('active');
-    ['overview','listings','bookings','messages','claimreview','owners'].forEach(sec=>{
+    ['overview','listings','bookings','messages','line','claimreview','owners'].forEach(sec=>{
       const el = document.getElementById('sec-'+sec);
       if(el) el.style.display = 'none';
     });
@@ -603,6 +747,7 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
 
     // คำขอจอง — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
     await renderBookings(); refreshBookingBadge();
+    renderLineLink();
     let lastBookingCount = null;
     watchBookings(ME.uid, (list)=>{
       if(lastBookingCount !== null && list.length > lastBookingCount){

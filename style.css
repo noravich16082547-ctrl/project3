@@ -596,3 +596,29 @@ footer{ margin-bottom: 0; }
 .mybk-meta{ font-size:.78rem; color: var(--ink-soft); margin-top:6px; }
 .mybk-hint{ font-size:.84rem; background: var(--sage-bg); border-radius: var(--radius-sm); padding:8px 11px; margin:8px 0; }
 .mybk-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ---------- หน้าเชื่อมต่อ LINE ---------- */
+.line-card{
+  background: var(--white); border:1px solid var(--line); border-radius: var(--radius);
+  padding: 20px 22px; box-shadow: var(--shadow);
+}
+.line-card.linked{ border-left:4px solid #06C755; }
+.line-status{ font-family: var(--font-display); font-weight:700; color:#06934A; font-size:1.05rem; }
+.line-steps{ display:flex; flex-direction:column; gap:22px; }
+.line-step{ display:grid; grid-template-columns:34px 1fr; gap:14px; align-items:start; }
+.ls-num{
+  width:34px; height:34px; border-radius:50%; background:#06C755; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-family: var(--font-display);
+}
+.line-step strong{ font-family: var(--font-display); color: var(--forest); }
+.line-qr-row{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+.line-qr-row #lineQr{ background:#fff; padding:8px; border:1px solid var(--line); border-radius:10px; }
+.line-code{
+  font-family: var(--font-display); font-size:2rem; font-weight:700; letter-spacing:.32em;
+  color: var(--forest); background: var(--sage-bg); border:2px dashed #06C755;
+  border-radius: var(--radius); padding:14px 10px; text-align:center; margin:12px 0 6px;
+}
+@media (max-width:640px){
+  .line-step{ grid-template-columns:28px 1fr; gap:10px; }
+  .line-code{ font-size:1.5rem; letter-spacing:.2em; }
+}

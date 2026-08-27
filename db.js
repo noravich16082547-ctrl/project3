@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -74,6 +74,57 @@ function siteContactBarHtml(){
       </div>
       <div class="site-contact-links">${items}</div>
     </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// LINE Official Account ของ DormCRU (ใช้ในหน้า "แจ้งเตือนเข้า LINE" ในหลังบ้าน)
+// *** แก้ 2 ค่านี้เป็นของ OA ที่คุณสร้าง — ดูวิธีหาค่าในไฟล์ README.md ***
+// ---------------------------------------------------------------------------
+const LINE_OA = {
+  basicId: '',        // เช่น '@123abcd'  (Basic ID จาก LINE Official Account Manager)
+  addFriendUrl: ''    // เช่น 'https://line.me/R/ti/p/@123abcd'  เว้นว่างจะสร้างจาก basicId ให้เอง
+};
+function lineAddFriendUrl(){
+  if(LINE_OA.addFriendUrl) return LINE_OA.addFriendUrl;
+  if(LINE_OA.basicId) return 'https://line.me/R/ti/p/' + encodeURIComponent(LINE_OA.basicId);
+  return '';
+}
+function isLineConfigured(){ return !!lineAddFriendUrl(); }
+
+// ---------------------------------------------------------------------------
+// เชื่อมบัญชี LINE ของเจ้าของหอ
+// ---------------------------------------------------------------------------
+
+// ขอรหัส 6 หลักไปพิมพ์ส่งให้บอทใน LINE (อายุ 15 นาที)
+async function createLineLinkCode(){
+  requireSupabase();
+  const { data, error } = await sb.rpc('create_line_link_code');
+  if(error) throw error;
+  return data;
+}
+
+// ดูว่าเชื่อมบัญชี LINE ไว้แล้วหรือยัง
+async function getMyLineLink(){
+  if(!sb) return null;
+  const user = await waitForSession();
+  if(!user) return null;
+  const { data, error } = await sb.from('line_links').select('*').eq('owner_id', user.id).maybeSingle();
+  if(error){ console.error(error); return null; }
+  if(!data) return null;
+  return {
+    lineUserId: data.line_user_id,
+    displayName: data.display_name || '',
+    linkedAt: new Date(data.linked_at).getTime()
+  };
+}
+
+// ยกเลิกการเชื่อมต่อ
+async function unlinkLine(){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
+  const { error } = await sb.from('line_links').delete().eq('owner_id', user.id);
+  if(error) throw error;
 }
 
 // เรียกจากทุกหน้าตอนเริ่มโหลด — คืนค่า true ถ้าพร้อมใช้งาน, false ถ้ายังไม่ได้ตั้งค่า/เชื่อมต่อไม่ได้
@@ -633,14 +684,14 @@ async function notifyOwnerByEmail(bookingId){
 }
 
 // ส่งอีเมลทดสอบไปยังอีเมลรับแจ้งเตือนของหอ (ใช้จากหลังบ้าน)
-async function sendTestNotifyEmail(dormId){
+async function sendTestNotifyEmail(dormId, channel){
   const { data } = await sb.auth.getSession();
   const token = data.session ? data.session.access_token : null;
   if(!token) throw new Error('กรุณาเข้าสู่ระบบใหม่');
   const res = await fetch('/api/notify-booking', {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
-    body: JSON.stringify({ testDormId: dormId })
+    body: JSON.stringify({ testDormId: dormId, channel: channel || 'email' })
   });
   const text = await res.text();
   try{ return JSON.parse(text); }
