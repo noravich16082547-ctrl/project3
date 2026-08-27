@@ -112,6 +112,7 @@ function openEdit(dorm){
   document.getElementById('fImages').value = dorm ? dorm.images.join(' , ') : '';
   document.getElementById('fPhone').value = dorm ? (dorm.phone||'') : '';
   document.getElementById('fLine').value = dorm ? (dorm.lineId||'') : '';
+  document.getElementById('fContactEmail').value = dorm ? (dorm.contactEmail||'') : '';
   document.getElementById('fFacebook').value = dorm ? (dorm.facebook||'') : '';
   document.getElementById('verifiedWrap').style.display = 'block';
   document.getElementById('fVerified').checked = dorm ? !!dorm.verified : false;
@@ -154,6 +155,7 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
     facilities, images, rooms,
     phone: document.getElementById('fPhone').value.trim(),
     lineId: document.getElementById('fLine').value.trim(),
+    contactEmail: document.getElementById('fContactEmail').value.trim(),
     facebook: document.getElementById('fFacebook').value.trim()
   };
   // เจ้าของหอยืนยันข้อมูลหอของตัวเองได้เอง ไม่ต้องรอแอดมิน
@@ -505,6 +507,30 @@ async function renderOwners(){
 ['editModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
 });
+// ปุ่ม "ส่งอีเมลทดสอบ" ในหน้าต่างแก้ไขหอพัก — เช็คว่าแจ้งเตือนถึงจริงไหม
+document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
+  if(!editingId){
+    toast('บันทึกหอพักก่อน แล้วค่อยกดทดสอบส่งอีเมล','error');
+    return;
+  }
+  const btn = document.getElementById('btnTestMail');
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  try{
+    const r = await sendTestNotifyEmail(editingId);
+    if(r && r.ok){
+      toast('ส่งอีเมลทดสอบไปที่ ' + (r.sentTo||'') + ' แล้ว — ลองเช็กกล่องขาเข้าและโฟลเดอร์สแปม','success');
+    }else{
+      toast('ส่งไม่สำเร็จ: ' + ((r && (r.reason || r.error)) || 'ไม่ทราบสาเหตุ'), 'error');
+      console.warn('รายละเอียด:', r);
+    }
+  }catch(err){
+    console.error(err);
+    toast('ส่งไม่สำเร็จ: ' + (err.message||''),'error');
+  }finally{
+    btn.disabled = false; btn.textContent = '✉️ ส่งอีเมลทดสอบ';
+  }
+});
+
 document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
   try{
     const n = await seedSampleDormsIfEmpty(ME.uid);

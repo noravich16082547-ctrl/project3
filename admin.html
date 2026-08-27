@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <header class="topbar">
@@ -176,6 +176,15 @@
       <div class="form-field"><label>LINE ID หรือลิงก์ LINE</label><input type="text" id="fLine" placeholder="@dormcru หรือ https://line.me/..."></div>
     </div>
     <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
+    <div class="form-field">
+      <label>📧 อีเมลรับแจ้งเตือนการจอง</label>
+      <input type="email" id="fContactEmail" placeholder="เช่น dorm.banfai@gmail.com">
+      <div class="form-hint">
+        เมื่อมีนักศึกษากดจองห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
+        เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
+        <button type="button" class="btn btn-sm btn-ghost" id="btnTestMail" style="margin-top:6px">✉️ ส่งอีเมลทดสอบ</button>
+      </div>
+    </div>
     <div class="form-field" id="verifiedWrap" style="display:none">
       <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการจองเต็มรูปแบบ<br>
       <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
@@ -207,9 +216,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=5"></script>
-<script src="app.js?v=5"></script>
-<script src="admin.js?v=5"></script>
+<script src="db.js?v=6"></script>
+<script src="app.js?v=6"></script>
+<script src="admin.js?v=6"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

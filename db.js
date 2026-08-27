@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -316,7 +316,8 @@ function toDormRow(d){
     gate1: d.gates ? d.gates.gate1 : null, gate2: d.gates ? d.gates.gate2 : null, gate3: d.gates ? d.gates.gate3 : null,
     lat: d.lat, lng: d.lng, facilities: d.facilities, rooms: d.rooms,
     images: d.images, description: d.desc,
-    phone: d.phone || null, line_id: d.lineId || null, facebook: d.facebook || null
+    phone: d.phone || null, line_id: d.lineId || null, facebook: d.facebook || null,
+    contact_email: d.contactEmail || null
   };
   if(typeof d.verified === 'boolean') row.verified = d.verified;
   return row;
@@ -330,6 +331,7 @@ function mapDormRow(row){
     facilities: row.facilities || [], rooms: row.rooms || [],
     images: row.images || [], desc: row.description,
     phone: row.phone || '', lineId: row.line_id || '', facebook: row.facebook || '',
+    contactEmail: row.contact_email || '',
     verified: !!row.verified
   };
 }
@@ -594,6 +596,21 @@ async function notifyOwnerByEmail(bookingId){
     console.warn('เรียก /api/notify-booking ไม่สำเร็จ (ยังไม่ได้ตั้งค่าอีเมลหรือรันนอก Vercel):', err.message);
     return { ok:false, reason:'network' };
   }
+}
+
+// ส่งอีเมลทดสอบไปยังอีเมลรับแจ้งเตือนของหอ (ใช้จากหลังบ้าน)
+async function sendTestNotifyEmail(dormId){
+  const { data } = await sb.auth.getSession();
+  const token = data.session ? data.session.access_token : null;
+  if(!token) throw new Error('กรุณาเข้าสู่ระบบใหม่');
+  const res = await fetch('/api/notify-booking', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+    body: JSON.stringify({ testDormId: dormId })
+  });
+  const text = await res.text();
+  try{ return JSON.parse(text); }
+  catch(e){ return { ok:false, reason:'เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (ยังไม่ได้ deploy ไฟล์ api/ หรือรันนอก Vercel)' }; }
 }
 
 // คำขอจองที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
