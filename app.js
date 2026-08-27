@@ -38,6 +38,9 @@ async function renderNav(active){
     // ปุ่ม "ข้อความของฉัน" บนแถบเมนูด้านบน — สร้างที่เดียวตรงนี้เท่านั้น
     // (แต่ละหน้าไปผูก event ให้ปุ่ม #navMsgBtn เอง)
     html += `<button type="button" class="nav-msg" id="navMsgBtn">💬 ข้อความของฉัน<span id="navUnread"></span></button>`;
+    if(profile.role === 'student'){
+      html += `<button type="button" class="nav-msg" id="navBookingBtn">📌 การจองของฉัน</button>`;
+    }
     if(profile.role === 'owner' || profile.role === 'admin'){
       html += `<a href="admin.html">หลังบ้านของฉัน</a>`;
     }

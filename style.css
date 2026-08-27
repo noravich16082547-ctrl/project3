@@ -563,3 +563,36 @@ footer{ margin-bottom: 0; }
 .bk-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
 .bk-mailstate{ font-size:.75rem; color: var(--ink-soft); }
 @media (max-width:640px){ .bk-grid{ grid-template-columns:1fr; } }
+
+/* ---- ป้ายบอกว่ารูปเป็นภาพประกอบ ไม่ใช่รูปห้องจริงของหอ ---- */
+.badge-stock{
+  position:absolute; top:44px; left:10px;
+  background: rgba(214,96,74,.92); color:#fff;
+  font-size:.7rem; padding:4px 10px; border-radius:999px; font-weight:600;
+}
+.stock-warning{
+  background:#FDF1DC; border:1px solid #E8A33D; color:#946A0E;
+  border-radius: var(--radius-sm); padding:11px 14px; font-size:.86rem;
+  margin:14px 0 0; line-height:1.55;
+}
+.td-gallery.is-stock .g-main{ position:relative; }
+.g-stock-tag{
+  position:absolute; top:10px; left:10px;
+  background: rgba(214,96,74,.92); color:#fff;
+  font-size:.72rem; padding:4px 11px; border-radius:999px; font-weight:600;
+}
+.td-gallery .g-cell{ position:relative; }
+
+/* ---- การจองของฉัน (ฝั่งนักศึกษา) ---- */
+.mybk-item{
+  border:1px solid var(--line); border-left:4px solid var(--gold);
+  border-radius: var(--radius); padding:14px 16px; margin-bottom:10px; background:var(--white);
+}
+.mybk-item.confirmed{ border-left-color:#1F6D3D; }
+.mybk-item.cancelled{ border-left-color:#B23A24; opacity:.7; }
+.mybk-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+.mybk-dorm{ font-family: var(--font-display); font-weight:600; color: var(--forest); }
+.mybk-room{ font-size:.85rem; color: var(--gold-deep); font-weight:600; }
+.mybk-meta{ font-size:.78rem; color: var(--ink-soft); margin-top:6px; }
+.mybk-hint{ font-size:.84rem; background: var(--sage-bg); border-radius: var(--radius-sm); padding:8px 11px; margin:8px 0; }
+.mybk-actions{ display:flex; gap:8px; flex-wrap:wrap; }

@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -240,6 +240,15 @@ function mapDirectionsLink(d){
 }
 // รูปสำรองเมื่อรูปต้นทางโหลดไม่ขึ้น
 const FALLBACK_IMG = 'https://images.pexels.com/photos/1034584/pexels-photo-1034584.jpeg?auto=compress&cs=tinysrgb&w=900';
+// รูปที่ระบบใส่ให้ตอนตั้งต้น (สต็อกจาก Pexels) ไม่ใช่รูปห้องจริงของหอ
+// ใช้ตรวจเพื่อขึ้นป้าย "ภาพประกอบ" กันนักศึกษาเข้าใจผิดว่าเป็นห้องจริง
+function isStockPhoto(url){
+  return typeof url === 'string' && /images\.pexels\.com/.test(url);
+}
+function hasOnlyStockPhotos(d){
+  const imgs = (d && d.images) || [];
+  return imgs.length === 0 || imgs.every(isStockPhoto);
+}
 function imgFallbackAttr(){
   return `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${FALLBACK_IMG}';}"`;
 }
@@ -383,8 +392,10 @@ async function registerOwner({ name, orgName, email, phone, password }){
   if(!data.session){
     throw new Error('สมัครสำเร็จแต่ยังไม่ได้ล็อกอินอัตโนมัติ — ต้องปิด "Confirm email" ใน Supabase Auth Settings ก่อน (ดู SETUP-SUPABASE.md)');
   }
-  // เจ้าของหอใช้งานได้ทันทีหลังสมัคร ไม่ต้องรอแอดมินอนุมัติ (approved: true)
-  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'owner', name, org_name: orgName, email, phone, approved: true });
+  // เจ้าของหอต้องรอผู้ดูแลระบบตรวจสอบก่อนถึงจะแก้ข้อมูลหอได้
+  // (เดิมตั้ง approved:true ทันที ทำให้ใครก็ได้สมัครแล้วยึดหอของคนอื่น)
+  // หมายเหตุ: ฝั่งฐานข้อมูลมี trigger บังคับ approved = false อยู่แล้วอีกชั้น
+  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'owner', name, org_name: orgName, email, phone, approved: false });
   if(e2) throw e2;
   return data.user;
 }
@@ -459,10 +470,54 @@ async function getUnclaimedDorms(){
   if(error) throw error;
   return data.map(mapDormRow);
 }
-async function claimDorm(dormId){
+// ยื่น "คำขอ" รับช่วงดูแลหอ — ยังไม่ได้สิทธิ์ทันที ต้องรอแอดมินอนุมัติ
+async function requestDormClaim(dormId, proof){
   requireSupabase();
-  const { error } = await sb.rpc('claim_dorm', { p_dorm_id: dormId });
+  const { data, error } = await sb.rpc('request_dorm_claim', { p_dorm_id: dormId, p_proof: proof || null });
   if(error) throw error;
+  return data;
+}
+
+// คำขอของฉัน (ฝั่งเจ้าของหอ) — ใช้แสดงสถานะว่ารออนุมัติอยู่
+async function getMyDormClaims(){
+  if(!sb) return [];
+  const user = await waitForSession();
+  if(!user) return [];
+  const { data, error } = await sb.from('dorm_claims').select('*')
+    .eq('owner_id', user.id).order('created_at', { ascending:false });
+  if(error) throw error;
+  return data.map(mapClaimRow);
+}
+
+// คำขอทั้งหมดที่รอตรวจสอบ (ฝั่งแอดมิน)
+async function getPendingDormClaims(){
+  if(!sb) return [];
+  const { data, error } = await sb.from('dorm_claims').select('*')
+    .eq('status','pending').order('created_at', { ascending:true });
+  if(error) throw error;
+  return data.map(mapClaimRow);
+}
+
+async function approveDormClaim(claimId){
+  requireSupabase();
+  const { error } = await sb.rpc('approve_dorm_claim', { p_claim_id: claimId });
+  if(error) throw error;
+}
+
+async function rejectDormClaim(claimId, reason){
+  requireSupabase();
+  const { error } = await sb.rpc('reject_dorm_claim', { p_claim_id: claimId, p_reason: reason || null });
+  if(error) throw error;
+}
+
+function mapClaimRow(r){
+  return {
+    id: r.id, dormId: r.dorm_id, dormName: r.dorm_name,
+    ownerId: r.owner_id, ownerName: r.owner_name,
+    ownerEmail: r.owner_email || '', ownerPhone: r.owner_phone || '',
+    proof: r.proof || '', status: r.status, rejectReason: r.reject_reason || '',
+    createdAt: new Date(r.created_at).getTime()
+  };
 }
 async function seedSampleDormsIfEmpty(ownerId){
   requireSupabase();
@@ -591,6 +646,17 @@ async function getBookingsForOwner(ownerId){
   if(error) throw error;
   return data.map(mapBookingRow);
 }
+// นักศึกษายกเลิกคำขอจองของตัวเอง (ทำได้เฉพาะรายการที่ยังรอหอตอบ)
+async function cancelMyBooking(bookingId){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
+  const { error } = await sb.from('bookings')
+    .update({ status:'cancelled' })
+    .eq('id', bookingId).eq('user_id', user.id).eq('status','pending');
+  if(error) throw error;
+}
+
 async function updateBookingStatus(bookingId, status){
   requireSupabase();
   if(status === 'confirmed'){

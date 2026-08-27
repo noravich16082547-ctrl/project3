@@ -17,7 +17,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     // เดิมลืมใส่ 'messages' ไว้ในรายการนี้ แท็บข้อความจึงกดแล้วไม่ขึ้นอะไรเลย
-    ['overview','listings','bookings','messages','claim','owners'].forEach(s=>{
+    ['overview','listings','bookings','messages','claim','claimreview','owners'].forEach(s=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
@@ -171,28 +171,133 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
 async function renderClaim(){
   const tbody = document.getElementById('claimTable');
   try{
-    const list = (await getUnclaimedDorms()).filter(d => d.ownerId !== ME.uid);
-    tbody.innerHTML = list.map(d=>`<tr>
-      <td><strong>${d.name}</strong></td>
-      <td>${d.hallType}</td>
-      <td>${d.rooms.length? d.rooms.map(r=>`${r.label}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
-      <td style="max-width:340px"><small class="muted">${d.desc||''}</small></td>
-      <td><button class="btn btn-sm btn-approve" data-claim="${d.id}">นี่คือหอของฉัน</button></td>
-    </tr>`).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ไม่มีหอพักที่รอเจ้าของรับช่วงดูแล</td></tr>`;
+    const [list, myClaims] = await Promise.all([
+      getUnclaimedDorms().then(l => l.filter(d => d.ownerId !== ME.uid)),
+      getMyDormClaims().catch(()=>[])
+    ]);
+    const claimByDorm = {};
+    myClaims.forEach(c=>{ if(!claimByDorm[c.dormId] || c.status==='pending') claimByDorm[c.dormId] = c; });
 
-    document.querySelectorAll('[data-claim]').forEach(btn=>{
+    // แถบสรุปสถานะคำขอของฉัน
+    const pending = myClaims.filter(c=>c.status==='pending');
+    const box = document.getElementById('myClaimStatus');
+    if(box){
+      box.innerHTML = pending.length
+        ? `<div class="setup-banner show" style="background:#FDF1DC;border-color:#E8A33D;color:#946A0E">
+             ⏳ คุณยื่นคำขอดูแลหอไว้ ${pending.length} รายการ กำลังรอผู้ดูแลระบบตรวจสอบ —
+             ${pending.map(c=>escapeHtml(c.dormName||'')).join(', ')}
+           </div>`
+        : '';
+    }
+
+    tbody.innerHTML = list.map(d=>{
+      const c = claimByDorm[d.id];
+      let action;
+      if(c && c.status === 'pending'){
+        action = '<span class="status-pill status-pending">⏳ รอผู้ดูแลระบบตรวจสอบ</span>';
+      }else if(c && c.status === 'rejected'){
+        action = `<span class="status-pill status-cancelled">ไม่ผ่านการตรวจสอบ</span><br>
+                  <small class="muted">${escapeHtml(c.rejectReason||'')}</small><br>
+                  <button class="btn btn-sm btn-outline" data-claim="${d.id}" style="margin-top:6px">ยื่นใหม่</button>`;
+      }else{
+        action = `<button class="btn btn-sm btn-approve" data-claim="${d.id}">นี่คือหอของฉัน</button>`;
+      }
+      return `<tr>
+        <td><strong>${escapeHtml(d.name)}</strong></td>
+        <td>${escapeHtml(d.hallType)}</td>
+        <td>${d.rooms.length? d.rooms.map(r=>`${escapeHtml(r.label)}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
+        <td style="max-width:340px"><small class="muted">${escapeHtml((d.desc||'').slice(0,160))}</small></td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ไม่มีหอพักที่รอเจ้าของรับช่วงดูแล</td></tr>`;
+
+    tbody.querySelectorAll('[data-claim]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('ยืนยันว่าคุณเป็นเจ้าของหอพักนี้?\n\nหลังรับช่วงดูแลแล้ว คุณจะแก้ไขข้อมูลหอนี้ได้ และคำขอจองจากนักศึกษาจะส่งถึงคุณโดยตรง')) return;
+        const proof = prompt(
+          'ยืนยันว่าคุณเป็นเจ้าของหอพักนี้\n\n' +
+          'กรุณาระบุข้อมูลให้ผู้ดูแลระบบตรวจสอบ เช่น ชื่อผู้ประกอบการตามทะเบียน ' +
+          'เบอร์โทรที่ติดต่อได้ หรือเลขทะเบียนหอพัก\n' +
+          '(ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันก่อนอนุมัติ)'
+        );
+        if(proof === null) return;
         try{
-          await claimDorm(btn.dataset.claim);
-          toast('รับช่วงดูแลหอพักเรียบร้อย — ไปที่เมนู "จัดการห้องพัก" เพื่ออัปเดตข้อมูลได้เลย','success');
-          renderClaim(); renderListings(); renderStats();
-        }catch(err){ console.error(err); toast('รับช่วงดูแลไม่สำเร็จ: '+err.message,'error'); }
+          await requestDormClaim(btn.dataset.claim, proof);
+          toast('ส่งคำขอแล้ว — รอผู้ดูแลระบบตรวจสอบและอนุมัติ','success');
+          renderClaim();
+        }catch(err){ console.error(err); toast('ส่งคำขอไม่สำเร็จ: '+err.message,'error'); }
       });
     });
   }catch(err){
     console.error(err);
     tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// คำขอรับช่วงดูแลหอ (เฉพาะผู้ดูแลระบบ)
+// ---------------------------------------------------------------------------
+async function renderClaimReview(){
+  const box = document.getElementById('claimReviewList');
+  if(!box) return;
+  try{
+    const list = await getPendingDormClaims();
+    const badge = document.getElementById('claimReviewBadge');
+    if(badge) badge.innerHTML = list.length ? `<span class="chat-badge">${list.length}</span>` : '';
+
+    if(!list.length){
+      box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">✅</div>
+        <p>ไม่มีคำขอรอตรวจสอบ</p></div>`;
+      return;
+    }
+    box.innerHTML = list.map(c=>`
+      <div class="booking-item is-new">
+        <div class="bk-top">
+          <div>
+            <div class="bk-who">${escapeHtml(c.ownerName||'เจ้าของหอ')}</div>
+            <div class="bk-room">ขอดูแลหอ: ${escapeHtml(c.dormName||'')}</div>
+          </div>
+          <span class="status-pill status-pending">รอตรวจสอบ</span>
+        </div>
+        <div class="bk-grid">
+          <div><span class="k">อีเมล:</span> <strong>${escapeHtml(c.ownerEmail)}</strong></div>
+          <div><span class="k">เบอร์โทร:</span> <strong>${escapeHtml(c.ownerPhone)}</strong></div>
+          <div><span class="k">ยื่นเมื่อ:</span> <strong>${fmtChatTime(c.createdAt)}</strong></div>
+        </div>
+        ${c.proof ? `<div class="bk-note">📄 ข้อมูลยืนยันตัวตน: ${escapeHtml(c.proof)}</div>` : ''}
+        <div class="bk-note" style="background:#FDF1DC;color:#946A0E">
+          ⚠️ โปรดโทรตรวจสอบกับหอพักตัวจริงก่อนอนุมัติ — อนุมัติแล้วผู้ขอจะแก้ราคา
+          ช่องทางติดต่อ และรับการจองแทนหอนี้ได้ทันที
+        </div>
+        <div class="bk-actions">
+          <button class="btn btn-sm btn-approve" data-claimok="${c.id}">✓ อนุมัติให้ดูแลหอนี้</button>
+          <button class="btn btn-sm btn-reject" data-claimno="${c.id}">✕ ปฏิเสธ</button>
+        </div>
+      </div>`).join('');
+
+    box.querySelectorAll('[data-claimok]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('อนุมัติให้ผู้ขอรายนี้ดูแลหอพักนี้?\n\nคุณได้ตรวจสอบตัวตนกับหอพักตัวจริงแล้วใช่ไหม')) return;
+        try{
+          await approveDormClaim(btn.dataset.claimok);
+          toast('อนุมัติเรียบร้อย','success');
+          renderClaimReview(); renderStats(); renderOwners();
+        }catch(err){ console.error(err); toast('อนุมัติไม่สำเร็จ: '+err.message,'error'); }
+      });
+    });
+    box.querySelectorAll('[data-claimno]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const reason = prompt('เหตุผลที่ปฏิเสธ (ผู้ขอจะเห็นข้อความนี้):');
+        if(reason === null) return;
+        try{
+          await rejectDormClaim(btn.dataset.claimno, reason);
+          toast('ปฏิเสธคำขอแล้ว','success');
+          renderClaimReview();
+        }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+err.message,'error'); }
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดคำขอไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
   }
 }
 
@@ -419,12 +524,40 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     return;
   }
   ME = profile;
-  if(profile.role==='owner' && !profile.approved){
-    document.getElementById('pendingNotice').style.display='block';
-    return;
-  }
   document.getElementById('dashShell').style.display='grid';
-  if(profile.role==='admin') document.getElementById('ownersTabBtn').style.display='flex';
+
+  // เจ้าของหอที่ยังไม่ผ่านการตรวจสอบ: เข้าได้เฉพาะเมนู "รับช่วงดูแลหอของฉัน"
+  // เพื่อยื่นคำขอ (ถ้าปิดทั้งหมดจะไม่มีทางยื่นคำขอให้แอดมินอนุมัติได้เลย)
+  const isPendingOwner = (profile.role === 'owner' && !profile.approved);
+  if(isPendingOwner){
+    ['overview','listings','bookings','messages'].forEach(sec=>{
+      const btn = document.querySelector(`.side-link[data-sec="${sec}"]`);
+      if(btn) btn.style.display = 'none';
+    });
+    document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
+    const claimBtn = document.querySelector('.side-link[data-sec="claim"]');
+    if(claimBtn) claimBtn.classList.add('active');
+    ['overview','listings','bookings','messages','claimreview','owners'].forEach(sec=>{
+      const el = document.getElementById('sec-'+sec);
+      if(el) el.style.display = 'none';
+    });
+    const claimSec = document.getElementById('sec-claim');
+    if(claimSec) claimSec.style.display = 'block';
+    const notice = document.getElementById('pendingNotice');
+    if(notice){
+      notice.style.display = 'block';
+      notice.innerHTML = `<div class="setup-banner show" style="margin:16px 20px 0">
+        ⏳ <strong>บัญชีเจ้าของหอของคุณกำลังรอผู้ดูแลระบบตรวจสอบ</strong><br>
+        กด "นี่คือหอของฉัน" ที่หอของคุณด้านล่างเพื่อยื่นคำขอ —
+        ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันตัวตน เมื่ออนุมัติแล้วคุณจะแก้ข้อมูลหอ
+        รับข้อความ และรับการจองได้ทันที
+      </div>`;
+    }
+  }
+  if(profile.role==='admin'){
+    document.getElementById('ownersTabBtn').style.display='flex';
+    document.getElementById('claimReviewTabBtn').style.display='flex';
+  }
 
   try{
     new QRCode(document.getElementById('qrcode2'), {
@@ -434,6 +567,10 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
   }catch(err){ console.error(err); }
 
   try{
+    if(isPendingOwner){
+      await renderClaim();
+      return;   // ยังไม่ผ่านการตรวจสอบ ไม่ต้องโหลดส่วนที่ยังใช้ไม่ได้
+    }
     await renderStats(); await renderListings(); await renderClaim();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
@@ -464,6 +601,10 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     document.getElementById('chatModal').addEventListener('click',(e)=>{
       if(e.target.id==='chatModal') e.currentTarget.classList.remove('open');
     }); await renderOwnerThreads();
-    if(profile.role==='admin') await renderOwners();
+    if(profile.role==='admin'){
+      await renderOwners();
+      await renderClaimReview();
+      setInterval(renderClaimReview, 60000);
+    }
   }catch(err){ console.error(err); toast('โหลดข้อมูลบางส่วนไม่สำเร็จ','error'); }
 })();

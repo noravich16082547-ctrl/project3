@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -202,6 +202,18 @@
   </div>
 </div>
 
+<!-- ============== โมดัลการจองของฉัน (ฝั่งนักศึกษา) ============== -->
+<div class="modal-backdrop" id="myBookingsModal">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" id="closeMyBookingsModal">✕</button>
+    <h3 style="margin-top:0">การจองของฉัน</h3>
+    <p class="muted" style="font-size:.85rem;margin-top:-4px">
+      ติดตามสถานะคำขอจองที่คุณส่งไปหาหอพัก
+    </p>
+    <div id="myBookingsList"><div class="chat-empty">กำลังโหลด...</div></div>
+  </div>
+</div>
+
 <!-- ============== โมดัลรายการข้อความของฉัน (มีชุดเดียว) ============== -->
 <div class="modal-backdrop" id="threadsModal">
   <div class="modal" style="max-width:520px">
@@ -213,8 +225,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="db.js?v=5"></script>
+<script src="app.js?v=5"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -258,6 +270,7 @@ function dormCardHtml(d){
       <img src="${d.images[0]}" alt="${escapeHtml(d.name)}" loading="lazy" ${imgFallbackAttr()}>
       <span class="badge-type">${d.hallType}</span>
       <span class="badge-vacancy ${(!d.verified||vac===0)?'full':''}">${!d.verified?'สอบถามห้องว่าง':(vac===0?'เต็ม':'ว่าง '+vac+' ห้อง')}</span>
+      ${hasOnlyStockPhotos(d)?'<span class="badge-stock" title="หอนี้ยังไม่ได้ส่งรูปห้องจริงเข้ามา">🖼 ภาพประกอบ</span>':''}
       ${hasContact(d)?'<span class="badge-type" style="top:auto;bottom:10px;left:10px;background:rgba(31,58,46,.85)">📞 ติดต่อได้</span>':''}
     </div>
     <button class="wishlist-btn ${wished?'active':''}" data-wish="${d.id}" aria-label="บันทึกที่ถูกใจ">${wished?'❤️':'🤍'}</button>
@@ -342,14 +355,21 @@ function galleryHtml(d){
   if(!imgs.length) return '';
   const side = [];
   for(let i=1;i<=4;i++) side.push(imgs[i % imgs.length]);
+  const isStock = hasOnlyStockPhotos(d);
+  const stock = isStock;
   return `
-  <div class="td-gallery">
+  ${stock ? `<div class="stock-warning">
+      🖼 <strong>รูปด้านล่างเป็นภาพประกอบ ไม่ใช่ห้องจริงของหอนี้</strong> —
+      หอนี้ยังไม่ได้ส่งรูปห้องจริงเข้าระบบ กรุณาขอรูปจริงจากหอ หรือไปดูห้องด้วยตัวเองก่อนตัดสินใจ
+    </div>` : ''}
+  <div class="td-gallery ${stock?'is-stock':''}">
     <div class="g-main"><img src="${imgs[0]}" alt="${escapeHtml(d.name)}" ${imgFallbackAttr()}></div>
     <div class="g-side">
       ${side.map((src,i)=>`
         <div class="g-cell">
           <img src="${src}" alt="ภาพหอพัก ${i+2}" ${imgFallbackAttr()}>
           ${i===3 ? `<span class="g-more">🖼 ดูทั้งหมด ${imgs.length} รูป</span>` : ''}
+          ${(i===0 && stock) ? '<span class="g-stock-tag">ภาพประกอบ</span>' : ''}
         </div>`).join('')}
     </div>
   </div>`;
@@ -369,6 +389,7 @@ function highlightsHtml(d){
     if(m) items.push({ ic:m.icon, label:m.label });
   });
   if(canChat(d)) items.push({ ic:'💬', label:'แชทในเว็บได้' });
+  if(hasOnlyStockPhotos(d)) items.push({ ic:'🖼', label:'ยังไม่มีรูปห้องจริง' });
   return `<div class="td-highlights">${items.map(i=>`
     <div class="hl"><span class="hl-ic">${i.ic}</span><span>${escapeHtml(i.label)}</span></div>`).join('')}</div>`;
 }
@@ -660,9 +681,9 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     // ยิงอีเมลแจ้งเจ้าของหอ (ไม่บล็อกการจอง ถ้าเมลส่งไม่ออกก็ยังจองสำเร็จ)
     const mail = await notifyOwnerByEmail(booking.id);
     if(mail && mail.ok){
-      toast('ส่งคำขอจองแล้ว — แจ้งเตือนเข้าอีเมลเจ้าของหอเรียบร้อย','success');
+      toast('ส่งคำขอจองแล้ว — แจ้งเตือนเข้าอีเมลเจ้าของหอเรียบร้อย ติดตามสถานะได้ที่เมนู "การจองของฉัน"','success');
     }else{
-      toast('ส่งคำขอจองแล้ว — เจ้าของหอจะเห็นคำขอในระบบ','success');
+      toast('ส่งคำขอจองแล้ว — ติดตามสถานะได้ที่เมนู "การจองของฉัน"','success');
     }
 
     // เปิดแชทต่อให้อัตโนมัติ พร้อมข้อความตั้งต้น จะได้คุยรายละเอียดกันต่อได้เลย
@@ -678,6 +699,84 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
 });
 document.getElementById('closeBookingModal').addEventListener('click', ()=> document.getElementById('bookingModal').classList.remove('open'));
 document.getElementById('bookingModal').addEventListener('click', e=>{ if(e.target.id==='bookingModal') e.currentTarget.classList.remove('open'); });
+
+// ---------- การจองของฉัน (ฝั่งนักศึกษา) ----------
+const BOOKING_STATUS_TEXT = {
+  pending:   { label:'รอหอตอบกลับ', cls:'status-pending',
+               hint:'หอพักได้รับคำขอแล้ว กำลังรอเจ้าของหอติดต่อกลับ — ถ้ารอนานลองทักในแชทได้' },
+  confirmed: { label:'หอรับจองแล้ว', cls:'status-confirmed',
+               hint:'เจ้าของหอยืนยันรับจองแล้ว นัดวันเข้าดูห้องและทำสัญญากับหอได้เลย' },
+  cancelled: { label:'ยกเลิกแล้ว', cls:'status-cancelled',
+               hint:'คำขอนี้ถูกยกเลิก — จองห้องอื่นหรือสอบถามหอเพิ่มเติมได้' }
+};
+
+function fmtVisitDate(v){
+  if(!v) return '';
+  try{ return new Date(v).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}); }
+  catch(e){ return v; }
+}
+
+async function openMyBookings(){
+  document.getElementById('myBookingsModal').classList.add('open');
+  const box = document.getElementById('myBookingsList');
+  box.innerHTML = '<div class="chat-empty">กำลังโหลด...</div>';
+  try{
+    const user = await waitForSession();
+    if(!user){ box.innerHTML = '<div class="chat-empty">กรุณาเข้าสู่ระบบ</div>'; return; }
+    const list = await getMyBookings(user.id);
+    if(!list.length){
+      box.innerHTML = `<div class="empty-state" style="padding:30px 10px"><div class="emoji">📌</div>
+        <p>ยังไม่มีการจอง<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "จองห้องนี้" ได้เลย</small></p></div>`;
+      return;
+    }
+    box.innerHTML = list.map(b=>{
+      const st = BOOKING_STATUS_TEXT[b.status] || BOOKING_STATUS_TEXT.pending;
+      return `
+      <div class="mybk-item ${b.status}">
+        <div class="mybk-top">
+          <div>
+            <div class="mybk-dorm">${escapeHtml(b.dormName||'หอพัก')}</div>
+            <div class="mybk-room">${escapeHtml(b.roomLabel||'ยังไม่ระบุห้อง')}</div>
+          </div>
+          <span class="status-pill ${st.cls}">${st.label}</span>
+        </div>
+        <div class="mybk-meta">
+          ส่งคำขอเมื่อ ${fmtChatTime(b.createdAt)}
+          ${b.visitDate ? ' · นัดดูห้อง ' + escapeHtml(fmtVisitDate(b.visitDate)) : ''}
+        </div>
+        <div class="mybk-hint">${st.hint}</div>
+        <div class="mybk-actions">
+          <button class="btn btn-sm btn-outline" data-bkopen="${b.dormId}">💬 คุยกับหอ</button>
+          ${b.status === 'pending' ? `<button class="btn btn-sm btn-ghost" data-bkcancel="${b.id}">ยกเลิกคำขอ</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('[data-bkopen]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const dorm = allDorms.find(x=>x.id===btn.dataset.bkopen) || await getDormById(btn.dataset.bkopen);
+        if(!dorm){ toast('ไม่พบหอพักนี้แล้ว','error'); return; }
+        document.getElementById('myBookingsModal').classList.remove('open');
+        openChat(dorm);
+      });
+    });
+    box.querySelectorAll('[data-bkcancel]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('ยกเลิกคำขอจองนี้?')) return;
+        try{
+          await cancelMyBooking(btn.dataset.bkcancel);
+          toast('ยกเลิกคำขอจองแล้ว','success');
+          openMyBookings();
+        }catch(err){ console.error(err); toast('ยกเลิกไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+  }
+}
+document.getElementById('closeMyBookingsModal').addEventListener('click', ()=> document.getElementById('myBookingsModal').classList.remove('open'));
+document.getElementById('myBookingsModal').addEventListener('click', e=>{ if(e.target.id==='myBookingsModal') e.currentTarget.classList.remove('open'); });
 
 // ===========================================================================
 // ระบบแชท (ฝั่งนักศึกษา)
@@ -830,6 +929,8 @@ async function refreshUnreadBadge(){
     refreshUnreadBadge();
     setInterval(refreshUnreadBadge, 30000);
   }
+  const bkBtn = document.getElementById('navBookingBtn');
+  if(bkBtn) bkBtn.addEventListener('click', (e)=>{ e.preventDefault(); openMyBookings(); });
 
   watchDorms((dorms)=>{
     allDorms = dorms;

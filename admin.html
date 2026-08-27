@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <header class="topbar">
@@ -36,6 +36,7 @@
     <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
+    <button class="side-link" data-sec="claimreview" id="claimReviewTabBtn" style="display:none">🛡️ ตรวจสอบคำขอดูแลหอ<span id="claimReviewBadge"></span></button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
   </aside>
 
@@ -96,8 +97,10 @@
       <div class="section-head"><h2>รับช่วงดูแลหอพักของคุณ</h2></div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
         หอพักด้านล่างเป็นข้อมูลที่รวบรวมจากประกาศสาธารณะ ยังไม่มีเจ้าของยืนยันดูแล —
-        ถ้าหอไหนเป็นของคุณ กด "นี่คือหอของฉัน" เพื่อรับช่วงดูแล แล้วคุณจะแก้ราคา/ห้องว่าง/รูป/ช่องทางติดต่อได้ทันที
+        ถ้าหอไหนเป็นของคุณ กด "นี่คือหอของฉัน" เพื่อ<strong>ยื่นคำขอ</strong> —
+        ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันตัวตนก่อนอนุมัติ (ขั้นตอนนี้ป้องกันไม่ให้คนอื่นแอบอ้างเป็นเจ้าของหอของคุณ)
       </p>
+      <div id="myClaimStatus"></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>หอพัก</th><th>ประเภท</th><th>ราคาที่ประกาศไว้</th><th>รายละเอียด</th><th>จัดการ</th></tr></thead>
@@ -106,9 +109,19 @@
       </div>
     </div>
 
+    <div id="sec-claimreview" style="display:none">
+      <div class="section-head"><h2>ตรวจสอบคำขอรับช่วงดูแลหอ</h2></div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        เจ้าของหอที่กด "นี่คือหอของฉัน" จะมารออนุมัติที่นี่ —
+        <strong>กรุณาโทรตรวจสอบกับหอพักตัวจริงก่อนอนุมัติทุกครั้ง</strong>
+        เพราะผู้ที่ได้รับอนุมัติจะแก้ราคา ช่องทางติดต่อ และรับการจองแทนหอนั้นได้
+      </p>
+      <div id="claimReviewList"><div class="chat-empty">กำลังโหลด...</div></div>
+    </div>
+
     <div id="sec-owners" style="display:none">
       <div class="section-head"><h2>รายชื่อเจ้าของหอในระบบ</h2></div>
-      <p class="muted" style="font-size:.88rem;margin-top:-8px">เจ้าของหอสมัครแล้วใช้งานได้ทันที ไม่ต้องรออนุมัติ — หน้านี้ไว้ให้ผู้ดูแลระบบตรวจสอบย้อนหลังหรือระงับบัญชีที่มีปัญหาเท่านั้น</p>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">เจ้าของหอที่สมัครใหม่จะขึ้นสถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะตรวจสอบตัวตน — กดอนุมัติที่นี่ หรืออนุมัติพร้อมกันตอนตรวจคำขอดูแลหอ</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>ชื่อ</th><th>กิจการ</th><th>อีเมล</th><th>เบอร์โทร</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
@@ -194,9 +207,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=4"></script>
-<script src="app.js?v=4"></script>
-<script src="admin.js?v=4"></script>
+<script src="db.js?v=5"></script>
+<script src="app.js?v=5"></script>
+<script src="admin.js?v=5"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
