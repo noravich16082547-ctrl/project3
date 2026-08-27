@@ -82,7 +82,8 @@ function siteContactBarHtml(){
 // ---------------------------------------------------------------------------
 const LINE_OA = {
   basicId: '@Alvarez001',        // เช่น '@123abcd'  (Basic ID จาก LINE Official Account Manager)
-  addFriendUrl: ''    // เช่น 'https://line.me/R/ti/p/@123abcd'  เว้นว่างจะสร้างจาก basicId ให้เอง
+  addFriendUrl: 'https://lin.ee/sOTlBAl'
+   qrImage: 'line-qr.png'// เช่น 'https://line.me/R/ti/p/@123abcd'  เว้นว่างจะสร้างจาก basicId ให้เอง
 };
 function lineAddFriendUrl(){
   if(LINE_OA.addFriendUrl) return LINE_OA.addFriendUrl;
