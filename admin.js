@@ -22,6 +22,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
     // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
+    if(btn.dataset.sec === 'claimreview'){ renderPendingDorms(); }
     if(btn.dataset.sec === 'bookings'){
       markBookingsRead(ME && ME.uid).then(refreshBookingBadge).catch(console.error);
     }
@@ -40,6 +41,15 @@ async function renderStats(){
 }
 
 async function renderListings(){
+  const hint = document.getElementById('listingHint');
+  if(hint){
+    hint.innerHTML = (ME && ME.role === 'owner' && !ME.approved)
+      ? `<div class="setup-banner show" style="margin-bottom:14px">
+           📝 กด <strong>"+ เพิ่มหอพักใหม่"</strong> เพื่อกรอกข้อมูลหอของคุณ —
+           หอจะถูกส่งให้ผู้ดูแลระบบตรวจสอบก่อน ยังไม่แสดงให้นักศึกษาเห็นทันที
+         </div>`
+      : '';
+  }
   const allDorms = await getDorms();
   const dorms = ME.role==='admin' ? allDorms : allDorms.filter(d=>d.ownerId===ME.uid);
   document.getElementById('listingTable').innerHTML = dorms.map(d=>`
@@ -54,7 +64,11 @@ async function renderListings(){
           <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${r.code}|1" title="เพิ่มห้องว่าง (เปิดห้อง)" style="padding:2px 8px">+</button>
         </div>`).join('')}</td>
       <td>
-        ${d.verified ? '<span class="status-pill status-confirmed">ยืนยันแล้ว</span>' : '<span class="status-pill status-pending">รอยืนยัน</span>'}<br>
+        ${d.published === false
+          ? `<span class="status-pill status-pending">⏳ รอผู้ดูแลระบบตรวจสอบ</span>
+             ${d.reviewNote ? `<br><small class="muted">ไม่อนุมัติ: ${escapeHtml(d.reviewNote)}</small>` : ''}`
+          : (d.verified ? '<span class="status-pill status-confirmed">ยืนยันแล้ว</span>'
+                        : '<span class="status-pill status-pending">รอยืนยัน</span>')}<br>
         <button class="btn btn-outline btn-sm" data-edit="${d.id}" style="margin-top:6px">แก้ไข</button>
         <button class="btn btn-sm btn-reject" data-del="${d.id}" style="margin-top:6px">ลบ</button>
       </td>
@@ -472,6 +486,123 @@ async function renderBookings(){
   }
 }
 
+// ---------------------------------------------------------------------------
+// หอพักใหม่ที่รอผู้ดูแลระบบตรวจสอบ
+// ---------------------------------------------------------------------------
+async function renderPendingDorms(){
+  const box = document.getElementById('pendingDormList');
+  if(!box) return;
+  try{
+    const list = await getPendingDorms();
+    if(!list.length){
+      box.innerHTML = `<div class="empty-state" style="padding:26px 10px"><div class="emoji">✅</div>
+        <p>ไม่มีหอพักใหม่รอตรวจสอบ</p></div>`;
+      return;
+    }
+    box.innerHTML = list.map(d=>`
+      <div class="booking-item is-new">
+        <div class="bk-top">
+          <div>
+            <div class="bk-who">${escapeHtml(d.name)}</div>
+            <div class="bk-room">${escapeHtml(d.hallType)} · ส่งเข้ามาใหม่</div>
+          </div>
+          <span class="status-pill status-pending">รอตรวจสอบ</span>
+        </div>
+        <div class="bk-grid">
+          ${d.phone ? `<div><span class="k">เบอร์หอ:</span> <strong>${escapeHtml(d.phone)}</strong></div>` : ''}
+          ${d.contactEmail ? `<div><span class="k">อีเมล:</span> <strong>${escapeHtml(d.contactEmail)}</strong></div>` : ''}
+          ${d.facebook ? `<div><span class="k">Facebook:</span> <strong>${escapeHtml(d.facebook)}</strong></div>` : ''}
+          <div><span class="k">ราคา:</span> <strong>${d.rooms.length
+            ? d.rooms.map(r=>escapeHtml(r.label)+' '+fmtBaht(r.price)+'฿').join(', ')
+            : 'ยังไม่ระบุ'}</strong></div>
+        </div>
+        ${d.desc ? `<div class="bk-note">${escapeHtml(d.desc.slice(0,300))}</div>` : ''}
+        <div class="bk-note" style="background:#FDF1DC;color:#946A0E">
+          ⚠️ โทรตรวจสอบว่าหอนี้มีอยู่จริงและผู้ส่งเป็นเจ้าของตัวจริงก่อนอนุมัติ —
+          อนุมัติแล้วหอจะแสดงให้นักศึกษาเห็นทันที
+        </div>
+        <div class="bk-actions">
+          <button class="btn btn-sm btn-approve" data-dormok="${d.id}">✓ อนุมัติและเผยแพร่</button>
+          <button class="btn btn-sm btn-reject" data-dormno="${d.id}">✕ ไม่อนุมัติ</button>
+        </div>
+      </div>`).join('');
+
+    box.querySelectorAll('[data-dormok]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('อนุมัติและเผยแพร่หอพักนี้?\n\nคุณตรวจสอบแล้วว่าหอมีอยู่จริงและผู้ส่งเป็นเจ้าของตัวจริงใช่ไหม')) return;
+        try{
+          await approveDorm(btn.dataset.dormok);
+          toast('อนุมัติแล้ว — หอนี้แสดงให้นักศึกษาเห็นแล้ว','success');
+          renderPendingDorms(); renderStats(); renderListings();
+        }catch(err){ console.error(err); toast('อนุมัติไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+    });
+    box.querySelectorAll('[data-dormno]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const reason = prompt('เหตุผลที่ไม่อนุมัติ (เจ้าของหอจะเห็นข้อความนี้):');
+        if(reason === null) return;
+        try{
+          await rejectDorm(btn.dataset.dormno, reason);
+          toast('บันทึกผลการตรวจสอบแล้ว','success');
+          renderPendingDorms();
+        }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// การ์ด "ตั้งผู้ดูแลระบบคนแรก" — ขึ้นเฉพาะตอนระบบยังไม่มีแอดมินเลย
+// ---------------------------------------------------------------------------
+async function renderBootstrapAdmin(){
+  const box = document.getElementById('bootstrapAdminBox');
+  if(!box) return false;
+  try{
+    if(await adminExists()) return false;
+
+    const canDo = await canBootstrapAdmin();
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div class="line-card" style="border-left:4px solid var(--coral)">
+        <h3 style="margin-top:0">⚠️ ระบบนี้ยังไม่มีผู้ดูแลระบบ</h3>
+        <p class="muted" style="font-size:.9rem">
+          ต้องมีผู้ดูแลระบบอย่างน้อย 1 คน ถึงจะอนุมัติหอพักและเจ้าของหอได้
+          ${canDo
+            ? '<br>บัญชีนี้เป็นบัญชีแรกที่สมัครในระบบ จึงตั้งเป็นผู้ดูแลระบบคนแรกได้'
+            : '<br><strong>บัญชีนี้ไม่ใช่บัญชีแรกที่สมัครในระบบ</strong> — ให้เข้าสู่ระบบด้วยบัญชีแรกแล้วกดปุ่มนี้ หรือตั้งด้วยคำสั่ง SQL ใน Supabase'}
+        </p>
+        ${canDo
+          ? `<button class="btn btn-primary" id="btnBootstrapAdmin">ตั้งบัญชีนี้เป็นผู้ดูแลระบบคนแรก</button>`
+          : `<pre style="background:var(--sage-bg);padding:12px;border-radius:8px;font-size:.8rem;overflow:auto">update profiles set role='admin', approved=true
+ where email='อีเมลของคุณ';</pre>`}
+        <p class="form-hint" style="margin-top:10px">
+          ปุ่มนี้ใช้ได้ครั้งเดียวตอนระบบยังไม่มีผู้ดูแลระบบ พอมีแล้วจะหายไปถาวร
+          หลังจากนั้นเพิ่มผู้ดูแลระบบคนอื่นได้จากเมนู "รายชื่อเจ้าของหอ"
+        </p>
+      </div>`;
+
+    const btn = document.getElementById('btnBootstrapAdmin');
+    if(btn){
+      btn.addEventListener('click', async ()=>{
+        btn.disabled = true;
+        try{
+          await bootstrapFirstAdmin();
+          toast('ตั้งผู้ดูแลระบบเรียบร้อย — กำลังโหลดหน้าใหม่','success');
+          setTimeout(()=> location.reload(), 900);
+        }catch(err){
+          console.error(err);
+          toast('ตั้งไม่สำเร็จ: '+(err.message||''),'error');
+          btn.disabled = false;
+        }
+      });
+    }
+    return true;
+  }catch(err){ console.error(err); return false; }
+}
+
 async function refreshBookingBadge(){
   try{
     const n = await getUnreadBookingCount(ME && ME.uid);
@@ -616,9 +747,13 @@ async function renderLineLink(){
     // วาด QR แอดเพื่อน
     try{
       const qrBox = document.getElementById('lineQr');
-      if(window.QRCode){
+      if(LINE_OA.qrImage){
+        // ใช้รูป QR ทางการที่ดาวน์โหลดมาจาก LINE OA (มีโลโก้ LINE สแกนติดง่ายกว่า)
+        qrBox.innerHTML = `<img src="${escapeHtml(LINE_OA.qrImage)}" alt="QR แอด LINE Official Account ของ DormCRU"
+          width="140" height="140" style="display:block">`;
+      }else if(window.QRCode){
         new QRCode(qrBox, {
-          text: lineAddFriendUrl(), width:120, height:120,
+          text: lineAddFriendUrl(), width:140, height:140,
           colorDark:'#06C755', colorLight:'#ffffff'
         });
       }else{
@@ -626,7 +761,7 @@ async function renderLineLink(){
         qrBox.innerHTML = `<div class="muted" style="font-size:.8rem;max-width:150px;word-break:break-all">
           สร้าง QR ไม่ได้ ใช้ลิงก์นี้แทน:<br><strong>${escapeHtml(lineAddFriendUrl())}</strong></div>`;
       }
-    }catch(err){ console.error('วาด QR ไม่สำเร็จ:', err); }
+    }catch(err){ console.error('แสดง QR ไม่สำเร็จ:', err); }
 
     document.getElementById('btnGetLineCode').addEventListener('click', async (e)=>{
       const btn = e.currentTarget;
@@ -694,33 +829,40 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     return;
   }
   ME = profile;
+  await renderBootstrapAdmin();
   document.getElementById('dashShell').style.display='grid';
 
   // เจ้าของหอที่ยังไม่ผ่านการตรวจสอบ: เข้าได้เฉพาะเมนู "รับช่วงดูแลหอของฉัน"
   // เพื่อยื่นคำขอ (ถ้าปิดทั้งหมดจะไม่มีทางยื่นคำขอให้แอดมินอนุมัติได้เลย)
   const isPendingOwner = (profile.role === 'owner' && !profile.approved);
   if(isPendingOwner){
-    ['overview','listings','bookings','messages','line'].forEach(sec=>{
+    // เปิด "จัดการห้องพัก" ไว้ด้วย เพราะเจ้าของหอที่หอยังไม่อยู่ในระบบ
+    // ต้องเพิ่มหอของตัวเองเข้ามาก่อน ถึงจะมีอะไรให้ผู้ดูแลระบบตรวจสอบ
+    ['overview','bookings','messages','line'].forEach(sec=>{
       const btn = document.querySelector(`.side-link[data-sec="${sec}"]`);
       if(btn) btn.style.display = 'none';
     });
-    document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
-    const claimBtn = document.querySelector('.side-link[data-sec="claim"]');
-    if(claimBtn) claimBtn.classList.add('active');
-    ['overview','listings','bookings','messages','line','claimreview','owners'].forEach(sec=>{
+
+    ['overview','bookings','messages','line','claimreview','owners','claim'].forEach(sec=>{
       const el = document.getElementById('sec-'+sec);
       if(el) el.style.display = 'none';
     });
-    const claimSec = document.getElementById('sec-claim');
-    if(claimSec) claimSec.style.display = 'block';
+    // เปิดหน้า "จัดการห้องพัก" เป็นหน้าแรก จะได้กด "เพิ่มหอพักใหม่" ได้ทันที
+    const listSec = document.getElementById('sec-listings');
+    if(listSec) listSec.style.display = 'block';
+    document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
+    const lb = document.querySelector('.side-link[data-sec="listings"]');
+    if(lb) lb.classList.add('active');
     const notice = document.getElementById('pendingNotice');
     if(notice){
       notice.style.display = 'block';
       notice.innerHTML = `<div class="setup-banner show" style="margin:16px 20px 0">
         ⏳ <strong>บัญชีเจ้าของหอของคุณกำลังรอผู้ดูแลระบบตรวจสอบ</strong><br>
-        กด "นี่คือหอของฉัน" ที่หอของคุณด้านล่างเพื่อยื่นคำขอ —
-        ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันตัวตน เมื่ออนุมัติแล้วคุณจะแก้ข้อมูลหอ
-        รับข้อความ และรับการจองได้ทันที
+        มี 2 ทางเลือก แล้วแต่ว่าหอของคุณอยู่ในระบบแล้วหรือยัง:<br>
+        • <strong>หอของคุณยังไม่มีในระบบ</strong> → กด "+ เพิ่มหอพักใหม่" ด้านล่าง กรอกข้อมูลหอของคุณ<br>
+        • <strong>หอของคุณอยู่ในรายชื่อ 61 หอแล้ว</strong> → ไปเมนู "รับช่วงดูแลหอของฉัน" แล้วกด "นี่คือหอของฉัน"<br>
+        ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันตัวตน เมื่ออนุมัติแล้วหอของคุณจะแสดงให้นักศึกษาเห็น
+        และคุณจะรับข้อความกับการจองได้ทันที
       </div>`;
     }
   }
@@ -738,6 +880,7 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
 
   try{
     if(isPendingOwner){
+      await renderListings();
       await renderClaim();
       return;   // ยังไม่ผ่านการตรวจสอบ ไม่ต้องโหลดส่วนที่ยังใช้ไม่ได้
     }
@@ -775,7 +918,8 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     if(profile.role==='admin'){
       await renderOwners();
       await renderClaimReview();
-      setInterval(renderClaimReview, 60000);
+      await renderPendingDorms();
+      setInterval(()=>{ renderClaimReview(); renderPendingDorms(); }, 60000);
     }
   }catch(err){ console.error(err); toast('โหลดข้อมูลบางส่วนไม่สำเร็จ','error'); }
 })();
