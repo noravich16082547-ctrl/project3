@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -225,8 +225,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=12"></script>
-<script src="app.js?v=12"></script>
+<script src="db.js?v=13"></script>
+<script src="app.js?v=13"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -705,7 +705,7 @@ const BOOKING_STATUS_TEXT = {
   pending:   { label:'รอหอตอบกลับ', cls:'status-pending',
                hint:'หอพักได้รับคำขอแล้ว กำลังรอเจ้าของหอติดต่อกลับ — ถ้ารอนานลองทักในแชทได้' },
   confirmed: { label:'หอรับจองแล้ว', cls:'status-confirmed',
-               hint:'เจ้าของหอยืนยันรับจองแล้ว นัดวันเข้าดูห้องและทำสัญญากับหอได้เลย' },
+               hint:'เจ้าของหอยืนยันรับจองแล้ว นัดวันเข้าดูห้องและทำสัญญากับหอได้เลย — ถ้าเปลี่ยนใจ กดยกเลิกได้ ระบบจะคืนห้องว่างให้หอ' },
   cancelled: { label:'ยกเลิกแล้ว', cls:'status-cancelled',
                hint:'คำขอนี้ถูกยกเลิก — จองห้องอื่นหรือสอบถามหอเพิ่มเติมได้' }
 };
@@ -747,7 +747,10 @@ async function openMyBookings(){
         <div class="mybk-hint">${st.hint}</div>
         <div class="mybk-actions">
           <button class="btn btn-sm btn-outline" data-bkopen="${b.dormId}">💬 คุยกับหอ</button>
-          ${b.status === 'pending' ? `<button class="btn btn-sm btn-ghost" data-bkcancel="${b.id}">ยกเลิกคำขอ</button>` : ''}
+          ${(b.status === 'pending' || b.status === 'confirmed')
+            ? `<button class="btn btn-sm btn-ghost" data-bkcancel="${b.id}" data-bkstatus="${b.status}">
+                 ${b.status === 'confirmed' ? 'ยกเลิกการจอง' : 'ยกเลิกคำขอ'}
+               </button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -762,10 +765,14 @@ async function openMyBookings(){
     });
     box.querySelectorAll('[data-bkcancel]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('ยกเลิกคำขอจองนี้?')) return;
+        const wasConfirmed = btn.dataset.bkstatus === 'confirmed';
+        const msg = wasConfirmed
+          ? 'ยกเลิกการจองนี้?\n\nหอได้ยืนยันรับจองไปแล้ว ระบบจะคืนห้องว่างให้หอ\nแนะนำให้แจ้งเจ้าของหอในแชทด้วย เพื่อไม่ให้เขาเก็บห้องไว้รอ'
+          : 'ยกเลิกคำขอจองนี้?';
+        if(!confirm(msg)) return;
         try{
           await cancelMyBooking(btn.dataset.bkcancel);
-          toast('ยกเลิกคำขอจองแล้ว','success');
+          toast(wasConfirmed ? 'ยกเลิกการจองแล้ว — คืนห้องว่างให้หอเรียบร้อย' : 'ยกเลิกคำขอจองแล้ว','success');
           openMyBookings();
         }catch(err){ console.error(err); toast('ยกเลิกไม่สำเร็จ: '+(err.message||''),'error'); }
       });

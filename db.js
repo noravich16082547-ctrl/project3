@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -31,9 +31,9 @@ try{
 // *** แก้ค่าด้านล่างเป็นช่องทางจริงของคุณ — ช่องไหนยังไม่มีให้ปล่อย '' ว่างไว้ ปุ่มจะไม่แสดง ***
 // ---------------------------------------------------------------------------
 const SITE_CONTACT = {
-  name:  '',                                  // ชื่อผู้ดูแลเว็บ เช่น 'ทีมงาน DormCRU'
+  name:  'ทีมงาน DormCRU',                     // ชื่อผู้ดูแลเว็บ
   phone: '',                                  // เช่น '081-234-5678'
-  email: '',                                  // เช่น 'dormcru@example.com'
+  email: 'darkwarior707@gmail.com',           // อีเมลผู้ดูแลเว็บ — แก้ตรงนี้ถ้าอยากใช้อีเมลอื่น
   line:  '',                                  // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
   facebook: ''                                // ลิงก์เพจ เช่น 'https://facebook.com/dormcru'
 };
@@ -74,58 +74,6 @@ function siteContactBarHtml(){
       </div>
       <div class="site-contact-links">${items}</div>
     </div>`;
-}
-
-// ---------------------------------------------------------------------------
-// LINE Official Account ของ DormCRU (ใช้ในหน้า "แจ้งเตือนเข้า LINE" ในหลังบ้าน)
-// *** แก้ 2 ค่านี้เป็นของ OA ที่คุณสร้าง — ดูวิธีหาค่าในไฟล์ README.md ***
-// ---------------------------------------------------------------------------
-const LINE_OA = {
-  basicId: '@Alvarez001',                  // Basic ID จาก LINE Official Account Manager
-  addFriendUrl: 'https://lin.ee/R42AyJa',  // ลิงก์แอดเพื่อนอย่างเป็นทางการ (จากปุ่ม "ลิงก์เพิ่มเพื่อน" ใน LINE OA)
-  qrImage: 'line-qr.png'                   // รูป QR ทางการที่ดาวน์โหลดจาก LINE OA — เว้นว่างจะสร้าง QR เองจากลิงก์
-};
-function lineAddFriendUrl(){
-  if(LINE_OA.addFriendUrl) return LINE_OA.addFriendUrl;
-  if(LINE_OA.basicId) return 'https://line.me/R/ti/p/' + encodeURIComponent(LINE_OA.basicId);
-  return '';
-}
-function isLineConfigured(){ return !!lineAddFriendUrl(); }
-
-// ---------------------------------------------------------------------------
-// เชื่อมบัญชี LINE ของเจ้าของหอ
-// ---------------------------------------------------------------------------
-
-// ขอรหัส 6 หลักไปพิมพ์ส่งให้บอทใน LINE (อายุ 15 นาที)
-async function createLineLinkCode(){
-  requireSupabase();
-  const { data, error } = await sb.rpc('create_line_link_code');
-  if(error) throw error;
-  return data;
-}
-
-// ดูว่าเชื่อมบัญชี LINE ไว้แล้วหรือยัง
-async function getMyLineLink(){
-  if(!sb) return null;
-  const user = await waitForSession();
-  if(!user) return null;
-  const { data, error } = await sb.from('line_links').select('*').eq('owner_id', user.id).maybeSingle();
-  if(error){ console.error(error); return null; }
-  if(!data) return null;
-  return {
-    lineUserId: data.line_user_id,
-    displayName: data.display_name || '',
-    linkedAt: new Date(data.linked_at).getTime()
-  };
-}
-
-// ยกเลิกการเชื่อมต่อ
-async function unlinkLine(){
-  requireSupabase();
-  const user = await waitForSession();
-  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
-  const { error } = await sb.from('line_links').delete().eq('owner_id', user.id);
-  if(error) throw error;
 }
 
 // เรียกจากทุกหน้าตอนเริ่มโหลด — คืนค่า true ถ้าพร้อมใช้งาน, false ถ้ายังไม่ได้ตั้งค่า/เชื่อมต่อไม่ได้
@@ -334,6 +282,9 @@ function contactButtonsBlock(d){
     const href = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-block" href="${href}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">💬 แชททาง LINE</a>`);
   }
+  if(d.contactEmail){
+    btns.push(`<a class="btn btn-outline btn-block" href="mailto:${d.contactEmail}" style="text-align:center;text-decoration:none;display:block">✉️ ${d.contactEmail}</a>`);
+  }
   if(d.facebook){
     btns.push(`<a class="btn btn-outline btn-block" href="${d.facebook}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">📘 เปิดเพจ Facebook</a>`);
   }
@@ -348,7 +299,7 @@ function contactButtonsBlock(d){
 }
 
 // มีช่องทางติดต่อหรือยัง (ใช้แสดงป้ายบนการ์ด)
-function hasContact(d){ return !!(d.phone || d.lineId || d.facebook); }
+function hasContact(d){ return !!(d.phone || d.lineId || d.facebook || d.contactEmail); }
 
 function contactButtonsHtml(d){
   const btns = [];
@@ -357,6 +308,7 @@ function contactButtonsHtml(d){
     const lineHref = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-sm" href="${lineHref}" target="_blank" rel="noopener">💬 LINE</a>`);
   }
+  if(d.contactEmail) btns.push(`<a class="btn btn-outline btn-sm" href="mailto:${d.contactEmail}">✉️ ${d.contactEmail}</a>`);
   if(d.facebook) btns.push(`<a class="btn btn-outline btn-sm" href="${d.facebook}" target="_blank" rel="noopener">📘 Facebook</a>`);
   if(btns.length === 0) return `<span class="muted" style="font-size:.85rem">ยังไม่มีช่องทางติดต่อ — รอเจ้าของหอยืนยันข้อมูล</span>`;
   return btns.join(' ');
@@ -816,14 +768,11 @@ async function getBookingsForOwner(ownerId){
   if(error) throw error;
   return data.map(mapBookingRow);
 }
-// นักศึกษายกเลิกคำขอจองของตัวเอง (ทำได้เฉพาะรายการที่ยังรอหอตอบ)
+// นักศึกษายกเลิกการจองของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
+// (ถ้าหอยืนยันไปแล้ว ฝั่งฐานข้อมูลจะคืนจำนวนห้องว่างให้หออัตโนมัติ)
 async function cancelMyBooking(bookingId){
   requireSupabase();
-  const user = await waitForSession();
-  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
-  const { error } = await sb.from('bookings')
-    .update({ status:'cancelled' })
-    .eq('id', bookingId).eq('user_id', user.id).eq('status','pending');
+  const { error } = await sb.rpc('cancel_my_booking', { p_booking_id: bookingId });
   if(error) throw error;
 }
 
