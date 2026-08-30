@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -81,9 +81,9 @@ function siteContactBarHtml(){
 // *** แก้ 2 ค่านี้เป็นของ OA ที่คุณสร้าง — ดูวิธีหาค่าในไฟล์ README.md ***
 // ---------------------------------------------------------------------------
 const LINE_OA = {
-  basicId: '@Alvarez001',        // เช่น '@123abcd'  (Basic ID จาก LINE Official Account Manager)
-  addFriendUrl: 'https://lin.ee/sOTlBAl'
-   // เช่น 'https://line.me/R/ti/p/@123abcd'  เว้นว่างจะสร้างจาก basicId ให้เอง
+  basicId: '@Alvarez001',                  // Basic ID จาก LINE Official Account Manager
+  addFriendUrl: 'https://lin.ee/R42AyJa',  // ลิงก์แอดเพื่อนอย่างเป็นทางการ (จากปุ่ม "ลิงก์เพิ่มเพื่อน" ใน LINE OA)
+  qrImage: 'line-qr.png'                   // รูป QR ทางการที่ดาวน์โหลดจาก LINE OA — เว้นว่างจะสร้าง QR เองจากลิงก์
 };
 function lineAddFriendUrl(){
   if(LINE_OA.addFriendUrl) return LINE_OA.addFriendUrl;
@@ -384,6 +384,8 @@ function mapDormRow(row){
     images: row.images || [], desc: row.description,
     phone: row.phone || '', lineId: row.line_id || '', facebook: row.facebook || '',
     contactEmail: row.contact_email || '',
+    published: row.published !== false,
+    reviewNote: row.review_note || '',
     verified: !!row.verified
   };
 }
@@ -506,7 +508,9 @@ function watchDorms(callback){
 // แทนที่จะให้บันทึกไม่ผ่านทั้งหมด ให้ตัดเฉพาะคอลัมน์นั้นออกแล้วลองใหม่
 // ข้อมูลส่วนที่เหลือจะถูกบันทึกตามปกติ พร้อมเตือนให้ไปรันไฟล์ SQL
 // ---------------------------------------------------------------------------
-const OPTIONAL_DORM_COLUMNS = { contact_email: 'add-contact-email.sql' };
+const OPTIONAL_DORM_COLUMNS = {
+  contact_email: 'add-contact-email.sql'
+};
 
 function missingColumnFrom(error){
   const msg = (error && (error.message || error.hint || '')) || '';
@@ -551,6 +555,53 @@ async function deleteDorm(id){
   const { error } = await sb.from('dorms').delete().eq('id', id);
   if(error) throw error;
 }
+// ---------------------------------------------------------------------------
+// ผู้ดูแลระบบ: ตั้งแอดมินคนแรกจากหน้าเว็บ (ไม่ต้องเขียน SQL)
+// ---------------------------------------------------------------------------
+async function adminExists(){
+  if(!sb) return true;
+  const { data, error } = await sb.rpc('admin_exists');
+  if(error){ console.error(error); return true; }
+  return !!data;
+}
+async function canBootstrapAdmin(){
+  if(!sb) return false;
+  const { data, error } = await sb.rpc('can_bootstrap_admin');
+  if(error){ console.error(error); return false; }
+  return !!data;
+}
+async function bootstrapFirstAdmin(){
+  requireSupabase();
+  const { error } = await sb.rpc('bootstrap_first_admin');
+  if(error) throw error;
+}
+async function grantAdmin(email){
+  requireSupabase();
+  const { error } = await sb.rpc('grant_admin', { p_email: email });
+  if(error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// หอพักที่เจ้าของหอส่งเข้ามาใหม่ และยังรอผู้ดูแลระบบตรวจสอบ
+// ---------------------------------------------------------------------------
+async function getPendingDorms(){
+  if(!sb) return [];
+  const { data, error } = await sb.from('dorms').select('*')
+    .eq('published', false).order('submitted_at', { ascending:true, nullsFirst:false });
+  if(error) throw error;
+  return data.map(mapDormRow);
+}
+async function approveDorm(dormId){
+  requireSupabase();
+  const { error } = await sb.rpc('approve_dorm', { p_dorm_id: dormId });
+  if(error) throw error;
+}
+async function rejectDorm(dormId, reason){
+  requireSupabase();
+  const { error } = await sb.rpc('reject_dorm', { p_dorm_id: dormId, p_reason: reason || null });
+  if(error) throw error;
+}
+
 // หอพักที่ยังไม่มีเจ้าของยืนยันดูแล (verified = false) — เปิดให้เจ้าของหอตัวจริงกดรับช่วงดูแลได้
 async function getUnclaimedDorms(){
   if(!sb) return [];
