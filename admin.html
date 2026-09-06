@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 <header class="topbar">
@@ -33,31 +33,30 @@
 <div class="dash-shell" id="dashShell" style="display:none">
   <aside class="dash-side">
     <div class="side-title">เมนูจัดการ</div>
-    <button class="side-link active" data-sec="overview">📊 ภาพรวม</button>
+    <button class="side-link active" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
     <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
     <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
-    <button class="side-link" data-sec="claim">🙋 รับช่วงดูแลหอของฉัน</button>
-    <button class="side-link" data-sec="claimreview" id="claimReviewTabBtn" style="display:none">🛡️ ตรวจสอบคำขอดูแลหอ<span id="claimReviewBadge"></span></button>
+    <button class="side-link" data-sec="dormreview" id="dormReviewTabBtn" style="display:none">🛡️ หอพักที่ถูกซ่อน<span id="dormReviewBadge"></span></button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
   </aside>
 
   <main class="dash-main">
+    <!-- ================= หน้าหลัก = หน้าโปรไฟล์หอพักของเจ้าของหอ ================= -->
     <div id="sec-overview">
-      <h2>ภาพรวมระบบ</h2>
-      <div class="stat-row">
-        <div class="stat-card"><div class="num" id="statDorms">-</div><div class="label">หอพักทั้งหมด</div></div>
-        <div class="stat-card"><div class="num" id="statVacant">-</div><div class="label">ห้องว่างรวม</div></div>
-        <div class="stat-card"><div class="num" id="statContact">-</div><div class="label">หอที่มีช่องทางติดต่อแล้ว</div></div>
-        <div class="stat-card"><div class="num" id="statVerified">-</div><div class="label">หอที่ยืนยันข้อมูลแล้ว</div></div>
-      </div>
-      <div class="qr-box">
-        <div id="qrcode2"></div>
-        <div>
-          <h3 style="color:#fff">QR โค้ดของเว็บไซต์</h3>
-          <p style="color:rgba(255,255,255,.75);margin:0">แชร์ให้เจ้าของหอพักหรือน้องนักศึกษาสแกนเข้าเว็บได้ทันที</p>
+      <div id="ownerPage"><div class="chat-empty">กำลังโหลด...</div></div>
+
+      <!-- ภาพรวมตัวเลข (แสดงเฉพาะผู้ดูแลระบบ) -->
+      <div id="adminOverview" style="display:none">
+        <h2>ภาพรวมระบบ</h2>
+        <div class="stat-row">
+          <div class="stat-card"><div class="num" id="statDorms">-</div><div class="label">หอพักทั้งหมด</div></div>
+          <div class="stat-card"><div class="num" id="statVacant">-</div><div class="label">ห้องว่างรวม</div></div>
+          <div class="stat-card"><div class="num" id="statContact">-</div><div class="label">หอที่มีช่องทางติดต่อแล้ว</div></div>
+          <div class="stat-card"><div class="num" id="statVerified">-</div><div class="label">หอที่ยืนยันข้อมูลแล้ว</div></div>
         </div>
       </div>
+
       <div id="seedBox" style="margin-top:20px;display:none">
         <button class="btn btn-outline" id="btnSeed">โหลดข้อมูลหอพักตัวอย่าง (ครั้งแรกเท่านั้น)</button>
         <p class="form-hint">ใช้เพื่อทดสอบระบบตอนเริ่มต้น จะทำงานเฉพาะตอนที่ยังไม่มีหอพักในระบบเลย</p>
@@ -96,35 +95,12 @@
       <div id="ownerThreads"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
 
-    <div id="sec-claim" style="display:none">
-      <div class="section-head"><h2>รับช่วงดูแลหอพักของคุณ</h2></div>
+    <div id="sec-dormreview" style="display:none">
+      <div class="section-head"><h2>หอพักที่ถูกซ่อนจากนักศึกษา</h2></div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        หอพักด้านล่างเป็นข้อมูลที่รวบรวมจากประกาศสาธารณะ ยังไม่มีเจ้าของยืนยันดูแล —
-        ถ้าหอไหนเป็นของคุณ กด "นี่คือหอของฉัน" เพื่อ<strong>ยื่นคำขอ</strong> —
-        ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันตัวตนก่อนอนุมัติ (ขั้นตอนนี้ป้องกันไม่ให้คนอื่นแอบอ้างเป็นเจ้าของหอของคุณ)
-      </p>
-      <div id="myClaimStatus"></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>หอพัก</th><th>ประเภท</th><th>ราคาที่ประกาศไว้</th><th>รายละเอียด</th><th>จัดการ</th></tr></thead>
-          <tbody id="claimTable"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="sec-claimreview" style="display:none">
-      <div class="section-head"><h2>ตรวจสอบคำขอรับช่วงดูแลหอ</h2></div>
-      <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        เจ้าของหอที่กด "นี่คือหอของฉัน" จะมารออนุมัติที่นี่ —
-        <strong>กรุณาโทรตรวจสอบกับหอพักตัวจริงก่อนอนุมัติทุกครั้ง</strong>
-        เพราะผู้ที่ได้รับอนุมัติจะแก้ราคา ช่องทางติดต่อ และรับการจองแทนหอนั้นได้
-      </p>
-      <h3 style="margin-top:22px">คำขอรับช่วงดูแลหอที่มีอยู่แล้ว</h3>
-      <div id="claimReviewList"><div class="chat-empty">กำลังโหลด...</div></div>
-
-      <h3 style="margin-top:30px">หอพักใหม่ที่เจ้าของหอส่งเข้ามา</h3>
-      <p class="muted" style="font-size:.86rem;margin-top:-6px">
-        หอเหล่านี้ยังไม่แสดงให้นักศึกษาเห็น จนกว่าคุณจะกดอนุมัติ
+        ตอนนี้เจ้าของหอเพิ่มหอเองได้ทันที ไม่ต้องรออนุมัติ —
+        หน้านี้จึงเหลือไว้เฉพาะหอที่<strong>คุณสั่งซ่อน</strong>ไว้เพราะมีปัญหา
+        (เช่น ข้อมูลเท็จ รูปไม่เหมาะสม หรือเป็นการแอบอ้างหอของคนอื่น) กดเผยแพร่กลับได้ที่นี่
       </p>
       <div id="pendingDormList"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
@@ -170,6 +146,16 @@
         <label><input type="checkbox" value="cctv" class="fFacility"> กล้องวงจรปิด</label>
         <label><input type="checkbox" value="guard" class="fFacility"> รปภ.</label>
       </div>
+
+      <!-- อื่น ๆ: เจ้าของหอพิมพ์เองได้ ไม่จำกัดอยู่แค่ 6 อย่างด้านบน -->
+      <div class="extra-fac">
+        <div class="ef-row">
+          <input type="text" id="fFacilityOther" placeholder="อื่น ๆ เช่น ตู้กดน้ำดื่ม, ลิฟต์, เครื่องทำน้ำอุ่น">
+          <button type="button" class="btn btn-outline btn-sm" id="btnAddFacility">+ เพิ่ม</button>
+        </div>
+        <div class="form-hint">พิมพ์แล้วกด "+ เพิ่ม" หรือกด Enter — เพิ่มได้ไม่จำกัด กด ✕ บนป้ายเพื่อลบ</div>
+        <div class="ef-chips" id="facilityChips"></div>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-field"><label>ราคาห้องพัดลม (0 = ไม่มี)</label><input type="number" id="fFanPrice"></div>
@@ -179,7 +165,27 @@
       <div class="form-field"><label>ราคาห้องแอร์ (0 = ไม่มี)</label><input type="number" id="fAirPrice"></div>
       <div class="form-field"><label>จำนวนห้องแอร์ทั้งหมด</label><input type="number" id="fAirTotal"></div>
     </div>
-    <div class="form-field"><label>ลิงก์รูปภาพ (คั่นด้วย comma , อย่างน้อย 1 รูป)</label><textarea id="fImages" placeholder="https://... , https://... , https://..."></textarea></div>
+    <!-- ================= รูปภาพหอพัก ================= -->
+    <div class="form-field">
+      <label>รูปภาพหอพัก</label>
+      <div class="photo-drop" id="photoDrop">
+        <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
+        <button type="button" class="btn btn-outline" id="btnPickPhotos">📷 เลือกรูปจากเครื่อง</button>
+        <div class="form-hint" style="margin-top:6px">
+          เลือกได้ทีละหลายรูป (กด Ctrl หรือลากคลุมตอนเลือกไฟล์) หรือ<strong>ลากไฟล์มาวางตรงนี้</strong>ก็ได้<br>
+          ระบบย่อขนาดรูปให้อัตโนมัติ ไม่ต้องใส่ลิงก์และไม่ต้องคั่นด้วย comma แล้ว
+        </div>
+        <div class="photo-progress" id="photoProgress" style="display:none"></div>
+      </div>
+      <div class="photo-grid" id="photoGrid"></div>
+      <details style="margin-top:8px">
+        <summary class="muted" style="font-size:.85rem;cursor:pointer">มีลิงก์รูปจากเว็บอื่นอยู่แล้ว? กดที่นี่เพื่อวางลิงก์</summary>
+        <div class="ef-row" style="margin-top:8px">
+          <input type="text" id="fImageUrl" placeholder="https://...">
+          <button type="button" class="btn btn-outline btn-sm" id="btnAddImageUrl">+ เพิ่มลิงก์</button>
+        </div>
+      </details>
+    </div>
     <h4 style="margin:14px 0 6px">ช่องทางติดต่อหอพัก</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-field"><label>เบอร์โทรหอพัก</label><input type="tel" id="fPhone" placeholder="08x-xxx-xxxx"></div>
@@ -200,6 +206,14 @@
       <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
     </div>
     <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
+  </div>
+</div>
+
+<!-- ===== หน้าต่างดูข้อมูลหอแบบอ่านอย่างเดียว (ผู้ดูแลระบบใช้ดูหอของคนอื่น) ===== -->
+<div class="modal-backdrop" id="viewModal">
+  <div class="modal" style="max-width:720px">
+    <button class="modal-close" id="closeViewModal">✕</button>
+    <div id="viewContent"></div>
   </div>
 </div>
 
@@ -224,11 +238,10 @@
 <!-- แถบติดต่อเจ้าของเว็บ (อยู่ล่างสุดของทุกหน้า) -->
 <div class="site-contact-bar" id="siteContactBar"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=13"></script>
-<script src="app.js?v=13"></script>
-<script src="admin.js?v=13"></script>
+<script src="db.js?v=15"></script>
+<script src="app.js?v=15"></script>
+<script src="admin.js?v=15"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

@@ -5,6 +5,7 @@
 let ME = null;
 let editingId = null;
 let myDorms = [];
+let activeOwnerDormId = null;   // หอที่กำลังเปิดอยู่ในหน้า "หน้าหอพักของฉัน"
 
 document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   e.preventDefault();
@@ -12,32 +13,368 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   location.href = 'login.html';
 });
 
+const DASH_SECTIONS = ['overview','listings','bookings','messages','dormreview','owners'];
+
 document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     // เดิมลืมใส่ 'messages' ไว้ในรายการนี้ แท็บข้อความจึงกดแล้วไม่ขึ้นอะไรเลย
-    ['overview','listings','bookings','messages','claim','claimreview','owners'].forEach(s=>{
+    DASH_SECTIONS.forEach(s=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
+    if(btn.dataset.sec === 'dormreview'){ renderPendingDorms(); }
+    if(btn.dataset.sec === 'overview'){ renderOwnerPage(); }
     // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
-    if(btn.dataset.sec === 'claimreview'){ renderPendingDorms(); }
     if(btn.dataset.sec === 'bookings'){
       markBookingsRead(ME && ME.uid).then(refreshBookingBadge).catch(console.error);
     }
   });
 });
 
-async function renderStats(){
+// โหลดหอพักที่บัญชีนี้เห็นได้ — เจ้าของหอเห็นเฉพาะหอตัวเอง ผู้ดูแลระบบเห็นทั้งหมด
+async function loadVisibleDorms(){
   const allDorms = await getDorms();
-  const dorms = ME.role==='admin' ? allDorms : allDorms.filter(d=>d.ownerId===ME.uid);
-  myDorms = dorms;
-  document.getElementById('statDorms').textContent = dorms.length;
-  document.getElementById('statVacant').textContent = dorms.reduce((s,d)=>s+totalVacancy(d),0);
-  document.getElementById('statContact').textContent = dorms.filter(d=>d.phone||d.lineId||d.facebook).length;
-  document.getElementById('statVerified').textContent = dorms.filter(d=>d.verified).length;
+  const mine = allDorms.filter(d => d.ownerId === ME.uid);
+  myDorms = (ME.role === 'admin') ? allDorms : mine;
+  return { allDorms, mine };
+}
+
+async function renderStats(){
+  const { allDorms } = await loadVisibleDorms();
+  const dorms = myDorms;
+  const set = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('statDorms', dorms.length);
+  set('statVacant', dorms.reduce((s,d)=>s+totalVacancy(d),0));
+  set('statContact', dorms.filter(d=>d.phone||d.lineId||d.facebook||d.contactEmail).length);
+  set('statVerified', dorms.filter(d=>d.verified).length);
   if(allDorms.length===0){ document.getElementById('seedBox').style.display='block'; }
+}
+
+// ===========================================================================
+// หน้าหลักของเจ้าของหอ — "หน้าหอพักของฉัน"
+// จัดหน้าคล้ายหน้าโปรไฟล์ที่พักในเว็บจองโรงแรม (รูปปก + แกลเลอรี + ข้อมูลหอ)
+// แต่ทุกส่วนแก้ไขได้จากหน้านี้เลย ไม่ต้องเข้าฟอร์มยาว ๆ
+// ===========================================================================
+
+// ดาวคะแนน (เต็ม/ครึ่ง/ว่าง) จากคะแนนเฉลี่ย
+function starsHtml(avg){
+  const n = Math.round((Number(avg)||0) * 2) / 2;
+  let out = '';
+  for(let i=1;i<=5;i++){
+    if(n >= i) out += '<span class="st on">★</span>';
+    else if(n >= i - 0.5) out += '<span class="st half">★</span>';
+    else out += '<span class="st">★</span>';
+  }
+  return `<span class="stars">${out}</span>`;
+}
+
+function ownerPhotoTileHtml(url, i, isCover){
+  return `
+  <div class="op-photo ${isCover?'is-cover':''}">
+    <img src="${escapeHtml(url)}" alt="รูปหอพัก ${i+1}" ${imgFallbackAttr()}>
+    ${isCover ? '<span class="op-cover-tag">รูปปก</span>' : ''}
+    <div class="op-photo-tools">
+      ${isCover ? '' : `<button type="button" class="op-mini" data-cover="${i}" title="ตั้งเป็นรูปปก">⭐</button>`}
+      <button type="button" class="op-mini danger" data-rmphoto="${i}" title="ลบรูปนี้">✕</button>
+    </div>
+  </div>`;
+}
+
+async function renderOwnerPage(){
+  const box = document.getElementById('ownerPage');
+  if(!box) return;
+  const isAdmin = ME.role === 'admin';
+  const adminBox = document.getElementById('adminOverview');
+  if(adminBox) adminBox.style.display = isAdmin ? 'block' : 'none';
+
+  let mine = [];
+  try{ mine = (await loadVisibleDorms()).mine; }
+  catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดข้อมูลหอพักไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+    return;
+  }
+
+  if(mine.length === 0){
+    box.innerHTML = `
+      <div class="op-empty">
+        <div class="emoji">🏡</div>
+        <h2>ยังไม่มีหน้าหอพักของคุณ</h2>
+        <p class="muted">
+          สร้างหน้าหอพักของคุณเองได้เลย ไม่ต้องรอผู้ดูแลระบบอนุมัติ —
+          ใส่ชื่อหอ ราคา รูปห้อง แล้วหอของคุณจะขึ้นให้นักศึกษาเห็นทันที
+        </p>
+        <button class="btn btn-primary" id="opCreate">+ สร้างหน้าหอพักของฉัน</button>
+      </div>`;
+    const btn = document.getElementById('opCreate');
+    if(btn) btn.addEventListener('click', ()=> openEdit(null));
+    return;
+  }
+
+  // เลือกหอที่จะแสดง (เจ้าของหอบางคนมีหลายหอ)
+  if(!activeOwnerDormId || !mine.some(d=>d.id===activeOwnerDormId)) activeOwnerDormId = mine[0].id;
+  const d = mine.find(x=>x.id===activeOwnerDormId);
+
+  const imgs = d.images || [];
+  const cover = imgs[0] || '';
+  const facs = (d.facilities||[]).filter(Boolean);
+
+  let reviews = [];
+  try{ reviews = await getReviews(d.id); }catch(err){ console.error(err); }
+  const sum = ratingSummary(reviews);
+
+  box.innerHTML = `
+  <div class="op-page">
+
+    ${mine.length > 1 ? `<div class="op-switch">
+      ${mine.map(x=>`<button type="button" class="op-tab ${x.id===d.id?'on':''}" data-dorm="${x.id}">${escapeHtml(x.name)}</button>`).join('')}
+      <button type="button" class="op-tab add" id="opAddDorm">+ เพิ่มหอใหม่</button>
+    </div>` : ''}
+
+    <!-- ---------- รูปปก ---------- -->
+    <div class="op-cover">
+      ${cover
+        ? `<img src="${escapeHtml(cover)}" alt="รูปปกของ ${escapeHtml(d.name)}" ${imgFallbackAttr()}>`
+        : `<div class="op-cover-empty">
+             <div class="emoji">📷</div>
+             <strong>ยังไม่มีรูปหอพัก</strong>
+             <span class="muted">หอที่มีรูปจริงมีโอกาสถูกกดดูมากกว่าหอที่ไม่มีรูป</span>
+           </div>`}
+      <div class="op-cover-bar">
+        <input type="file" id="opPhotoInput" accept="image/*" multiple hidden>
+        <button type="button" class="btn btn-primary btn-sm" id="opAddPhoto">📷 เพิ่มรูปจากเครื่อง</button>
+        <a class="btn btn-outline btn-sm" href="index.html#dorm=${encodeURIComponent(d.id)}" target="_blank" rel="noopener">👁 ดูหน้าที่นักศึกษาเห็น</a>
+      </div>
+      <div class="op-upstate" id="opUpState" style="display:none"></div>
+    </div>
+
+    <!-- ---------- แกลเลอรีรูปทั้งหมด ---------- -->
+    <div class="op-photos" id="opPhotos">
+      ${imgs.map((u,i)=> ownerPhotoTileHtml(u, i, i===0)).join('')}
+      <button type="button" class="op-photo add" id="opAddPhoto2">＋<span>เพิ่มรูป</span></button>
+    </div>
+    ${imgs.length ? `<p class="form-hint">กด ⭐ เพื่อตั้งเป็นรูปปก · กด ✕ เพื่อลบรูป — รูปแรกคือรูปที่นักศึกษาเห็นในหน้าค้นหา</p>` : ''}
+
+    <!-- ---------- ชื่อหอและสรุป ---------- -->
+    <div class="op-head">
+      <div>
+        <h1>${escapeHtml(d.name)}
+          <span class="td-tag ${d.verified?'ok':''}">${d.verified?'✓ ยืนยันข้อมูลแล้ว':'⚠ ยังไม่ได้ยืนยันข้อมูล'}</span>
+          ${d.published === false ? '<span class="td-tag" style="background:#FBE7E3;color:#B23A24;border-color:#F0C8C0">🚫 ถูกซ่อนอยู่</span>' : ''}
+        </h1>
+        <div class="op-sub">
+          📍 ต.บ้านดู่ อ.เมือง จ.เชียงราย · ${escapeHtml(d.hallType)}
+          ${sum.count
+            ? ` · ${starsHtml(sum.avg)} <strong>${sum.avg}</strong> <span class="muted">(${sum.count} รีวิว)</span>`
+            : ' · <span class="muted">ยังไม่มีรีวิว</span>'}
+        </div>
+      </div>
+      <div class="op-head-actions">
+        <button class="btn btn-primary btn-sm" id="opEdit">✏️ แก้ไขข้อมูลหอ</button>
+      </div>
+    </div>
+
+    <div class="op-grid">
+      <!-- ---------- คำอธิบายหอพัก (แก้ในหน้านี้ได้เลย) ---------- -->
+      <section class="op-card">
+        <h3>เกี่ยวกับหอพักนี้</h3>
+        <p class="muted" style="font-size:.85rem;margin-top:-6px">
+          เล่าให้น้อง ๆ ฟังว่าหอเป็นยังไง อยู่ตรงไหน มีอะไรใกล้ ๆ บ้าง เขียนแล้วกดบันทึกได้เลย
+        </p>
+        <textarea id="opDesc" rows="6" placeholder="เช่น หอพักหญิงล้วน 3 ชั้น ห่างประตู 1 เดิน 5 นาที มีร้านสะดวกซื้อหน้าหอ ห้องมีเฟอร์นิเจอร์ครบ...">${escapeHtml(d.desc||'')}</textarea>
+        <div class="op-actions">
+          <button class="btn btn-primary btn-sm" id="opSaveDesc">บันทึกคำอธิบาย</button>
+          <span class="op-saved" id="opDescSaved"></span>
+        </div>
+      </section>
+
+      <!-- ---------- สิ่งอำนวยความสะดวก ---------- -->
+      <section class="op-card">
+        <h3>สิ่งอำนวยความสะดวก</h3>
+        ${facs.length
+          ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
+          : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "แก้ไขข้อมูลหอ" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
+      </section>
+
+      <!-- ---------- ห้องพักและราคา ---------- -->
+      <section class="op-card">
+        <h3>ห้องพักและราคา</h3>
+        ${(d.rooms && d.rooms.length)
+          ? `<div class="op-rooms">${d.rooms.map(r=>`
+              <div class="op-room">
+                <div>
+                  <strong>${escapeHtml(r.label)}</strong>
+                  <div class="muted" style="font-size:.82rem">ทั้งหมด ${r.total} ห้อง</div>
+                </div>
+                <div class="op-room-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
+                <div class="op-room-vac">
+                  <button class="btn btn-sm btn-ghost" data-vac2="${d.id}|${escapeHtml(r.code)}|-1" title="ลดห้องว่าง">−</button>
+                  <span class="op-vac-num">${r.vacant}</span>
+                  <button class="btn btn-sm btn-ghost" data-vac2="${d.id}|${escapeHtml(r.code)}|1" title="เพิ่มห้องว่าง">+</button>
+                  <small class="muted">ห้องว่าง</small>
+                </div>
+              </div>`).join('')}</div>`
+          : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"</p>`}
+      </section>
+
+      <!-- ---------- ช่องทางติดต่อ ---------- -->
+      <section class="op-card">
+        <h3>ช่องทางติดต่อที่นักศึกษาเห็น</h3>
+        <div class="op-contact">
+          <div><span class="k">เบอร์โทร</span> ${d.phone ? escapeHtml(d.phone) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+          <div><span class="k">LINE</span> ${d.lineId ? escapeHtml(d.lineId) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+          <div><span class="k">Facebook</span> ${d.facebook ? escapeHtml(d.facebook) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+          <div><span class="k">อีเมลรับแจ้งเตือน</span> ${d.contactEmail ? escapeHtml(d.contactEmail) : '<span class="muted">ใช้อีเมลที่สมัครสมาชิก</span>'}</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ---------- รีวิวจากผู้ใช้ ---------- -->
+    <section class="op-card op-reviews">
+      <h3>⭐ รีวิวจากผู้ใช้</h3>
+      ${sum.count ? `
+        <div class="rev-summary">
+          <div class="rev-score">${sum.avg}<small>/5</small></div>
+          <div class="rev-bars">
+            ${[5,4,3,2,1].map(s=>`
+              <div class="rev-bar">
+                <span>${s}★</span>
+                <div class="rb-track"><div class="rb-fill" style="width:${sum.count?Math.round(sum.dist[s]/sum.count*100):0}%"></div></div>
+                <em>${sum.dist[s]}</em>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="rev-list">
+          ${reviews.map(r=>`
+            <div class="rev-item">
+              <div class="rev-top">
+                <strong>${escapeHtml(r.userName)}</strong>
+                ${starsHtml(r.rating)}
+                <span class="muted">${fmtChatTime(r.createdAt)}</span>
+              </div>
+              ${r.body ? `<p>${escapeHtml(r.body)}</p>` : '<p class="muted">(ให้ดาวอย่างเดียว ไม่ได้เขียนข้อความ)</p>'}
+              ${ME.role==='admin' ? `<button class="btn btn-sm btn-reject" data-delrev="${r.id}">ลบรีวิวนี้</button>` : ''}
+            </div>`).join('')}
+        </div>`
+        : `<p class="muted" style="font-size:.9rem">
+             ยังไม่มีใครรีวิวหอนี้ — เมื่อมีนักศึกษาเข้าไปรีวิวในหน้าหอของคุณ คะแนนจะมาแสดงที่นี่
+           </p>`}
+    </section>
+  </div>`;
+
+  // ---- ผูกปุ่มทั้งหมดในหน้านี้ ----
+  box.querySelectorAll('[data-dorm]').forEach(b=>{
+    b.addEventListener('click', ()=>{ activeOwnerDormId = b.dataset.dorm; renderOwnerPage(); });
+  });
+  const addDormBtn = document.getElementById('opAddDorm');
+  if(addDormBtn) addDormBtn.addEventListener('click', ()=> openEdit(null));
+
+  const editBtn = document.getElementById('opEdit');
+  if(editBtn) editBtn.addEventListener('click', ()=> openEdit(d));
+
+  // อัปโหลดรูปจากเครื่อง (ทั้งปุ่มบนรูปปกและช่อง "+ เพิ่มรูป" ในแกลเลอรี)
+  const fileInput = document.getElementById('opPhotoInput');
+  ['opAddPhoto','opAddPhoto2'].forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.addEventListener('click', ()=> fileInput.click());
+  });
+  if(fileInput){
+    fileInput.addEventListener('change', async ()=>{
+      const files = fileInput.files;
+      if(!files || !files.length) return;
+      await addPhotosToDorm(d, files);
+      fileInput.value = '';
+    });
+  }
+
+  // ตั้งรูปปก / ลบรูป
+  box.querySelectorAll('[data-cover]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const i = +b.dataset.cover;
+      const next = d.images.slice();
+      const [pick] = next.splice(i,1);
+      next.unshift(pick);
+      await saveDormImages(d, next, 'ตั้งเป็นรูปปกแล้ว');
+    });
+  });
+  box.querySelectorAll('[data-rmphoto]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const i = +b.dataset.rmphoto;
+      if(!confirm('ลบรูปนี้ออกจากหน้าหอพัก?')) return;
+      const removed = d.images[i];
+      const next = d.images.filter((_,idx)=> idx !== i);
+      await saveDormImages(d, next, 'ลบรูปแล้ว');
+      deleteDormPhoto(removed);   // ลบไฟล์จริงในที่เก็บ (ล้มเหลวก็ไม่เป็นไร)
+    });
+  });
+
+  // บันทึกคำอธิบายจากหน้านี้เลย
+  const saveDesc = document.getElementById('opSaveDesc');
+  if(saveDesc) saveDesc.addEventListener('click', async ()=>{
+    const text = document.getElementById('opDesc').value.trim();
+    saveDesc.disabled = true;
+    try{
+      await updateDorm(d.id, { ...d, desc: text });
+      d.desc = text;
+      const tag = document.getElementById('opDescSaved');
+      if(tag){ tag.textContent = '✓ บันทึกแล้ว'; setTimeout(()=>{ tag.textContent=''; }, 2500); }
+      toast('บันทึกคำอธิบายหอพักแล้ว','success');
+    }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||''),'error'); }
+    finally{ saveDesc.disabled = false; }
+  });
+
+  // ปรับห้องว่างเร็ว ๆ จากหน้านี้
+  box.querySelectorAll('[data-vac2]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const [dormId, code, deltaStr] = b.dataset.vac2.split('|');
+      const delta = parseInt(deltaStr, 10);
+      const rooms = d.rooms.map(r => r.code !== code ? r
+        : { ...r, vacant: Math.max(0, Math.min(r.total, r.vacant + delta)) });
+      try{
+        await updateDorm(dormId, { ...d, rooms });
+        await renderOwnerPage(); renderStats(); renderListings();
+      }catch(err){ console.error(err); toast('ปรับห้องว่างไม่สำเร็จ: '+err.message,'error'); }
+    });
+  });
+
+  // ผู้ดูแลระบบลบรีวิวที่ไม่เหมาะสม
+  box.querySelectorAll('[data-delrev]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      if(!confirm('ลบรีวิวนี้?')) return;
+      try{ await deleteReview(b.dataset.delrev); toast('ลบรีวิวแล้ว','success'); renderOwnerPage(); }
+      catch(err){ console.error(err); toast('ลบไม่สำเร็จ: '+(err.message||''),'error'); }
+    });
+  });
+}
+
+// บันทึกรายการรูปชุดใหม่ลงหอ แล้ววาดหน้าใหม่
+async function saveDormImages(dorm, images, okMsg){
+  try{
+    await updateDorm(dorm.id, { ...dorm, images });
+    dorm.images = images;
+    toast(okMsg || 'บันทึกรูปแล้ว','success');
+    await renderOwnerPage();
+  }catch(err){ console.error(err); toast('บันทึกรูปไม่สำเร็จ: '+(err.message||''),'error'); }
+}
+
+// อัปโหลดรูปจากเครื่องเข้าหอที่กำลังเปิดอยู่
+async function addPhotosToDorm(dorm, files){
+  const state = document.getElementById('opUpState');
+  const show = (msg)=>{ if(state){ state.style.display='block'; state.textContent = msg; } };
+  try{
+    show('กำลังเตรียมรูป...');
+    const urls = await uploadDormImages(files, (done, total, name)=>{
+      show(`กำลังอัปโหลด ${done+1}/${total} — ${name||''}`);
+    });
+    show('กำลังบันทึก...');
+    await saveDormImages(dorm, [...(dorm.images||[]), ...urls], `เพิ่มรูปแล้ว ${urls.length} รูป`);
+  }catch(err){
+    console.error(err);
+    if(state) state.style.display = 'none';
+    toast(err.message || 'อัปโหลดรูปไม่สำเร็จ','error');
+  }
 }
 
 async function renderListings(){
@@ -50,18 +387,25 @@ async function renderListings(){
          </div>`
       : '';
   }
-  const allDorms = await getDorms();
-  const dorms = ME.role==='admin' ? allDorms : allDorms.filter(d=>d.ownerId===ME.uid);
-  document.getElementById('listingTable').innerHTML = dorms.map(d=>`
+  await loadVisibleDorms();
+  const dorms = myDorms;
+  document.getElementById('listingTable').innerHTML = dorms.map(d=>{
+    // ผู้ดูแลระบบ "ดู" และ "ลบ" หอของคนอื่นได้ แต่แก้ไขข้อมูลไม่ได้
+    // (ฝั่งฐานข้อมูลก็ปิดไว้อีกชั้นในไฟล์ fix-v15.sql — ปุ่มนี้แค่ไม่หลอกให้กด)
+    const isMine = d.ownerId === ME.uid;
+    const canEdit = isMine;
+    return `
     <tr>
-      <td><strong>${d.name}</strong></td>
-      <td>${d.hallType}</td>
-      <td>${d.rooms.length? d.rooms.map(r=>`${r.label}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
-      <td>${d.rooms.length===0 ? '<span class="muted">ยังไม่ระบุ — กด "แก้ไข" เพื่อเพิ่มห้อง</span>' : ''}${d.rooms.map(r=>`
+      <td><strong>${escapeHtml(d.name)}</strong>
+        ${isMine ? '' : '<br><small class="muted">หอของเจ้าของหอรายอื่น</small>'}</td>
+      <td>${escapeHtml(d.hallType)}</td>
+      <td>${d.rooms.length? d.rooms.map(r=>`${escapeHtml(r.label)}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
+      <td>${d.rooms.length===0 ? '<span class="muted">ยังไม่ระบุ</span>' : ''}${d.rooms.map(r=>`
         <div style="white-space:nowrap;margin:2px 0">
-          ${r.label}: <strong>${r.vacant}</strong>/${r.total}
-          <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${r.code}|-1" title="ลดห้องว่าง (ปิดห้อง)" style="padding:2px 8px">−</button>
-          <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${r.code}|1" title="เพิ่มห้องว่าง (เปิดห้อง)" style="padding:2px 8px">+</button>
+          ${escapeHtml(r.label)}: <strong>${r.vacant}</strong>/${r.total}
+          ${canEdit ? `
+          <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${escapeHtml(r.code)}|-1" title="ลดห้องว่าง (ปิดห้อง)" style="padding:2px 8px">−</button>
+          <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${escapeHtml(r.code)}|1" title="เพิ่มห้องว่าง (เปิดห้อง)" style="padding:2px 8px">+</button>` : ''}
         </div>`).join('')}</td>
       <td>
         ${d.published === false
@@ -69,14 +413,38 @@ async function renderListings(){
              ${d.reviewNote ? `<br><small class="muted">เหตุผล: ${escapeHtml(d.reviewNote)}</small>` : ''}`
           : (d.verified ? '<span class="status-pill status-confirmed">ยืนยันแล้ว</span>'
                         : '<span class="status-pill status-pending">รอยืนยัน</span>')}<br>
-        <button class="btn btn-outline btn-sm" data-edit="${d.id}" style="margin-top:6px">แก้ไข</button>
+        ${canEdit
+          ? `<button class="btn btn-outline btn-sm" data-edit="${d.id}" style="margin-top:6px">แก้ไข</button>`
+          : `<button class="btn btn-outline btn-sm" data-view="${d.id}" style="margin-top:6px">👁 ดูข้อมูล</button>
+             ${d.published === false
+               ? `<button class="btn btn-sm btn-approve" data-dormok2="${d.id}" style="margin-top:6px">เผยแพร่</button>`
+               : `<button class="btn btn-sm btn-ghost" data-dormno2="${d.id}" style="margin-top:6px">ซ่อน</button>`}`}
         <button class="btn btn-sm btn-reject" data-del="${d.id}" style="margin-top:6px">ลบ</button>
       </td>
-    </tr>
-  `).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ยังไม่มีหอพัก กด "+ เพิ่มหอพักใหม่" เพื่อเริ่มต้น</td></tr>`;
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ยังไม่มีหอพัก กด "+ เพิ่มหอพักใหม่" เพื่อเริ่มต้น</td></tr>`;
 
   document.querySelectorAll('[data-edit]').forEach(btn=>{
     btn.addEventListener('click', ()=> openEdit(dorms.find(d=>d.id===btn.dataset.edit)));
+  });
+  // ผู้ดูแลระบบเปิดดูข้อมูลหอของคนอื่นแบบอ่านอย่างเดียว
+  document.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openViewDorm(dorms.find(d=>d.id===btn.dataset.view)));
+  });
+  // ซ่อน/เผยแพร่หอของคนอื่น (ทำผ่านฟังก์ชันฝั่งฐานข้อมูล ไม่ใช่การแก้ข้อมูลหอ)
+  document.querySelectorAll('[data-dormno2]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const reason = prompt('เหตุผลที่ซ่อนหอนี้จากนักศึกษา (เจ้าของหอจะเห็นข้อความนี้):');
+      if(reason === null) return;
+      try{ await rejectDorm(btn.dataset.dormno2, reason); toast('ซ่อนหอนี้แล้ว','success'); renderListings(); renderPendingDorms(); }
+      catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
+    });
+  });
+  document.querySelectorAll('[data-dormok2]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{ await approveDorm(btn.dataset.dormok2); toast('เผยแพร่หอนี้แล้ว','success'); renderListings(); renderPendingDorms(); }
+      catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
+    });
   });
   document.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -105,6 +473,111 @@ async function renderListings(){
   });
 }
 
+// ---------------------------------------------------------------------------
+// หน้าต่างดูข้อมูลหอแบบอ่านอย่างเดียว (ผู้ดูแลระบบใช้ตรวจหอของเจ้าของหอรายอื่น)
+// ---------------------------------------------------------------------------
+function openViewDorm(d){
+  if(!d) return;
+  const box = document.getElementById('viewContent');
+  box.innerHTML = `
+    <h3 style="margin-top:0">${escapeHtml(d.name)}
+      <span class="td-tag ${d.verified?'ok':''}">${d.verified?'✓ ยืนยันแล้ว':'⚠ ยังไม่ยืนยัน'}</span></h3>
+    <p class="muted" style="font-size:.86rem;margin-top:-6px">
+      โหมดอ่านอย่างเดียว — ผู้ดูแลระบบแก้ข้อมูลหอของเจ้าของหอรายอื่นไม่ได้
+      ทำได้แค่ดู ซ่อนหอ หรือลบหอ (ถ้าพบข้อมูลเท็จ ให้ติดต่อเจ้าของหอให้แก้เอง)
+    </p>
+    ${(d.images||[]).length ? `<div class="op-photos view">${d.images.map(u=>`
+      <div class="op-photo"><img src="${escapeHtml(u)}" alt="รูปหอพัก" ${imgFallbackAttr()}></div>`).join('')}</div>` : ''}
+    <div class="bk-grid" style="grid-template-columns:1fr 1fr">
+      <div><span class="k">ประเภท:</span> <strong>${escapeHtml(d.hallType)}</strong></div>
+      <div><span class="k">สถานะ:</span> <strong>${d.published===false?'ถูกซ่อนอยู่':'เผยแพร่อยู่'}</strong></div>
+      <div><span class="k">เบอร์โทร:</span> <strong>${escapeHtml(d.phone||'-')}</strong></div>
+      <div><span class="k">LINE:</span> <strong>${escapeHtml(d.lineId||'-')}</strong></div>
+      <div><span class="k">อีเมล:</span> <strong>${escapeHtml(d.contactEmail||'-')}</strong></div>
+      <div><span class="k">Facebook:</span> <strong>${escapeHtml(d.facebook||'-')}</strong></div>
+    </div>
+    <h4 style="margin:14px 0 6px">ห้องพักและราคา</h4>
+    ${(d.rooms||[]).length
+      ? `<ul style="margin:0;padding-left:18px;font-size:.9rem">${d.rooms.map(r=>
+          `<li>${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน · ว่าง ${r.vacant}/${r.total}</li>`).join('')}</ul>`
+      : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>'}
+    <h4 style="margin:14px 0 6px">สิ่งอำนวยความสะดวก</h4>
+    ${(d.facilities||[]).length
+      ? `<div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>`
+      : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>'}
+    <h4 style="margin:14px 0 6px">รายละเอียด</h4>
+    <p style="font-size:.9rem;white-space:pre-wrap">${escapeHtml(d.desc||'-')}</p>
+    <a class="btn btn-outline btn-block" href="index.html#dorm=${encodeURIComponent(d.id)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">👁 เปิดหน้าที่นักศึกษาเห็น</a>`;
+  document.getElementById('viewModal').classList.add('open');
+}
+document.getElementById('closeViewModal')?.addEventListener('click',
+  ()=> document.getElementById('viewModal').classList.remove('open'));
+
+// ---------------------------------------------------------------------------
+// ฟอร์มเพิ่ม/แก้ไขหอพัก
+// รูปภาพและสิ่งอำนวยความสะดวกเก็บไว้ในตัวแปรระหว่างกรอกฟอร์ม แล้วบันทึกทีเดียวตอนกดบันทึก
+// ---------------------------------------------------------------------------
+let editImages = [];        // ลิงก์รูปในฟอร์มตอนนี้
+let editFacilities = [];    // รหัสมาตรฐาน + ข้อความที่เจ้าของหอพิมพ์เอง
+
+function renderEditPhotos(){
+  const grid = document.getElementById('photoGrid');
+  if(!grid) return;
+  grid.innerHTML = editImages.map((u,i)=>`
+    <div class="op-photo ${i===0?'is-cover':''}">
+      <img src="${escapeHtml(u)}" alt="รูปที่ ${i+1}" ${imgFallbackAttr()}>
+      ${i===0 ? '<span class="op-cover-tag">รูปปก</span>' : ''}
+      <div class="op-photo-tools">
+        ${i===0?'':`<button type="button" class="op-mini" data-fcover="${i}" title="ตั้งเป็นรูปปก">⭐</button>`}
+        <button type="button" class="op-mini danger" data-frm="${i}" title="เอารูปนี้ออก">✕</button>
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('[data-fcover]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i = +b.dataset.fcover;
+      const [pick] = editImages.splice(i,1);
+      editImages.unshift(pick);
+      renderEditPhotos();
+    });
+  });
+  grid.querySelectorAll('[data-frm]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      editImages.splice(+b.dataset.frm, 1);
+      renderEditPhotos();
+    });
+  });
+}
+
+// ป้ายสิ่งอำนวยความสะดวกที่พิมพ์เอง (ช่องติ๊ก 6 อย่างมาตรฐานอยู่แยกต่างหาก)
+function renderFacilityChips(){
+  const box = document.getElementById('facilityChips');
+  if(!box) return;
+  const custom = editFacilities.filter(isCustomFacility);
+  box.innerHTML = custom.map(c=>`
+    <span class="ef-chip">${escapeHtml(c)}
+      <button type="button" data-rmfac="${escapeHtml(c)}" title="ลบ">✕</button>
+    </span>`).join('');
+  box.querySelectorAll('[data-rmfac]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      editFacilities = editFacilities.filter(x => x !== b.dataset.rmfac);
+      renderFacilityChips();
+    });
+  });
+}
+
+function addCustomFacility(){
+  const input = document.getElementById('fFacilityOther');
+  const text = (input.value||'').trim().slice(0,40);
+  if(!text) return;
+  if(FACILITY_META[text]){ toast('รายการนี้มีในช่องติ๊กด้านบนแล้ว','error'); input.value=''; return; }
+  if(editFacilities.some(x => x.toLowerCase() === text.toLowerCase())){
+    toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return;
+  }
+  editFacilities.push(text);
+  input.value = '';
+  renderFacilityChips();
+}
+
 function openEdit(dorm){
   editingId = dorm ? dorm.id : null;
   document.getElementById('editTitle').textContent = dorm ? 'แก้ไข: '+dorm.name : 'เพิ่มหอพักใหม่';
@@ -116,14 +589,23 @@ function openEdit(dorm){
   document.getElementById('fLat').value = dorm ? dorm.lat : 19.9074;
   document.getElementById('fLng').value = dorm ? dorm.lng : 99.8230;
   document.getElementById('fDesc').value = dorm ? dorm.desc : '';
-  document.querySelectorAll('.fFacility').forEach(cb=> cb.checked = dorm ? dorm.facilities.includes(cb.value) : false);
+
+  editFacilities = dorm ? (dorm.facilities||[]).filter(Boolean).slice() : [];
+  document.querySelectorAll('.fFacility').forEach(cb=> cb.checked = editFacilities.includes(cb.value));
+  renderFacilityChips();
+
   const fan = dorm && dorm.rooms.find(r=>r.code==='fan');
   const air = dorm && dorm.rooms.find(r=>r.code==='air');
   document.getElementById('fFanPrice').value = fan ? fan.price : '';
   document.getElementById('fFanTotal').value = fan ? fan.total : '';
   document.getElementById('fAirPrice').value = air ? air.price : '';
   document.getElementById('fAirTotal').value = air ? air.total : '';
-  document.getElementById('fImages').value = dorm ? dorm.images.join(' , ') : '';
+
+  editImages = dorm ? (dorm.images||[]).slice() : [];
+  renderEditPhotos();
+  const prog = document.getElementById('photoProgress');
+  if(prog){ prog.style.display='none'; prog.textContent=''; }
+
   document.getElementById('fPhone').value = dorm ? (dorm.phone||'') : '';
   document.getElementById('fLine').value = dorm ? (dorm.lineId||'') : '';
   document.getElementById('fContactEmail').value = dorm ? (dorm.contactEmail||'') : '';
@@ -135,11 +617,66 @@ function openEdit(dorm){
 document.getElementById('btnAddDorm').addEventListener('click', ()=> openEdit(null));
 document.getElementById('closeEditModal').addEventListener('click', ()=> document.getElementById('editModal').classList.remove('open'));
 
+// ---- ปุ่มในฟอร์ม: เพิ่มสิ่งอำนวยความสะดวกเอง ----
+document.getElementById('btnAddFacility')?.addEventListener('click', addCustomFacility);
+document.getElementById('fFacilityOther')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); addCustomFacility(); }
+});
+
+// ---- ปุ่มในฟอร์ม: เลือกรูปจากเครื่อง / ลากไฟล์มาวาง / วางลิงก์รูป ----
+async function handlePickedFiles(files){
+  const prog = document.getElementById('photoProgress');
+  const show = (m)=>{ if(prog){ prog.style.display='block'; prog.textContent = m; } };
+  try{
+    show('กำลังเตรียมรูป...');
+    const urls = await uploadDormImages(files, (done,total,name)=> show(`กำลังอัปโหลด ${done+1}/${total} — ${name||''}`));
+    editImages = editImages.concat(urls);
+    renderEditPhotos();
+    show(`✓ เพิ่มรูปแล้ว ${urls.length} รูป — กด "บันทึกหอพัก" ด้านล่างเพื่อบันทึก`);
+    setTimeout(()=>{ if(prog) prog.style.display='none'; }, 4000);
+  }catch(err){
+    console.error(err);
+    if(prog) prog.style.display = 'none';
+    toast(err.message || 'อัปโหลดรูปไม่สำเร็จ','error');
+  }
+}
+document.getElementById('btnPickPhotos')?.addEventListener('click', ()=> document.getElementById('fPhotoInput').click());
+document.getElementById('fPhotoInput')?.addEventListener('change', async (e)=>{
+  const files = e.target.files;
+  if(files && files.length) await handlePickedFiles(files);
+  e.target.value = '';
+});
+const dropZone = document.getElementById('photoDrop');
+if(dropZone){
+  ['dragenter','dragover'].forEach(ev=> dropZone.addEventListener(ev, (e)=>{
+    e.preventDefault(); dropZone.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev=> dropZone.addEventListener(ev, (e)=>{
+    e.preventDefault(); dropZone.classList.remove('drag');
+  }));
+  dropZone.addEventListener('drop', async (e)=>{
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if(files && files.length) await handlePickedFiles(files);
+  });
+}
+document.getElementById('btnAddImageUrl')?.addEventListener('click', ()=>{
+  const input = document.getElementById('fImageUrl');
+  const url = (input.value||'').trim();
+  if(!url) return;
+  if(!/^https?:\/\//i.test(url)){ toast('ลิงก์รูปต้องขึ้นต้นด้วย http:// หรือ https://','error'); return; }
+  editImages.push(url);
+  input.value = '';
+  renderEditPhotos();
+});
+
 document.getElementById('saveEdit').addEventListener('click', async ()=>{
-  const facilities = Array.from(document.querySelectorAll('.fFacility:checked')).map(cb=>cb.value);
-  const images = document.getElementById('fImages').value.split(',').map(s=>s.trim()).filter(Boolean);
+  // สิ่งอำนวยความสะดวก = ที่ติ๊กไว้ + ที่พิมพ์เอง (เรียงให้ของมาตรฐานขึ้นก่อน)
+  const checked = Array.from(document.querySelectorAll('.fFacility:checked')).map(cb=>cb.value);
+  const custom  = editFacilities.filter(isCustomFacility);
+  const facilities = checked.concat(custom);
+  const images = editImages.slice();
   if(images.length===0 && document.getElementById('fVerified').checked){
-    toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ลิงก์รูปภาพอย่างน้อย 1 รูปก่อน','error'); return;
+    toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return;
   }
   const rooms = [];
   const fanPrice = +document.getElementById('fFanPrice').value, fanTotal = +document.getElementById('fFanTotal').value;
@@ -178,144 +715,20 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
 
   try{
     if(editingId){ await updateDorm(editingId, data); toast('บันทึกข้อมูลหอพักแล้ว','success'); }
-    else{ await addDorm(ME.uid, data); toast('เพิ่มหอพักใหม่สำเร็จ','success'); }
+    else{
+      const newId = await addDorm(ME.uid, data);
+      activeOwnerDormId = newId;         // เปิดหอที่เพิ่งสร้างในหน้าโปรไฟล์เลย
+      toast('สร้างหน้าหอพักของคุณสำเร็จ — นักศึกษาเห็นหอนี้แล้ว','success');
+    }
     document.getElementById('editModal').classList.remove('open');
-    renderListings(); renderStats();
+    renderListings(); renderStats(); renderOwnerPage();
   }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+err.message,'error'); }
 });
 
-async function renderClaim(){
-  const tbody = document.getElementById('claimTable');
-  try{
-    const [list, myClaims] = await Promise.all([
-      getUnclaimedDorms().then(l => l.filter(d => d.ownerId !== ME.uid)),
-      getMyDormClaims().catch(()=>[])
-    ]);
-    const claimByDorm = {};
-    myClaims.forEach(c=>{ if(!claimByDorm[c.dormId] || c.status==='pending') claimByDorm[c.dormId] = c; });
+// หมายเหตุ: ฟังก์ชัน renderClaim / renderClaimReview (ระบบ "รับช่วงดูแลหอ")
+// ถูกลบออกแล้ว เพราะตอนนี้เจ้าของหอสร้างหน้าหอของตัวเองได้เลย
+// ไม่ต้องไปยื่นคำขอรับช่วงหอที่ระบบใส่ไว้ให้ก่อน
 
-    // แถบสรุปสถานะคำขอของฉัน
-    const pending = myClaims.filter(c=>c.status==='pending');
-    const box = document.getElementById('myClaimStatus');
-    if(box){
-      box.innerHTML = pending.length
-        ? `<div class="setup-banner show" style="background:#FDF1DC;border-color:#E8A33D;color:#946A0E">
-             ⏳ คุณยื่นคำขอดูแลหอไว้ ${pending.length} รายการ กำลังรอผู้ดูแลระบบตรวจสอบ —
-             ${pending.map(c=>escapeHtml(c.dormName||'')).join(', ')}
-           </div>`
-        : '';
-    }
-
-    tbody.innerHTML = list.map(d=>{
-      const c = claimByDorm[d.id];
-      let action;
-      if(c && c.status === 'pending'){
-        action = '<span class="status-pill status-pending">⏳ รอผู้ดูแลระบบตรวจสอบ</span>';
-      }else if(c && c.status === 'rejected'){
-        action = `<span class="status-pill status-cancelled">ไม่ผ่านการตรวจสอบ</span><br>
-                  <small class="muted">${escapeHtml(c.rejectReason||'')}</small><br>
-                  <button class="btn btn-sm btn-outline" data-claim="${d.id}" style="margin-top:6px">ยื่นใหม่</button>`;
-      }else{
-        action = `<button class="btn btn-sm btn-approve" data-claim="${d.id}">นี่คือหอของฉัน</button>`;
-      }
-      return `<tr>
-        <td><strong>${escapeHtml(d.name)}</strong></td>
-        <td>${escapeHtml(d.hallType)}</td>
-        <td>${d.rooms.length? d.rooms.map(r=>`${escapeHtml(r.label)}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
-        <td style="max-width:340px"><small class="muted">${escapeHtml((d.desc||'').slice(0,160))}</small></td>
-        <td>${action}</td>
-      </tr>`;
-    }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ไม่มีหอพักที่รอเจ้าของรับช่วงดูแล</td></tr>`;
-
-    tbody.querySelectorAll('[data-claim]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const proof = prompt(
-          'ยืนยันว่าคุณเป็นเจ้าของหอพักนี้\n\n' +
-          'กรุณาระบุข้อมูลให้ผู้ดูแลระบบตรวจสอบ เช่น ชื่อผู้ประกอบการตามทะเบียน ' +
-          'เบอร์โทรที่ติดต่อได้ หรือเลขทะเบียนหอพัก\n' +
-          '(ผู้ดูแลระบบจะติดต่อกลับเพื่อยืนยันก่อนอนุมัติ)'
-        );
-        if(proof === null) return;
-        try{
-          await requestDormClaim(btn.dataset.claim, proof);
-          toast('ส่งคำขอแล้ว — รอผู้ดูแลระบบตรวจสอบและอนุมัติ','success');
-          renderClaim();
-        }catch(err){ console.error(err); toast('ส่งคำขอไม่สำเร็จ: '+err.message,'error'); }
-      });
-    });
-  }catch(err){
-    console.error(err);
-    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// คำขอรับช่วงดูแลหอ (เฉพาะผู้ดูแลระบบ)
-// ---------------------------------------------------------------------------
-async function renderClaimReview(){
-  const box = document.getElementById('claimReviewList');
-  if(!box) return;
-  try{
-    const list = await getPendingDormClaims();
-    const badge = document.getElementById('claimReviewBadge');
-    if(badge) badge.innerHTML = list.length ? `<span class="chat-badge">${list.length}</span>` : '';
-
-    if(!list.length){
-      box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">✅</div>
-        <p>ไม่มีคำขอรอตรวจสอบ</p></div>`;
-      return;
-    }
-    box.innerHTML = list.map(c=>`
-      <div class="booking-item is-new">
-        <div class="bk-top">
-          <div>
-            <div class="bk-who">${escapeHtml(c.ownerName||'เจ้าของหอ')}</div>
-            <div class="bk-room">ขอดูแลหอ: ${escapeHtml(c.dormName||'')}</div>
-          </div>
-          <span class="status-pill status-pending">รอตรวจสอบ</span>
-        </div>
-        <div class="bk-grid">
-          <div><span class="k">อีเมล:</span> <strong>${escapeHtml(c.ownerEmail)}</strong></div>
-          <div><span class="k">เบอร์โทร:</span> <strong>${escapeHtml(c.ownerPhone)}</strong></div>
-          <div><span class="k">ยื่นเมื่อ:</span> <strong>${fmtChatTime(c.createdAt)}</strong></div>
-        </div>
-        ${c.proof ? `<div class="bk-note">📄 ข้อมูลยืนยันตัวตน: ${escapeHtml(c.proof)}</div>` : ''}
-        <div class="bk-note" style="background:#FDF1DC;color:#946A0E">
-          ⚠️ โปรดโทรตรวจสอบกับหอพักตัวจริงก่อนอนุมัติ — อนุมัติแล้วผู้ขอจะแก้ราคา
-          ช่องทางติดต่อ และรับการจองแทนหอนี้ได้ทันที
-        </div>
-        <div class="bk-actions">
-          <button class="btn btn-sm btn-approve" data-claimok="${c.id}">✓ อนุมัติให้ดูแลหอนี้</button>
-          <button class="btn btn-sm btn-reject" data-claimno="${c.id}">✕ ปฏิเสธ</button>
-        </div>
-      </div>`).join('');
-
-    box.querySelectorAll('[data-claimok]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('อนุมัติให้ผู้ขอรายนี้ดูแลหอพักนี้?\n\nคุณได้ตรวจสอบตัวตนกับหอพักตัวจริงแล้วใช่ไหม')) return;
-        try{
-          await approveDormClaim(btn.dataset.claimok);
-          toast('อนุมัติเรียบร้อย','success');
-          renderClaimReview(); renderStats(); renderOwners();
-        }catch(err){ console.error(err); toast('อนุมัติไม่สำเร็จ: '+err.message,'error'); }
-      });
-    });
-    box.querySelectorAll('[data-claimno]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const reason = prompt('เหตุผลที่ปฏิเสธ (ผู้ขอจะเห็นข้อความนี้):');
-        if(reason === null) return;
-        try{
-          await rejectDormClaim(btn.dataset.claimno, reason);
-          toast('ปฏิเสธคำขอแล้ว','success');
-          renderClaimReview();
-        }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+err.message,'error'); }
-      });
-    });
-  }catch(err){
-    console.error(err);
-    box.innerHTML = `<div class="chat-empty">โหลดคำขอไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // ข้อความจากนักศึกษา (ฝั่งเจ้าของหอ)
@@ -487,16 +900,19 @@ async function renderBookings(){
 }
 
 // ---------------------------------------------------------------------------
-// หอพักใหม่ที่รอผู้ดูแลระบบตรวจสอบ
+// หอพักที่ผู้ดูแลระบบสั่งซ่อนไว้ (ตอนนี้หอใหม่เผยแพร่ทันที ไม่ต้องรออนุมัติแล้ว)
 // ---------------------------------------------------------------------------
 async function renderPendingDorms(){
   const box = document.getElementById('pendingDormList');
   if(!box) return;
   try{
     const list = await getPendingDorms();
+    const badge = document.getElementById('dormReviewBadge');
+    if(badge) badge.innerHTML = list.length ? `<span class="chat-badge">${list.length}</span>` : '';
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:26px 10px"><div class="emoji">✅</div>
-        <p>ไม่มีหอพักใหม่รอตรวจสอบ</p></div>`;
+        <p>ไม่มีหอพักที่ถูกซ่อนอยู่<br>
+        <small class="muted">หอทุกหอในระบบแสดงให้นักศึกษาเห็นตามปกติ</small></p></div>`;
       return;
     }
     box.innerHTML = list.map(d=>`
@@ -504,9 +920,9 @@ async function renderPendingDorms(){
         <div class="bk-top">
           <div>
             <div class="bk-who">${escapeHtml(d.name)}</div>
-            <div class="bk-room">${escapeHtml(d.hallType)} · ส่งเข้ามาใหม่</div>
+            <div class="bk-room">${escapeHtml(d.hallType)}</div>
           </div>
-          <span class="status-pill status-pending">รอตรวจสอบ</span>
+          <span class="status-pill status-cancelled">🚫 ถูกซ่อนอยู่</span>
         </div>
         <div class="bk-grid">
           ${d.phone ? `<div><span class="k">เบอร์หอ:</span> <strong>${escapeHtml(d.phone)}</strong></div>` : ''}
@@ -517,36 +933,30 @@ async function renderPendingDorms(){
             : 'ยังไม่ระบุ'}</strong></div>
         </div>
         ${d.desc ? `<div class="bk-note">${escapeHtml(d.desc.slice(0,300))}</div>` : ''}
+        ${d.reviewNote ? `<div class="bk-note" style="background:#FBE7E3;color:#B23A24">
+          เหตุผลที่ซ่อน: ${escapeHtml(d.reviewNote)}</div>` : ''}
         <div class="bk-note" style="background:#FDF1DC;color:#946A0E">
-          ⚠️ โทรตรวจสอบว่าหอนี้มีอยู่จริงและผู้ส่งเป็นเจ้าของตัวจริงก่อนอนุมัติ —
-          อนุมัติแล้วหอจะแสดงให้นักศึกษาเห็นทันที
+          ⚠️ หอนี้ไม่แสดงให้นักศึกษาเห็นอยู่ตอนนี้ — ถ้าเจ้าของหอแก้ไขข้อมูลเรียบร้อยแล้ว
+          กด "เผยแพร่กลับ" เพื่อให้กลับมาแสดงตามปกติ
         </div>
         <div class="bk-actions">
-          <button class="btn btn-sm btn-approve" data-dormok="${d.id}">✓ อนุมัติและเผยแพร่</button>
-          <button class="btn btn-sm btn-reject" data-dormno="${d.id}">✕ ไม่อนุมัติ</button>
+          <button class="btn btn-sm btn-outline" data-dormview="${d.id}">👁 ดูข้อมูล</button>
+          <button class="btn btn-sm btn-approve" data-dormok="${d.id}">✓ เผยแพร่กลับ</button>
         </div>
       </div>`).join('');
 
     box.querySelectorAll('[data-dormok]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('อนุมัติและเผยแพร่หอพักนี้?\n\nคุณตรวจสอบแล้วว่าหอมีอยู่จริงและผู้ส่งเป็นเจ้าของตัวจริงใช่ไหม')) return;
+        if(!confirm('เผยแพร่หอพักนี้กลับให้นักศึกษาเห็น?')) return;
         try{
           await approveDorm(btn.dataset.dormok);
-          toast('อนุมัติแล้ว — หอนี้แสดงให้นักศึกษาเห็นแล้ว','success');
+          toast('เผยแพร่แล้ว — หอนี้กลับมาแสดงให้นักศึกษาเห็นแล้ว','success');
           renderPendingDorms(); renderStats(); renderListings();
-        }catch(err){ console.error(err); toast('อนุมัติไม่สำเร็จ: '+(err.message||''),'error'); }
-      });
-    });
-    box.querySelectorAll('[data-dormno]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const reason = prompt('เหตุผลที่ไม่อนุมัติ (เจ้าของหอจะเห็นข้อความนี้):');
-        if(reason === null) return;
-        try{
-          await rejectDorm(btn.dataset.dormno, reason);
-          toast('บันทึกผลการตรวจสอบแล้ว','success');
-          renderPendingDorms();
         }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
       });
+    });
+    box.querySelectorAll('[data-dormview]').forEach(btn=>{
+      btn.addEventListener('click', ()=> openViewDorm(list.find(x=>x.id===btn.dataset.dormview)));
     });
   }catch(err){
     console.error(err);
@@ -687,11 +1097,9 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
   // เจ้าของหอใช้งานได้ทันทีหลังสมัคร — จะถูกจำกัดสิทธิ์ก็ต่อเมื่อผู้ดูแลระบบ "ระงับบัญชี" เท่านั้น
   const isSuspended = (profile.role === 'owner' && !profile.approved);
   if(isSuspended){
-    ['listings','bookings','messages','claim'].forEach(sec=>{
+    DASH_SECTIONS.forEach(sec=>{
       const btn = document.querySelector(`.side-link[data-sec="${sec}"]`);
       if(btn) btn.style.display = 'none';
-    });
-    ['listings','bookings','messages','claim','claimreview','owners'].forEach(sec=>{
       const el = document.getElementById('sec-'+sec);
       if(el) el.style.display = 'none';
     });
@@ -706,19 +1114,14 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
   }
   if(profile.role==='admin'){
     document.getElementById('ownersTabBtn').style.display='flex';
-    document.getElementById('claimReviewTabBtn').style.display='flex';
+    document.getElementById('dormReviewTabBtn').style.display='flex';
   }
 
-  try{
-    new QRCode(document.getElementById('qrcode2'), {
-      text: location.href.replace(/admin\.html.*$/,''),
-      width: 100, height:100, colorDark:'#1F3A2E', colorLight:'#ffffff'
-    });
-  }catch(err){ console.error(err); }
+  // (เอา QR โค้ดออกจากหน้าหลังบ้านแล้ว — QR ของเว็บยังมีอยู่ในหน้าฝั่งนักศึกษา)
 
   try{
     if(isSuspended) return;   // บัญชีถูกระงับ ไม่ต้องโหลดอะไรต่อ
-    await renderStats(); await renderListings(); await renderClaim();
+    await renderStats(); await renderListings(); await renderOwnerPage();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
 
@@ -750,9 +1153,8 @@ document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
     }); await renderOwnerThreads();
     if(profile.role==='admin'){
       await renderOwners();
-      await renderClaimReview();
       await renderPendingDorms();
-      setInterval(()=>{ renderClaimReview(); renderPendingDorms(); }, 60000);
+      setInterval(renderPendingDorms, 60000);
     }
   }catch(err){ console.error(err); toast('โหลดข้อมูลบางส่วนไม่สำเร็จ','error'); }
 })();

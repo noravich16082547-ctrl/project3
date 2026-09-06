@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -116,6 +116,26 @@ const FACILITY_META = {
   cctv: { icon:'📷', label:'กล้องวงจรปิด' },
   guard: { icon:'🛡️', label:'รปภ. 24 ชม.' }
 };
+
+// ---------------------------------------------------------------------------
+// สิ่งอำนวยความสะดวก "อื่น ๆ" ที่เจ้าของหอพิมพ์เอง
+//
+// ค่าในคอลัมน์ facilities เก็บได้ 2 แบบ
+//   - รหัสมาตรฐาน เช่น 'wifi' 'cctv'  -> ใช้ไอคอน/ชื่อจาก FACILITY_META
+//   - ข้อความอิสระ เช่น 'ตู้กดน้ำดื่ม'   -> แสดงข้อความนั้นตรง ๆ พร้อมไอคอน ✅
+// เก็บเป็นข้อความล้วน ไม่ต้องมีคำนำหน้า เพื่อให้ข้อมูลเก่ายังใช้ได้เหมือนเดิม
+// ---------------------------------------------------------------------------
+function isCustomFacility(code){
+  return typeof code === 'string' && code.trim() !== '' && !FACILITY_META[code];
+}
+// คืน {icon, label} เสมอ — label เป็นข้อความดิบ ผู้เรียกต้อง escape ก่อนใส่ลง HTML
+function facilityMeta(code){
+  if(FACILITY_META[code]) return FACILITY_META[code];
+  return { icon:'✅', label: String(code) };
+}
+function escapeAttr(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 
 const ROOM_PHOTOS = [1034584,2416932,2416933,8251681,1454806,7055757,15792555,8251695,5858236,164595,6782344,5858228,5858234];
 const EXTERIOR_PHOTOS = [33619255, 19390169, 14121007, 33619257];
@@ -253,13 +273,16 @@ function imgFallbackAttr(){
   return `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${FALLBACK_IMG}';}"`;
 }
 function facilityIcons(codes){
-  return (codes||[]).map(c => FACILITY_META[c] ? `<span title="${FACILITY_META[c].label}">${FACILITY_META[c].icon}</span>` : '').join(' ');
+  return (codes||[]).filter(Boolean).map(c=>{
+    const m = facilityMeta(c);
+    return `<span title="${escapeAttr(m.label)}">${m.icon}</span>`;
+  }).join(' ');
 }
 function amenityGridHtml(codes){
-  return (codes||[]).map(c=>{
-    const m = FACILITY_META[c];
-    if(!m) return '';
-    return `<div class="amenity"><span class="ic">${m.icon}</span><span>${m.label}</span></div>`;
+  return (codes||[]).filter(Boolean).map(c=>{
+    const m = facilityMeta(c);
+    // label อาจเป็นข้อความที่เจ้าของหอพิมพ์เอง — ต้อง escape ก่อนเสมอ
+    return `<div class="amenity"><span class="ic">${m.icon}</span><span>${escapeAttr(m.label)}</span></div>`;
   }).join('');
 }
 function statusPill(status){
@@ -507,6 +530,119 @@ async function deleteDorm(id){
   const { error } = await sb.from('dorms').delete().eq('id', id);
   if(error) throw error;
 }
+
+// ---------------------------------------------------------------------------
+// อัปโหลดรูปหอพักจากเครื่องของเจ้าของหอ
+//
+// เก็บไว้ใน Supabase Storage bucket ชื่อ "dorm-photos"
+// โครงสร้างไฟล์: dorm-photos/<user-id>/<เวลา>_<สุ่ม>.jpg
+// (โฟลเดอร์ชื่อ user-id เพราะ policy ฝั่งฐานข้อมูลใช้ตรวจว่าเป็นโฟลเดอร์ของตัวเอง)
+//
+// รูปจากมือถือมักใหญ่ 3-6 MB ต่อรูป จึงย่อขนาดในเบราว์เซอร์ก่อนอัปโหลด
+// เพื่อให้อัปโหลดเร็วและหน้าเว็บโหลดไว ไม่กินโควตาฟรีของ Supabase
+// ---------------------------------------------------------------------------
+const DORM_PHOTO_BUCKET = 'dorm-photos';
+const MAX_PHOTO_SIDE = 1600;      // ด้านยาวสุดหลังย่อ (พิกเซล)
+const PHOTO_QUALITY  = 0.82;      // คุณภาพ JPEG หลังย่อ
+
+// โหลดไฟล์รูปเข้ามาเป็นภาพ (ใช้ createImageBitmap ถ้ามี ไม่มีก็ถอยไปใช้ <img>)
+async function loadImageForResize(file){
+  if(typeof createImageBitmap === 'function'){
+    try{ return await createImageBitmap(file); }catch(e){ /* ถอยไปวิธีสำรอง */ }
+  }
+  return await new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('เปิดไฟล์รูปไม่ได้')); };
+    img.src = url;
+  });
+}
+
+// ย่อรูปให้ด้านยาวสุดไม่เกิน MAX_PHOTO_SIDE แล้วคืนเป็น Blob (jpeg)
+// ถ้าย่อไม่สำเร็จด้วยเหตุใดก็ตาม จะคืนไฟล์ต้นฉบับไปเลย ดีกว่าอัปโหลดไม่ได้
+async function compressImage(file){
+  try{
+    const img = await loadImageForResize(file);
+    const iw = img.width || img.naturalWidth;
+    const ih = img.height || img.naturalHeight;
+    if(!iw || !ih) return file;
+    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * scale));
+    const h = Math.max(1, Math.round(ih * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    if(img.close) img.close();
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', PHOTO_QUALITY));
+    // ถ้าย่อแล้วดันใหญ่กว่าเดิม (รูปเล็กอยู่แล้ว) ใช้ไฟล์เดิมดีกว่า
+    if(!blob) return file;
+    return (blob.size < file.size) ? blob : file;
+  }catch(err){
+    console.warn('ย่อรูปไม่สำเร็จ ใช้ไฟล์ต้นฉบับแทน:', err.message);
+    return file;
+  }
+}
+
+// แปลง error จาก Storage ให้เป็นข้อความที่บอกวิธีแก้ได้จริง
+function storageErrorMessage(error){
+  const msg = (error && (error.message || error.error || '')) || '';
+  if(/bucket not found/i.test(msg) || /404/.test(String(error && error.statusCode))){
+    return 'ยังไม่มีที่เก็บรูปในฐานข้อมูล — เปิด Supabase → SQL Editor แล้วรันไฟล์ fix-v15.sql ก่อน แล้วลองใหม่';
+  }
+  if(/row-level security|not authorized|403/i.test(msg)){
+    return 'ไม่มีสิทธิ์อัปโหลดรูป — ตรวจว่าเข้าสู่ระบบด้วยบัญชีเจ้าของหอ และรันไฟล์ fix-v15.sql ใน Supabase แล้ว';
+  }
+  if(/payload too large|exceeded the maximum|413/i.test(msg)){
+    return 'ไฟล์รูปใหญ่เกินไป — ลองใช้รูปที่เล็กลง หรือถ่ายใหม่ด้วยความละเอียดต่ำลง';
+  }
+  return 'อัปโหลดรูปไม่สำเร็จ: ' + (msg || 'ไม่ทราบสาเหตุ');
+}
+
+// อัปโหลดรูปหลายรูปพร้อมกัน คืน array ของลิงก์รูปที่ใช้งานได้
+// onProgress(ทำไปแล้วกี่รูป, ทั้งหมดกี่รูป, ชื่อไฟล์ปัจจุบัน)
+async function uploadDormImages(files, onProgress){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนอัปโหลดรูป');
+
+  const list = Array.from(files || []).filter(f => f && /^image\//.test(f.type || ''));
+  if(list.length === 0) throw new Error('กรุณาเลือกไฟล์รูปภาพ (jpg, png, webp)');
+
+  const urls = [];
+  for(let i = 0; i < list.length; i++){
+    const file = list[i];
+    if(typeof onProgress === 'function') onProgress(i, list.length, file.name);
+
+    const blob = await compressImage(file);
+    const ext  = (blob.type === 'image/jpeg') ? 'jpg'
+               : ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,4) || 'jpg');
+    const path = `${user.id}/${Date.now()}_${i}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+
+    const { error } = await sb.storage.from(DORM_PHOTO_BUCKET)
+      .upload(path, blob, { contentType: blob.type || 'image/jpeg', cacheControl:'31536000', upsert:false });
+    if(error) throw new Error(storageErrorMessage(error));
+
+    const { data } = sb.storage.from(DORM_PHOTO_BUCKET).getPublicUrl(path);
+    urls.push(data.publicUrl);
+  }
+  if(typeof onProgress === 'function') onProgress(list.length, list.length, '');
+  return urls;
+}
+
+// รูปนี้เป็นไฟล์ที่เราอัปโหลดเองหรือเป็นลิงก์จากเว็บอื่น
+function isUploadedPhoto(url){
+  return typeof url === 'string' && url.includes(`/${DORM_PHOTO_BUCKET}/`);
+}
+// ลบไฟล์รูปออกจากที่เก็บ (เรียกหลังจากเอารูปออกจากหอแล้ว)
+// ลบไม่สำเร็จก็ไม่ throw — รูปหลุดค้างในที่เก็บไม่ทำให้หน้าเว็บพัง
+async function deleteDormPhoto(url){
+  if(!sb || !isUploadedPhoto(url)) return;
+  try{
+    const path = url.split(`/${DORM_PHOTO_BUCKET}/`).pop().split('?')[0];
+    await sb.storage.from(DORM_PHOTO_BUCKET).remove([decodeURIComponent(path)]);
+  }catch(err){ console.warn('ลบไฟล์รูปไม่สำเร็จ:', err.message); }
+}
 // ---------------------------------------------------------------------------
 // ผู้ดูแลระบบ: ตั้งแอดมินคนแรกจากหน้าเว็บ (ไม่ต้องเขียน SQL)
 // ---------------------------------------------------------------------------
@@ -554,61 +690,115 @@ async function rejectDorm(dormId, reason){
   if(error) throw error;
 }
 
-// หอพักที่ยังไม่มีเจ้าของยืนยันดูแล (verified = false) — เปิดให้เจ้าของหอตัวจริงกดรับช่วงดูแลได้
-async function getUnclaimedDorms(){
-  if(!sb) return [];
-  const { data, error } = await sb.from('dorms').select('*').eq('verified', false);
-  if(error) throw error;
-  return data.map(mapDormRow);
-}
-// ยื่น "คำขอ" รับช่วงดูแลหอ — ยังไม่ได้สิทธิ์ทันที ต้องรอแอดมินอนุมัติ
-async function requestDormClaim(dormId, proof){
-  requireSupabase();
-  const { data, error } = await sb.rpc('request_dorm_claim', { p_dorm_id: dormId, p_proof: proof || null });
-  if(error) throw error;
-  return data;
-}
+// หมายเหตุ: ระบบ "รับช่วงดูแลหอ" (dorm_claims) ถูกถอดออกจากเว็บแล้ว
+// เพราะตอนนี้เจ้าของหอสร้างหอของตัวเองได้เลย ไม่ต้องไปขอรับช่วงหอที่ระบบใส่ไว้ก่อน
+// ตารางเดิมในฐานข้อมูลยังอยู่ (ไม่ลบข้อมูลเก่าทิ้ง) แต่ไม่มีหน้าไหนเรียกใช้แล้ว
 
-// คำขอของฉัน (ฝั่งเจ้าของหอ) — ใช้แสดงสถานะว่ารออนุมัติอยู่
-async function getMyDormClaims(){
-  if(!sb) return [];
-  const user = await waitForSession();
-  if(!user) return [];
-  const { data, error } = await sb.from('dorm_claims').select('*')
-    .eq('owner_id', user.id).order('created_at', { ascending:false });
-  if(error) throw error;
-  return data.map(mapClaimRow);
-}
 
-// คำขอทั้งหมดที่รอตรวจสอบ (ฝั่งแอดมิน)
-async function getPendingDormClaims(){
-  if(!sb) return [];
-  const { data, error } = await sb.from('dorm_claims').select('*')
-    .eq('status','pending').order('created_at', { ascending:true });
-  if(error) throw error;
-  return data.map(mapClaimRow);
-}
-
-async function approveDormClaim(claimId){
-  requireSupabase();
-  const { error } = await sb.rpc('approve_dorm_claim', { p_claim_id: claimId });
-  if(error) throw error;
-}
-
-async function rejectDormClaim(claimId, reason){
-  requireSupabase();
-  const { error } = await sb.rpc('reject_dorm_claim', { p_claim_id: claimId, p_reason: reason || null });
-  if(error) throw error;
-}
-
-function mapClaimRow(r){
+// ---------------------------------------------------------------------------
+// รีวิวจากผู้ใช้
+//
+// 1 คน รีวิวได้ 1 ครั้งต่อ 1 หอ — เขียนซ้ำ = แก้ไขรีวิวเดิมของตัวเอง
+// เจ้าของหอรีวิวหอของตัวเองไม่ได้ (ฝั่งฐานข้อมูลกันไว้อีกชั้น)
+// ต้องรันไฟล์ fix-v15.sql ใน Supabase ก่อน ถึงจะมีตาราง reviews
+// ---------------------------------------------------------------------------
+function mapReviewRow(r){
   return {
-    id: r.id, dormId: r.dorm_id, dormName: r.dorm_name,
-    ownerId: r.owner_id, ownerName: r.owner_name,
-    ownerEmail: r.owner_email || '', ownerPhone: r.owner_phone || '',
-    proof: r.proof || '', status: r.status, rejectReason: r.reject_reason || '',
-    createdAt: new Date(r.created_at).getTime()
+    id: r.id, dormId: r.dorm_id, userId: r.user_id,
+    userName: r.user_name || 'ผู้ใช้ DormCRU',
+    rating: Number(r.rating) || 0, body: r.body || '',
+    createdAt: new Date(r.created_at).getTime(),
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null
   };
+}
+
+// ตรวจว่า error คือ "ยังไม่มีตารางนี้ในฐานข้อมูล" (ยังไม่ได้รันไฟล์ SQL)
+function isMissingTable(error){
+  if(!error) return false;
+  const msg = error.message || '';
+  return error.code === '42P01' || error.code === 'PGRST205' ||
+         /relation .* does not exist|Could not find the table/i.test(msg);
+}
+
+// รีวิวทั้งหมดของหอหนึ่งหอ (ใหม่สุดขึ้นก่อน)
+// ถ้ายังไม่ได้รัน SQL จะคืน [] เฉย ๆ ไม่ทำให้หน้ารายละเอียดหอพัง
+async function getReviews(dormId){
+  if(!sb || !dormId) return [];
+  const { data, error } = await sb.from('reviews').select('*')
+    .eq('dorm_id', dormId).order('created_at', { ascending:false });
+  if(error){
+    if(isMissingTable(error)){
+      console.warn('ยังไม่มีตาราง reviews — ไปรันไฟล์ fix-v15.sql ใน Supabase SQL Editor');
+      return [];
+    }
+    throw error;
+  }
+  return data.map(mapReviewRow);
+}
+
+// สรุปคะแนน: {count, avg, dist:{5:n,4:n,...}}
+function ratingSummary(reviews){
+  const list = reviews || [];
+  const dist = {1:0,2:0,3:0,4:0,5:0};
+  let sum = 0;
+  list.forEach(r=>{ if(dist[r.rating] !== undefined) dist[r.rating]++; sum += r.rating; });
+  return {
+    count: list.length,
+    avg: list.length ? Math.round((sum / list.length) * 10) / 10 : 0,
+    dist
+  };
+}
+
+// เขียนหรือแก้ไขรีวิวของตัวเอง (upsert ตามคู่ dorm_id + user_id)
+async function saveReview({ dormId, rating, body }){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนเขียนรีวิว');
+  const stars = Math.round(Number(rating));
+  if(!(stars >= 1 && stars <= 5)) throw new Error('กรุณาให้คะแนน 1-5 ดาว');
+
+  const { error } = await sb.from('reviews')
+    .upsert({ dorm_id: dormId, user_id: user.id, rating: stars, body: (body||'').trim() },
+            { onConflict: 'dorm_id,user_id' });
+
+  if(error){
+    if(isMissingTable(error)){
+      throw new Error('ยังไม่มีระบบรีวิวในฐานข้อมูล — เปิด Supabase → SQL Editor แล้วรันไฟล์ fix-v15.sql ก่อน');
+    }
+    if(/row-level security/i.test(error.message||'')){
+      throw new Error('เขียนรีวิวไม่ได้ — เจ้าของหอรีวิวหอของตัวเองไม่ได้');
+    }
+    throw error;
+  }
+}
+
+// ลบรีวิว (ของตัวเอง หรือผู้ดูแลระบบลบรีวิวไม่เหมาะสม)
+async function deleteReview(reviewId){
+  requireSupabase();
+  const { error } = await sb.from('reviews').delete().eq('id', reviewId);
+  if(error) throw error;
+}
+
+// รีวิวของหอหลายหอพร้อมกัน — ใช้ตอนแสดงดาวบนการ์ดรายการหอ
+// คืน Map: dormId -> {count, avg}
+async function getRatingsForDorms(dormIds){
+  const out = {};
+  if(!sb || !dormIds || !dormIds.length) return out;
+  const { data, error } = await sb.from('reviews').select('dorm_id, rating').in('dorm_id', dormIds);
+  if(error){
+    if(isMissingTable(error)) return out;
+    console.error(error);
+    return out;
+  }
+  data.forEach(r=>{
+    const k = r.dorm_id;
+    if(!out[k]) out[k] = { count:0, sum:0, avg:0 };
+    out[k].count++; out[k].sum += Number(r.rating) || 0;
+  });
+  Object.keys(out).forEach(k=>{
+    out[k].avg = Math.round((out[k].sum / out[k].count) * 10) / 10;
+  });
+  return out;
 }
 async function seedSampleDormsIfEmpty(ownerId){
   requireSupabase();
@@ -768,12 +958,41 @@ async function getBookingsForOwner(ownerId){
   if(error) throw error;
   return data.map(mapBookingRow);
 }
+// ตรวจว่า error ที่ได้คือ "ยังไม่มีฟังก์ชันนี้ในฐานข้อมูล" (ยังไม่ได้รันไฟล์ SQL)
+function isMissingFunction(error){
+  if(!error) return false;
+  return error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+}
+
 // นักศึกษายกเลิกการจองของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
 // (ถ้าหอยืนยันไปแล้ว ฝั่งฐานข้อมูลจะคืนจำนวนห้องว่างให้หออัตโนมัติ)
 async function cancelMyBooking(bookingId){
   requireSupabase();
+
   const { error } = await sb.rpc('cancel_my_booking', { p_booking_id: bookingId });
-  if(error) throw error;
+  if(!error) return;
+  if(!isMissingFunction(error)) throw error;
+
+  // ---- วิธีสำรอง: ฐานข้อมูลยังไม่ได้รันไฟล์ fix-open-listing.sql ----
+  // การจองที่ "ยังรอหอตอบ" ยกเลิกด้วยวิธีนี้ได้ผลถูกต้อง เพราะยังไม่เคยหักห้องว่าง
+  // ส่วนการจองที่ "หอยืนยันแล้ว" ต้องใช้ฟังก์ชันเท่านั้น ไม่งั้นห้องว่างจะไม่ถูกคืน
+  console.warn('ยังไม่มีฟังก์ชัน cancel_my_booking ในฐานข้อมูล — ใช้วิธีสำรอง (ควรไปรันไฟล์ fix-open-listing.sql ใน Supabase)');
+
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
+
+  const { data, error: e2 } = await sb.from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('id', bookingId).eq('user_id', user.id)
+    .select('id');
+
+  if(e2 || !data || data.length === 0){
+    throw new Error(
+      'ยกเลิกไม่สำเร็จ — ฐานข้อมูลยังไม่ได้อัปเดต\n' +
+      'กรุณาเปิด Supabase → SQL Editor แล้วรันไฟล์ fix-open-listing.sql ก่อน ' +
+      '(การจองที่หอยืนยันแล้วต้องใช้ไฟล์นี้เพื่อคืนห้องว่างให้หอ)'
+    );
+  }
 }
 
 async function updateBookingStatus(bookingId, status){

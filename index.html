@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -225,8 +225,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="db.js?v=15"></script>
+<script src="app.js?v=15"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -260,6 +260,14 @@ document.getElementById('btnWishlistFilter').addEventListener('click', ()=>{
   applyFilters();
 });
 
+// คะแนนรีวิวบนการ์ดหอ (โหลดมาทีเดียวทั้งหน้าแล้วเก็บไว้ใน dormRatings)
+let dormRatings = {};
+function cardRatingHtml(dormId){
+  const r = dormRatings[dormId];
+  if(!r || !r.count) return '';
+  return `<span class="card-rating" title="${r.count} รีวิว">★ ${r.avg} <small>(${r.count})</small></span>`;
+}
+
 function dormCardHtml(d){
   const vac = totalVacancy(d);
   const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
@@ -279,7 +287,7 @@ function dormCardHtml(d){
       <div class="card-meta">${ng
         ? `<span class="walk-chip">🚶 ${d.gates[ng].toFixed(1)} กม. จาก${CRRU_GATE[ng].label}</span>`
         : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
-      <div class="card-meta">${facilityIcons(d.facilities)}</div>
+      <div class="card-meta">${cardRatingHtml(d.id)}${facilityIcons(d.facilities)}</div>
       <div class="card-price">
         <div class="amount">${priceLabel(d)}</div>
         <button class="btn btn-outline btn-sm" data-open="${d.id}">ดูรายละเอียด / ติดต่อ</button>
@@ -558,10 +566,14 @@ function openDetail(id){
 
     <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
     ${roomRowsHtml(d)}
+
+    <h2 class="td-rooms-h">รีวิวจากผู้ใช้</h2>
+    <div id="reviewBox"><div class="chat-empty">กำลังโหลดรีวิว...</div></div>
   </div>`;
 
   document.getElementById('detailModal').classList.add('open');
   document.querySelector('#detailModal .modal').scrollTop = 0;
+  renderReviewBox(d);
 
   // เปิดรูปใหญ่เมื่อกดที่รูปในแกลเลอรี
   document.querySelectorAll('#detailContent .td-gallery img').forEach(img=>{
@@ -599,6 +611,157 @@ function openDetail(id){
       toast(now ? 'บันทึกเข้ารายการที่ถูกใจแล้ว' : 'นำออกจากรายการที่ถูกใจแล้ว','success');
     }catch(err){ console.error(err); toast('เกิดข้อผิดพลาด','error'); }
   });
+}
+
+// ===========================================================================
+// กล่องรีวิวจากผู้ใช้
+//
+// - คนที่ยังไม่ล็อกอินอ่านรีวิวได้ แต่เขียนไม่ได้
+// - 1 คน รีวิวได้ 1 ครั้งต่อ 1 หอ เขียนซ้ำ = แก้ไขรีวิวเดิม
+// - เจ้าของหอรีวิวหอของตัวเองไม่ได้ (ฝั่งฐานข้อมูลกันไว้อีกชั้น)
+// ===========================================================================
+let reviewDraftStars = 0;
+
+// ดาว 5 ดวงแบบแสดงผลอย่างเดียว
+function starsView(avg){
+  const n = Math.round((Number(avg)||0) * 2) / 2;
+  let out = '';
+  for(let i=1;i<=5;i++){
+    if(n >= i) out += '<span class="st on">★</span>';
+    else if(n >= i - 0.5) out += '<span class="st half">★</span>';
+    else out += '<span class="st">★</span>';
+  }
+  return `<span class="stars">${out}</span>`;
+}
+
+// ดาวแบบกดเลือกได้ (ใช้ในฟอร์มเขียนรีวิว)
+function starsPicker(value){
+  let out = '';
+  for(let i=1;i<=5;i++){
+    out += `<button type="button" class="st-pick ${i<=value?'on':''}" data-star="${i}"
+              aria-label="ให้ ${i} ดาว">★</button>`;
+  }
+  return `<div class="star-picker" id="starPicker">${out}<span class="sp-label" id="spLabel">${
+    value ? value + ' ดาว' : 'แตะเพื่อให้ดาว'}</span></div>`;
+}
+
+async function renderReviewBox(d){
+  const box = document.getElementById('reviewBox');
+  if(!box) return;
+
+  let list = [];
+  try{ list = await getReviews(d.id); }
+  catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดรีวิวไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+    return;
+  }
+  const sum = ratingSummary(list);
+  const me = myProfile;
+  const myReview = me ? list.find(r=>r.userId === me.uid) : null;
+  const isOwnerOfThisDorm = !!(me && d.ownerId === me.uid);
+  reviewDraftStars = myReview ? myReview.rating : 0;
+
+  // ---- ส่วนหัว: คะแนนเฉลี่ย + แท่งกระจายคะแนน ----
+  const head = sum.count ? `
+    <div class="rev-summary">
+      <div class="rev-score">${sum.avg}<small>/5</small>
+        <div class="rev-score-sub">${starsView(sum.avg)}<br>จาก ${sum.count} รีวิว</div>
+      </div>
+      <div class="rev-bars">
+        ${[5,4,3,2,1].map(s=>`
+          <div class="rev-bar">
+            <span>${s}★</span>
+            <div class="rb-track"><div class="rb-fill" style="width:${Math.round(sum.dist[s]/sum.count*100)}%"></div></div>
+            <em>${sum.dist[s]}</em>
+          </div>`).join('')}
+      </div>
+    </div>` : `
+    <div class="rev-empty">
+      <strong>ยังไม่มีรีวิวสำหรับหอนี้</strong>
+      <p class="muted">ถ้าคุณเคยอยู่หรือเคยไปดูหอนี้ ช่วยเขียนรีวิวให้รุ่นน้องหน่อยได้ไหม</p>
+    </div>`;
+
+  // ---- ฟอร์มเขียนรีวิว ----
+  let form;
+  if(!me){
+    form = `<div class="rev-login">
+      <span>อยากเขียนรีวิวหอนี้? เข้าสู่ระบบก่อนนะ</span>
+      <a class="btn btn-outline btn-sm" href="login.html">เข้าสู่ระบบ</a>
+    </div>`;
+  }else if(isOwnerOfThisDorm){
+    form = `<div class="rev-login"><span>นี่คือหอของคุณเอง — เจ้าของหอรีวิวหอตัวเองไม่ได้</span></div>`;
+  }else{
+    form = `
+    <div class="rev-form">
+      <h4>${myReview ? 'แก้ไขรีวิวของคุณ' : 'เขียนรีวิวหอนี้'}</h4>
+      ${starsPicker(reviewDraftStars)}
+      <textarea id="revBody" rows="3" maxlength="1000"
+        placeholder="เล่าให้รุ่นน้องฟังหน่อย เช่น ห้องกว้างไหม เสียงดังไหม เจ้าของหอดูแลดีไหม น้ำ-ไฟคิดยังไง">${escapeHtml(myReview ? myReview.body : '')}</textarea>
+      <div class="rev-form-actions">
+        <button class="btn btn-primary btn-sm" id="revSubmit">${myReview ? 'บันทึกการแก้ไข' : 'ส่งรีวิว'}</button>
+        ${myReview ? `<button class="btn btn-ghost btn-sm" id="revDelete">ลบรีวิวของฉัน</button>` : ''}
+        <span class="form-hint" style="margin:0">เขียนตามที่เจอจริง ๆ นะ รีวิวจะแสดงชื่อผู้ใช้ของคุณ</span>
+      </div>
+    </div>`;
+  }
+
+  // ---- รายการรีวิว ----
+  const items = list.length ? `<div class="rev-list">${list.map(r=>`
+    <div class="rev-item ${myReview && r.id===myReview.id ? 'mine' : ''}">
+      <div class="rev-top">
+        <span class="rev-avatar">${escapeHtml((r.userName||'?').trim().charAt(0) || '?')}</span>
+        <strong>${escapeHtml(r.userName)}</strong>
+        ${starsView(r.rating)}
+        <span class="muted">${fmtChatTime(r.createdAt)}</span>
+        ${myReview && r.id===myReview.id ? '<span class="rev-mine-tag">รีวิวของคุณ</span>' : ''}
+      </div>
+      ${r.body ? `<p>${escapeHtml(r.body)}</p>` : '<p class="muted">(ให้ดาวอย่างเดียว ไม่ได้เขียนข้อความ)</p>'}
+    </div>`).join('')}</div>` : '';
+
+  box.innerHTML = head + form + items;
+
+  // ---- ผูกปุ่มดาว ----
+  const picker = document.getElementById('starPicker');
+  if(picker){
+    picker.querySelectorAll('[data-star]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        reviewDraftStars = +b.dataset.star;
+        picker.querySelectorAll('[data-star]').forEach(x=>
+          x.classList.toggle('on', +x.dataset.star <= reviewDraftStars));
+        const lbl = document.getElementById('spLabel');
+        if(lbl) lbl.textContent = reviewDraftStars + ' ดาว';
+      });
+    });
+  }
+
+  const submit = document.getElementById('revSubmit');
+  if(submit){
+    submit.addEventListener('click', async ()=>{
+      if(!reviewDraftStars){ toast('กรุณาให้ดาวก่อนส่งรีวิว','error'); return; }
+      submit.disabled = true;
+      try{
+        await saveReview({ dormId: d.id, rating: reviewDraftStars, body: document.getElementById('revBody').value });
+        toast('ขอบคุณสำหรับรีวิว!','success');
+        await renderReviewBox(d);
+      }catch(err){
+        console.error(err);
+        toast(err.message || 'ส่งรีวิวไม่สำเร็จ','error');
+        submit.disabled = false;
+      }
+    });
+  }
+  const del = document.getElementById('revDelete');
+  if(del){
+    del.addEventListener('click', async ()=>{
+      if(!confirm('ลบรีวิวของคุณสำหรับหอนี้?')) return;
+      try{
+        await deleteReview(myReview.id);
+        toast('ลบรีวิวแล้ว','success');
+        await renderReviewBox(d);
+      }catch(err){ console.error(err); toast('ลบไม่สำเร็จ: '+(err.message||''),'error'); }
+    });
+  }
 }
 
 document.getElementById('closeDetailModal').addEventListener('click', ()=> document.getElementById('detailModal').classList.remove('open'));
@@ -939,6 +1102,7 @@ async function refreshUnreadBadge(){
   const bkBtn = document.getElementById('navBookingBtn');
   if(bkBtn) bkBtn.addEventListener('click', (e)=>{ e.preventDefault(); openMyBookings(); });
 
+  let ratingsLoaded = false;
   watchDorms((dorms)=>{
     allDorms = dorms;
     applyFilters();
@@ -946,6 +1110,13 @@ async function refreshUnreadBadge(){
     const m = location.hash.match(/dorm=([^&]+)/);
     if(m && !document.getElementById('detailModal').classList.contains('open')){
       openDetail(decodeURIComponent(m[1]));
+    }
+    // โหลดคะแนนรีวิวของทุกหอครั้งเดียว แล้ววาดการ์ดใหม่ให้มีดาวขึ้น
+    if(!ratingsLoaded && dorms.length){
+      ratingsLoaded = true;
+      getRatingsForDorms(dorms.map(x=>x.id))
+        .then(map=>{ dormRatings = map; applyFilters(); })
+        .catch(err=> console.error(err));
     }
   });
 })();
