@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 
@@ -23,7 +23,7 @@
     <div>
       <span class="eyebrow">🎓 สำหรับน้องปี 1 มร.ชร.</span>
       <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
-      <p class="lead">รวมรายชื่อหอพักเครือข่ายทางการรอบมหาวิทยาลัย ดูแผนที่เส้นทางจากมอ แล้วโทรหรือแชทติดต่อหอโดยตรงได้ทันที</p>
+      <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมอ แล้วแชทหรือจองกับหอได้โดยตรง</p>
     </div>
     <div class="walk-rings" aria-hidden="true">
       <svg viewBox="0 0 340 340">
@@ -125,8 +125,8 @@
       <span>ทำด้วย 💚 เพื่อน้องปี 1</span>
     </div>
     <div style="margin-top:8px;font-size:.82rem;opacity:.85">
-      รายชื่อหอพักอ้างอิงจาก <a href="https://aso.crru.ac.th/asoblog/dormnetwork" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">หอพักเครือข่าย สำนักงานบริการที่พักอาศัย มร.ชร.</a>
-      · ราคาและห้องว่างมาจากเจ้าของหอที่ยืนยันข้อมูลในระบบ
+      ข้อมูลหอพัก ราคา และห้องว่างทั้งหมดมาจากเจ้าของหอที่ลงข้อมูลเองในระบบ
+      · ดูรายชื่อหอพักเครือข่ายทางการเพิ่มเติมได้ที่ <a href="https://aso.crru.ac.th/asoblog/dormnetwork" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">สำนักงานบริการที่พักอาศัย มร.ชร.</a>
     </div>
   </div>
 </footer>
@@ -225,8 +225,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="db.js?v=16"></script>
+<script src="app.js?v=16"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -320,7 +320,21 @@ function applyFilters(){
     document.getElementById('emptyMsg')?.remove();
     if(dorms.length===0){
       grid.innerHTML = '';
-      grid.insertAdjacentHTML('afterend', `<div class="empty-state" id="emptyMsg"><div class="emoji">🏠💭</div><p>ไม่พบหอพักตามเงื่อนไขที่เลือก ลองล้างคำค้นหรือขยายช่วงราคาดูนะ</p></div>`);
+      // แยก 2 กรณี: ระบบยังไม่มีหอเลย vs. มีหอแต่ตัวกรองไม่ตรง
+      const html = (allDorms.length === 0)
+        ? `<div class="empty-state" id="emptyMsg">
+             <div class="emoji">🏠</div>
+             <p><strong>ยังไม่มีหอพักในระบบตอนนี้</strong><br>
+             <small class="muted">
+               DormCRU แสดงเฉพาะหอพักที่<strong>เจ้าของหอเข้ามาลงข้อมูลเอง</strong>
+               ทุกหอจึงมีราคา ห้องว่าง และช่องทางติดต่อที่เชื่อถือได้<br>
+               ถ้าคุณเป็นเจ้าของหอพักรอบ มร.ชร. สมัครแล้วลงหอของคุณได้ฟรีเลย
+             </small></p>
+             <a class="btn btn-primary" href="login.html" style="text-decoration:none">ลงหอพักของคุณ (สำหรับเจ้าของหอ)</a>
+           </div>`
+        : `<div class="empty-state" id="emptyMsg"><div class="emoji">🏠💭</div>
+             <p>ไม่พบหอพักตามเงื่อนไขที่เลือก ลองล้างคำค้นหรือขยายช่วงราคาดูนะ</p></div>`;
+      grid.insertAdjacentHTML('afterend', html);
     }else{
       grid.innerHTML = dorms.map(dormCardHtml).join('');
     }

@@ -42,14 +42,13 @@ async function loadVisibleDorms(){
 }
 
 async function renderStats(){
-  const { allDorms } = await loadVisibleDorms();
+  await loadVisibleDorms();
   const dorms = myDorms;
   const set = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
   set('statDorms', dorms.length);
   set('statVacant', dorms.reduce((s,d)=>s+totalVacancy(d),0));
   set('statContact', dorms.filter(d=>d.phone||d.lineId||d.facebook||d.contactEmail).length);
   set('statVerified', dorms.filter(d=>d.verified).length);
-  if(allDorms.length===0){ document.getElementById('seedBox').style.display='block'; }
 }
 
 // ===========================================================================
@@ -1072,13 +1071,6 @@ document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
   }
 });
 
-document.getElementById('btnSeed')?.addEventListener('click', async ()=>{
-  try{
-    const n = await seedSampleDormsIfEmpty(ME.uid);
-    if(n>0){ toast(`โหลดข้อมูลตัวอย่าง ${n} หอพักสำเร็จ`,'success'); document.getElementById('seedBox').style.display='none'; renderListings(); renderStats(); }
-    else{ toast('มีข้อมูลหอพักอยู่แล้ว ไม่โหลดซ้ำ','error'); }
-  }catch(err){ console.error(err); toast('โหลดข้อมูลตัวอย่างไม่สำเร็จ: '+err.message,'error'); }
-});
 
 (async ()=>{
   await showSetupBannerIfNeeded();

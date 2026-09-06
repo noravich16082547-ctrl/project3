@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 <header class="topbar">
@@ -57,10 +57,6 @@
         </div>
       </div>
 
-      <div id="seedBox" style="margin-top:20px;display:none">
-        <button class="btn btn-outline" id="btnSeed">โหลดข้อมูลหอพักตัวอย่าง (ครั้งแรกเท่านั้น)</button>
-        <p class="form-hint">ใช้เพื่อทดสอบระบบตอนเริ่มต้น จะทำงานเฉพาะตอนที่ยังไม่มีหอพักในระบบเลย</p>
-      </div>
     </div>
 
     <div id="sec-listings" style="display:none">
@@ -239,9 +235,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=15"></script>
-<script src="app.js?v=15"></script>
-<script src="admin.js?v=15"></script>
+<script src="db.js?v=16"></script>
+<script src="app.js?v=16"></script>
+<script src="admin.js?v=16"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
