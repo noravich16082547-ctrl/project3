@@ -952,3 +952,85 @@ footer{ margin-bottom: 0; }
 
 /* ปุ่ม "เพิ่มชั้น" ไม่ต้องยืดเต็มความกว้าง */
 .fp-wrap > [data-addfloor]{ align-self:flex-start; }
+
+/* ==========================================================================
+   รอบ ๆ หอมีอะไรบ้าง / ตำแหน่งหอ / ของในห้อง
+   ========================================================================== */
+.np-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+.np-item{
+  display:flex; align-items:center; gap:9px; position:relative;
+  background:var(--sage-bg); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:9px 12px; font-size:.88rem;
+}
+.np-ic{ font-size:1.1rem; flex-shrink:0; }
+.np-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.np-dist{ font-size:.78rem; color:var(--ink-soft); white-space:nowrap; }
+.np-x{
+  border:none; background:rgba(31,58,46,.1); color:var(--forest); border-radius:50%;
+  width:20px; height:20px; font-size:.68rem; line-height:1; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.np-x:hover{ background:#F0C8C0; color:#B23A24; }
+.op-nearby .ef-row{ flex-wrap:wrap; }
+.op-nearby .ef-row select{
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:9px 10px; font-family:var(--font-body); font-size:.88rem; background:var(--white);
+}
+.nb-uni{ background:var(--sage-bg); border-radius:var(--radius-sm); padding:9px 12px; border-bottom:none; }
+.td-nearby{ display:block; }
+
+/* สถานะการปักหมุดหอในฟอร์มแก้ไข */
+.loc-state{
+  display:none; margin-top:9px; padding:9px 12px; border-radius:var(--radius-sm);
+  font-size:.85rem; background:var(--sage-bg);
+}
+.loc-state.ok{ background:#E4F2E7; color:#1F6D3D; }
+.loc-state.warn{ background:#FDF1DC; color:#946A0E; }
+.loc-state a{ color:inherit; text-decoration:underline; margin-left:6px; }
+.op-loc{ font-size:.86rem; margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line); }
+.op-loc .ok{ color:#1F6D3D; }
+.op-loc .warn{ color:#946A0E; }
+.op-loc a{ color:var(--gold-deep); text-decoration:underline; margin-left:6px; }
+
+/* ของในห้อง — ปุ่มเลือกเร็วใน pop up */
+.ra-quick{ display:flex; flex-wrap:wrap; gap:6px; }
+.ra-q{
+  border:1px solid var(--line); background:var(--white); border-radius:999px;
+  padding:5px 12px; font-size:.82rem; font-family:var(--font-body); color:var(--ink);
+}
+.ra-q:hover{ border-color:var(--gold); }
+.ra-q.on{ background:var(--forest); color:#fff; border-color:var(--forest); }
+
+/* ของในห้อง — ป้ายในหน้าต่างฝั่งนักศึกษา */
+.ra-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.ra-chip{
+  background:var(--sage-bg); border:1px solid var(--line); border-radius:999px;
+  padding:4px 11px; font-size:.83rem;
+}
+/* บรรทัดของในห้องบนช่องผัง */
+.fp-amen{ font-size:.6rem; opacity:.85; line-height:1.15; margin-top:1px;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* หน้าต่างรายละเอียดห้องฝั่งนักศึกษา */
+.ri-pill{
+  font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:999px;
+  vertical-align:middle; margin-left:6px; color:#fff;
+}
+.ri-pill.st-vacant{ background:#C9D3DD; color:#22303C; }
+.ri-pill.st-pending{ background:#E03B2F; }
+.ri-pill.st-occupied{ background:#2D62B5; }
+.ri-pill.st-closed{ background:#6E7A6B; }
+.ri-price{
+  font-family:var(--font-display); font-size:1.7rem; font-weight:700;
+  color:var(--gold-deep); margin-top:10px;
+}
+.ri-price span{ font-family:var(--font-body); font-size:.82rem; font-weight:400; color:var(--ink-soft); }
+.ri-note{
+  margin-top:16px; background:var(--sage-bg); border-radius:var(--radius-sm);
+  padding:11px 13px; font-size:.87rem; color:var(--ink-soft);
+}
+
+@media (max-width:640px){
+  .np-grid{ grid-template-columns:1fr; }
+  .op-nearby .ef-row input{ min-width:120px; }
+}

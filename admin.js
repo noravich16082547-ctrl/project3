@@ -218,9 +218,38 @@ async function renderOwnerPage(){
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"</p>`}
       </section>
 
+      <!-- ---------- รอบ ๆ หอมีอะไรบ้าง ---------- -->
+      <section class="op-card op-nearby">
+        <h3>รอบ ๆ หอมีอะไรบ้าง</h3>
+        <p class="muted" style="font-size:.85rem;margin-top:-6px">
+          บอกน้อง ๆ ว่าใกล้หอมีอะไร เช่น เซเว่น ร้านอาหาร ร้านทำเล็บ ตลาด ตู้ ATM —
+          เรื่องนี้เป็นสิ่งที่นักศึกษาถามบ่อยที่สุดตอนเลือกหอ
+        </p>
+        <div class="ef-row">
+          <select id="opNearCat">
+            ${NEARBY_CAT_ORDER.map(c=>`<option value="${c}">${NEARBY_CATS[c].icon} ${escapeHtml(NEARBY_CATS[c].label)}</option>`).join('')}
+          </select>
+          <input type="text" id="opNearName" placeholder="ชื่อร้าน เช่น 7-Eleven หน้าหอ">
+          <input type="text" id="opNearDist" placeholder="เดิน 2 นาที" style="max-width:130px">
+          <button type="button" class="btn btn-outline btn-sm" id="opNearAdd">+ เพิ่ม</button>
+        </div>
+        <div id="opNearList" style="margin-top:12px">
+          ${hasNearby(d)
+            ? nearbyPlacesHtml(d.nearby, { edit:true })
+            : '<p class="muted" style="font-size:.86rem">ยังไม่ได้กรอก — เพิ่มสัก 3-5 ที่ที่ใกล้หอที่สุดก็พอ</p>'}
+        </div>
+      </section>
+
       <!-- ---------- ช่องทางติดต่อ ---------- -->
       <section class="op-card">
         <h3>ช่องทางติดต่อที่นักศึกษาเห็น</h3>
+        <div class="op-loc" id="opLoc">
+          ${hasLocation(d)
+            ? `<span class="ok">📍 ปักหมุดแล้ว · ${escapeHtml(locationSummary(d))}</span>
+               <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทางจากมอ</a>`
+            : `<span class="warn">📍 ยังไม่ได้ปักหมุดหอ — กด "แก้ไขข้อมูลหอ" แล้ววางลิงก์ Google Maps
+               นักศึกษาจะได้กดนำทางมาหอได้ และเว็บจะบอกได้ว่าหอห่างมอเท่าไหร่</span>`}
+        </div>
         <div class="op-contact">
           <div><span class="k">เบอร์โทร</span> ${d.phone ? escapeHtml(d.phone) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
           <div><span class="k">LINE</span> ${d.lineId ? escapeHtml(d.lineId) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
@@ -362,6 +391,35 @@ async function renderOwnerPage(){
 
   // ผังห้องพัก — ปุ่มเพิ่มชั้น/แถว/ห้อง/บันได และกดห้องเพื่อแก้รายละเอียด
   bindPlanEditor(box, d);
+
+  // รอบ ๆ หอมีอะไรบ้าง — เพิ่ม/ลบรายการ
+  const addNear = async ()=>{
+    const name = document.getElementById('opNearName').value.trim();
+    if(!name){ toast('กรุณาใส่ชื่อร้านหรือสถานที่','error'); return; }
+    const list = (d.nearby || []).slice();
+    if(list.length >= 30){ toast('เพิ่มได้สูงสุด 30 รายการ','error'); return; }
+    list.push({
+      cat:  document.getElementById('opNearCat').value,
+      name: name.slice(0,60),
+      dist: document.getElementById('opNearDist').value.trim().slice(0,30)
+    });
+    document.getElementById('opNearName').value = '';
+    document.getElementById('opNearDist').value = '';
+    await saveNearby(d, list, 'เพิ่มแล้ว');
+  };
+  document.getElementById('opNearAdd')?.addEventListener('click', addNear);
+  ['opNearName','opNearDist'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); addNear(); }
+    });
+  });
+  box.querySelectorAll('[data-rmnear]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const i = +b.dataset.rmnear;
+      const list = (d.nearby || []).filter((_,idx)=> idx !== i);
+      await saveNearby(d, list, 'ลบแล้ว');
+    });
+  });
 
   // ผู้ดูแลระบบลบรีวิวที่ไม่เหมาะสม
   box.querySelectorAll('[data-delrev]').forEach(b=>{
@@ -513,6 +571,65 @@ function bindPlanEditor(box, d){
   });
 }
 
+// ---------------------------------------------------------------------------
+// สิ่งอำนวยความสะดวกในห้อง (ของที่มีในห้องนั้น ๆ)
+// ต่างจาก "สิ่งอำนวยความสะดวกของหอ" ตรงที่อันนี้เป็นของในห้อง แต่ละห้องไม่เหมือนกันได้
+// ---------------------------------------------------------------------------
+const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่องทำน้ำอุ่น','ตู้เย็น','ทีวี','ระเบียง',
+                           'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต','เฟอร์นิเจอร์ครบ'];
+let editRoomAmen = [];   // ของในห้องที่กำลังแก้อยู่ใน pop up
+
+function renderRoomAmen(){
+  // ปุ่มเลือกเร็ว
+  const quick = document.getElementById('rmAmenQuick');
+  if(quick){
+    quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
+      const on = editRoomAmen.some(x=>x.toLowerCase() === a.toLowerCase());
+      return `<button type="button" class="ra-q ${on?'on':''}" data-amen="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
+    }).join('');
+    quick.querySelectorAll('[data-amen]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const v = b.dataset.amen;
+        const i = editRoomAmen.findIndex(x=>x.toLowerCase() === v.toLowerCase());
+        if(i >= 0) editRoomAmen.splice(i,1); else editRoomAmen.push(v);
+        renderRoomAmen();
+      });
+    });
+  }
+  // ป้ายรายการที่เลือกไว้ (รวมของที่พิมพ์เอง)
+  const chips = document.getElementById('rmAmenChips');
+  if(chips){
+    chips.innerHTML = editRoomAmen.map(a=>`
+      <span class="ef-chip">${escapeHtml(a)}
+        <button type="button" data-rmamen="${escapeHtml(a)}" title="ลบ">✕</button>
+      </span>`).join('');
+    chips.querySelectorAll('[data-rmamen]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        editRoomAmen = editRoomAmen.filter(x=>x !== b.dataset.rmamen);
+        renderRoomAmen();
+      });
+    });
+  }
+}
+
+function addRoomAmen(){
+  const input = document.getElementById('rmAmenOther');
+  const v = (input.value||'').trim().slice(0,30);
+  if(!v) return;
+  if(editRoomAmen.some(x=>x.toLowerCase() === v.toLowerCase())){
+    toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return;
+  }
+  if(editRoomAmen.length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อห้อง','error'); return; }
+  editRoomAmen.push(v);
+  input.value = '';
+  renderRoomAmen();
+}
+
+document.getElementById('btnAddAmen')?.addEventListener('click', addRoomAmen);
+document.getElementById('rmAmenOther')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); addRoomAmen(); }
+});
+
 // เปิด pop up แก้รายละเอียดห้องหนึ่งห้อง
 function openRoomEditor(dorm, cellId){
   const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
@@ -525,6 +642,8 @@ function openRoomEditor(dorm, cellId){
   document.getElementById('rmNo').value    = cell.no || '';
   document.getElementById('rmPrice').value = (cell.price == null) ? '' : cell.price;
   document.getElementById('rmNote').value  = cell.note || '';
+  editRoomAmen = (cell.amen || []).slice();
+  renderRoomAmen();
 
   // ตัวเลือกประเภทห้องมาจากราคาที่เจ้าของหอตั้งไว้
   const sel = document.getElementById('rmType');
@@ -587,6 +706,7 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.type  = document.getElementById('rmType').value;
   target.cell.price = priceRaw === '' ? null : Math.max(0, Number(priceRaw) || 0);
   target.cell.note  = document.getElementById('rmNote').value.trim().slice(0,120);
+  target.cell.amen  = editRoomAmen.slice(0,20);
 
   // เปลี่ยนสถานะจาก "มีคนจองแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบจองเดิม
   if(newStatus !== target.cell.status){
@@ -615,6 +735,19 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   document.getElementById('roomModal').classList.remove('open');
   await savePlan(dorm, p, 'ลบห้องแล้ว');
 });
+
+// บันทึกรายการร้านรอบหอ
+async function saveNearby(dorm, list, okMsg){
+  try{
+    await updateDorm(dorm.id, { ...dorm, nearby: list });
+    dorm.nearby = normalizeNearby(list);
+    if(okMsg) toast(okMsg, 'success');
+    await renderOwnerPage();
+  }catch(err){
+    console.error(err);
+    toast('บันทึกไม่สำเร็จ: ' + (err.message || ''), 'error');
+  }
+}
 
 // บันทึกรายการรูปชุดใหม่ลงหอ แล้ววาดหน้าใหม่
 async function saveDormImages(dorm, images, okMsg){
@@ -850,11 +983,10 @@ function openEdit(dorm){
   document.getElementById('editTitle').textContent = dorm ? 'แก้ไข: '+dorm.name : 'เพิ่มหอพักใหม่';
   document.getElementById('fName').value = dorm ? dorm.name : '';
   document.getElementById('fHallType').value = dorm ? dorm.hallType : 'หอรวม';
-  document.getElementById('fGate1').value = (dorm && dorm.gates) ? dorm.gates.gate1 : '';
-  document.getElementById('fGate2').value = (dorm && dorm.gates) ? dorm.gates.gate2 : '';
-  document.getElementById('fGate3').value = (dorm && dorm.gates) ? dorm.gates.gate3 : '';
-  document.getElementById('fLat').value = dorm ? dorm.lat : 19.9074;
-  document.getElementById('fLng').value = dorm ? dorm.lng : 99.8230;
+  document.getElementById('fLat').value = (dorm && dorm.lat != null) ? dorm.lat : '';
+  document.getElementById('fLng').value = (dorm && dorm.lng != null) ? dorm.lng : '';
+  document.getElementById('fMapLink').value = '';
+  showLocationState();
   document.getElementById('fDesc').value = dorm ? dorm.desc : '';
 
   editFacilities = dorm ? (dorm.facilities||[]).filter(Boolean).slice() : [];
@@ -883,6 +1015,78 @@ function openEdit(dorm){
 }
 document.getElementById('btnAddDorm').addEventListener('click', ()=> openEdit(null));
 document.getElementById('closeEditModal').addEventListener('click', ()=> document.getElementById('editModal').classList.remove('open'));
+
+// ---------------------------------------------------------------------------
+// ตำแหน่งหอบนแผนที่ — วางลิงก์ Google Maps แล้วระบบดึงพิกัดให้
+// ---------------------------------------------------------------------------
+function showLocationState(msg, kind){
+  const el = document.getElementById('locState');
+  if(!el) return;
+  if(msg){
+    el.className = 'loc-state ' + (kind || '');
+    el.innerHTML = msg;
+    el.style.display = 'block';
+    return;
+  }
+  // ไม่ได้ส่งข้อความมา = สรุปสถานะจากพิกัดที่กรอกอยู่
+  const lat = parseFloat(document.getElementById('fLat').value);
+  const lng = parseFloat(document.getElementById('fLng').value);
+  if(isNaN(lat) || isNaN(lng)){
+    el.className = 'loc-state warn';
+    el.innerHTML = '⚠️ ยังไม่ได้ปักหมุดหอ — นักศึกษาจะกดนำทางมาหอไม่ได้ และเว็บจะบอกระยะจากมอไม่ได้';
+    el.style.display = 'block';
+    return;
+  }
+  const km = distanceToCrru({ lat, lng });
+  el.className = 'loc-state ok';
+  el.innerHTML = `✓ ปักหมุดแล้ว — <strong>${locationSummary({ lat, lng })}</strong>
+    <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">ดูหมุดบนแผนที่</a>`;
+  el.style.display = 'block';
+}
+
+function applyParsedLocation(text){
+  const r = parseLatLng(text);
+  if(!r){ showLocationState('กรุณาวางลิงก์ Google Maps ของหอก่อน', 'warn'); return; }
+  if(r.error){ showLocationState('⚠️ ' + r.error, 'warn'); return; }
+  document.getElementById('fLat').value = r.lat;
+  document.getElementById('fLng').value = r.lng;
+  showLocationState();
+  toast('ดึงพิกัดจากลิงก์เรียบร้อย','success');
+}
+
+document.getElementById('btnParseMap')?.addEventListener('click', ()=>{
+  applyParsedLocation(document.getElementById('fMapLink').value);
+});
+document.getElementById('fMapLink')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); applyParsedLocation(e.target.value); }
+});
+// วางลิงก์แล้วดึงพิกัดให้เลย ไม่ต้องกดปุ่มซ้ำ
+document.getElementById('fMapLink')?.addEventListener('paste', (e)=>{
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  setTimeout(()=> applyParsedLocation(text), 30);
+});
+document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
+  if(!navigator.geolocation){ showLocationState('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง','warn'); return; }
+  showLocationState('กำลังหาตำแหน่ง...','');
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const lat = +pos.coords.latitude.toFixed(6), lng = +pos.coords.longitude.toFixed(6);
+      if(lat < 18.5 || lat > 20.5 || lng < 99.0 || lng > 100.6){
+        showLocationState('⚠️ ตำแหน่งที่ได้อยู่นอกพื้นที่เชียงราย — ปุ่มนี้ใช้ตอนที่คุณอยู่ที่หอเท่านั้น','warn');
+        return;
+      }
+      document.getElementById('fLat').value = lat;
+      document.getElementById('fLng').value = lng;
+      showLocationState();
+      toast('ใช้ตำแหน่งปัจจุบันเป็นที่ตั้งหอแล้ว','success');
+    },
+    (err)=> showLocationState('⚠️ หาตำแหน่งไม่สำเร็จ: ' + (err.message||'') + ' — ลองใช้วิธีวางลิงก์แทน','warn'),
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+});
+['fLat','fLng'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input', ()=> showLocationState());
+});
 
 // ---- ปุ่มในฟอร์ม: เพิ่มสิ่งอำนวยความสะดวกเอง ----
 document.getElementById('btnAddFacility')?.addEventListener('click', addCustomFacility);
@@ -965,10 +1169,10 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   const data = {
     name: document.getElementById('fName').value.trim(),
     hallType: document.getElementById('fHallType').value,
-    gates: (document.getElementById('fGate1').value==='' && document.getElementById('fGate2').value==='' && document.getElementById('fGate3').value==='')
-      ? null
-      : { gate1:+document.getElementById('fGate1').value||0, gate2:+document.getElementById('fGate2').value||0, gate3:+document.getElementById('fGate3').value||0 },
-    lat: +document.getElementById('fLat').value, lng: +document.getElementById('fLng').value,
+    // ไม่ใช้ระยะจากประตูมอแล้ว — เว็บคำนวณระยะจากพิกัดหอให้เอง
+    gates: null,
+    lat: document.getElementById('fLat').value === '' ? null : +document.getElementById('fLat').value,
+    lng: document.getElementById('fLng').value === '' ? null : +document.getElementById('fLng').value,
     desc: document.getElementById('fDesc').value.trim(),
     facilities, images, rooms,
     phone: document.getElementById('fPhone').value.trim(),
@@ -1108,7 +1312,6 @@ function bookingItemHtml(b){
     ${b.note ? `<div class="bk-note">💬 ${escapeHtml(b.note)}</div>` : ''}
 
     <div class="bk-actions">
-      ${b.contactPhone ? `<a class="btn btn-primary btn-sm" href="tel:${escapeHtml(b.contactPhone)}" style="text-decoration:none">📞 โทรหานักศึกษา</a>` : ''}
       <button class="btn btn-sm btn-outline" data-bkchat="${b.dormId}|${b.userId}|${escapeHtml(b.userName||'')}">💬 ตอบในแชท</button>
       ${b.status === 'pending' ? `
         <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับจอง</button>

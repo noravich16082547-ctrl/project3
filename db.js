@@ -10,11 +10,43 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
+// หมายเหตุเรื่องความปลอดภัย:
+// คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
+// สิ่งที่กันคนอื่นแก้ข้อมูลคือ Row Level Security (RLS) ในฐานข้อมูล ไม่ใช่การซ่อนคีย์นี้
+// *** ห้ามเอา service_role key มาใส่ในไฟล์นี้เด็ดขาด *** คีย์นั้นข้าม RLS ได้ทั้งหมด
+// ถ้าต้องใช้ ให้ใส่ไว้ใน Environment Variables ของ Vercel เท่านั้น (ฝั่ง api/)
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
+}
+
+// ---------------------------------------------------------------------------
+// ตรวจว่าคีย์ที่ใส่ไว้เป็นของโปรเจกต์เดียวกับ SUPABASE_URL จริงไหม
+//
+// คีย์ของ Supabase เป็น JWT ที่ข้างในมีชื่อโปรเจกต์ (ref) อยู่
+// ถ้าคัดลอกมาผิดตัวหรือขาดหาย จะจับได้ตรงนี้ แล้วขึ้นข้อความบอกวิธีแก้
+// ดีกว่าปล่อยให้หน้าเว็บเงียบ ๆ แล้วล็อกอินไม่ได้โดยไม่รู้สาเหตุ
+// ---------------------------------------------------------------------------
+function supabaseKeyProblem(){
+  if(!isSupabaseConfigured()) return 'ยังไม่ได้ใส่ค่า SUPABASE_URL / SUPABASE_ANON_KEY ใน db.js';
+  try{
+    const parts = SUPABASE_ANON_KEY.split('.');
+    if(parts.length !== 3) return 'รูปแบบคีย์ไม่ถูกต้อง — คัดลอกคีย์มาไม่ครบ';
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    const urlRef  = (SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1];
+    if(payload.role !== 'anon'){
+      return 'คีย์นี้ไม่ใช่ anon public key (role = ' + payload.role + ') — ต้องใช้ anon key เท่านั้น';
+    }
+    if(urlRef && payload.ref && urlRef !== payload.ref){
+      return 'คีย์เป็นของโปรเจกต์ "' + payload.ref + '" แต่ URL ชี้ไปโปรเจกต์ "' + urlRef + '" — คัดลอกมาคนละโปรเจกต์';
+    }
+    if(payload.exp && payload.exp * 1000 < Date.now()) return 'คีย์หมดอายุแล้ว — ไปคัดลอกคีย์ใหม่จาก Supabase';
+    return null;   // ผ่านหมด
+  }catch(err){
+    return 'อ่านคีย์ไม่ออก — น่าจะคัดลอกมาไม่ครบหรือมีอักขระแปลกปน';
+  }
 }
 
 let sb = null;
@@ -97,7 +129,13 @@ async function showSetupBannerIfNeeded(){
   if(banner){
     banner.classList.toggle('show', !ok);
     if(!ok){
-      banner.innerHTML = '⚠️ ยังไม่ได้เชื่อมต่อฐานข้อมูล Supabase (หรือเชื่อมต่อไม่สำเร็จ) — ฟีเจอร์ล็อคอิน/จอง/แก้ไขข้อมูลจะยังใช้ไม่ได้ ดูวิธีตั้งค่าในไฟล์ <strong>SETUP-SUPABASE.md</strong>';
+      const keyIssue = supabaseKeyProblem();
+      banner.innerHTML = keyIssue
+        ? `⚠️ <strong>เชื่อมต่อฐานข้อมูลไม่สำเร็จ</strong> — ${keyIssue}<br>
+           <small>วิธีแก้: เปิด Supabase → Project Settings → API → คัดลอก <strong>Project URL</strong> และ
+           <strong>anon public</strong> มาวางในไฟล์ <code>db.js</code> บรรทัดบนสุด แล้วอัปโหลดใหม่</small>`
+        : `⚠️ ต่อฐานข้อมูล Supabase ไม่ได้ — คีย์ดูถูกต้องแล้ว แต่เรียกข้อมูลไม่สำเร็จ<br>
+           <small>เช็กว่าโปรเจกต์ Supabase ยังทำงานอยู่ (ไม่ถูก pause) และรันไฟล์ SQL ครบแล้ว</small>`;
     }
   }
   return ok;
@@ -150,6 +188,150 @@ function escapeAttr(s){
 //
 // ถ้าอยากได้รายชื่อ 61 หอกลับมา ให้รันไฟล์ insert-dorms.sql ใน Supabase
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// ตำแหน่งหอและระยะทางถึงมหาวิทยาลัย
+//
+// เดิมให้เจ้าของหอกรอก "ระยะจากประตู 1/2/3" เอง 3 ช่อง — แทบไม่มีใครกรอก
+// เพราะต้องไปวัดเอง ทุกหอเลยขึ้นว่า "ยังไม่ระบุ" เหมือนกันหมด
+//
+// ของใหม่: เจ้าของหอปักหมุดหอครั้งเดียว (วางลิงก์ Google Maps ก็พอ)
+// แล้วเว็บคำนวณระยะให้เอง
+// ---------------------------------------------------------------------------
+const CRRU_CENTER = { lat: 19.9074, lng: 99.8230 };   // มหาวิทยาลัยราชภัฏเชียงราย
+
+// ระยะเส้นตรงระหว่าง 2 จุดบนโลก (สูตร haversine) หน่วยกิโลเมตร
+function haversineKm(a, b){
+  const R = 6371;
+  const toRad = (deg)=> deg * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+function hasLocation(d){
+  return !!(d && typeof d.lat === 'number' && typeof d.lng === 'number' &&
+            !isNaN(d.lat) && !isNaN(d.lng));
+}
+
+// ระยะจากหอถึงมหาวิทยาลัย (กม.) — คืน null ถ้าหอยังไม่ได้ปักหมุด
+function distanceToCrru(d){
+  if(!hasLocation(d)) return null;
+  return haversineKm({ lat:d.lat, lng:d.lng }, CRRU_CENTER);
+}
+
+// ข้อความระยะทางแบบอ่านง่าย เช่น "450 ม." / "1.2 กม."
+function distanceLabel(km){
+  if(km == null) return null;
+  if(km < 1) return Math.round(km * 100) * 10 + ' ม.';
+  return km.toFixed(1) + ' กม.';
+}
+
+// เวลาเดินโดยประมาณ (คนเดินเฉลี่ย 5 กม./ชม.) — ใช้บอกคร่าว ๆ เท่านั้น
+function walkMinutes(km){
+  if(km == null) return null;
+  return Math.max(1, Math.round(km / 5 * 60));
+}
+
+// ข้อความสรุปตำแหน่งหอ เช่น "ห่างมอ 450 ม. · เดินราว 6 นาที"
+function locationSummary(d){
+  const km = distanceToCrru(d);
+  if(km == null) return null;
+  const m = walkMinutes(km);
+  return `ห่างมหาวิทยาลัย ${distanceLabel(km)}` + (km <= 3 ? ` · เดินราว ${m} นาที` : '');
+}
+
+// ---------------------------------------------------------------------------
+// ดึงพิกัดจากลิงก์ Google Maps ที่เจ้าของหอวางมา
+//
+// รองรับรูปแบบที่เจอบ่อย:
+//   https://www.google.com/maps/@19.9074,99.8230,17z
+//   https://www.google.com/maps/place/.../@19.9074,99.8230,17z/...
+//   https://maps.google.com/?q=19.9074,99.8230
+//   https://www.google.com/maps?ll=19.9074,99.8230
+//   19.9074, 99.8230            (วางพิกัดตรง ๆ ก็ได้)
+// ลิงก์ย่อ https://maps.app.goo.gl/xxxx ใช้ไม่ได้ เพราะต้องเปิดลิงก์ก่อนถึงจะรู้พิกัด
+// ---------------------------------------------------------------------------
+function parseLatLng(text){
+  const s = String(text || '').trim();
+  if(!s) return null;
+  if(/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(s)){
+    return { error:'ลิงก์ย่อแบบนี้ยังอ่านพิกัดไม่ได้ — เปิดลิงก์ในเบราว์เซอร์ก่อน แล้วคัดลอกลิงก์เต็มจากช่อง URL มาวางแทน' };
+  }
+  const patterns = [
+    /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/,          // /maps/@lat,lng,17z
+    /[?&]q=(-?\d+\.\d+),\s*(-?\d+\.\d+)/,     // ?q=lat,lng
+    /[?&]ll=(-?\d+\.\d+),\s*(-?\d+\.\d+)/,    // ?ll=lat,lng
+    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,         // ...!3dlat!4dlng
+    /^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/       // วางพิกัดตรง ๆ
+  ];
+  for(const re of patterns){
+    const m = s.match(re);
+    if(m){
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if(isNaN(lat) || isNaN(lng)) continue;
+      // เช็กว่าอยู่ในเขตเชียงรายโดยประมาณ กันวางลิงก์ผิดที่หรือสลับ lat/lng
+      if(lat < 18.5 || lat > 20.5 || lng < 99.0 || lng > 100.6){
+        return { error:`พิกัดที่ได้ (${lat}, ${lng}) อยู่นอกพื้นที่เชียงราย — ตรวจว่าคัดลอกลิงก์ของหอมาถูกไหม` };
+      }
+      return { lat, lng };
+    }
+  }
+  return { error:'อ่านพิกัดจากลิงก์นี้ไม่ได้ — ลองคัดลอกลิงก์จากช่อง URL ของ Google Maps ตอนเปิดหน้าหอ' };
+}
+
+// ---------------------------------------------------------------------------
+// รอบ ๆ หอมีอะไรบ้าง (เจ้าของหอกรอกเอง)
+// ---------------------------------------------------------------------------
+const NEARBY_CATS = {
+  convenience: { icon:'🏪', label:'ร้านสะดวกซื้อ' },
+  food:        { icon:'🍜', label:'ร้านอาหาร' },
+  coffee:      { icon:'☕', label:'ร้านกาแฟ' },
+  market:      { icon:'🧺', label:'ตลาด' },
+  laundry:     { icon:'🧼', label:'ร้านซักผ้า' },
+  salon:       { icon:'💅', label:'ร้านเสริมสวย/ทำเล็บ' },
+  pharmacy:    { icon:'💊', label:'ร้านขายยา/คลินิก' },
+  atm:         { icon:'🏧', label:'ตู้ ATM/ธนาคาร' },
+  gas:         { icon:'⛽', label:'ปั๊มน้ำมัน' },
+  gym:         { icon:'🏋️', label:'ฟิตเนส/สนามกีฬา' },
+  transport:   { icon:'🚌', label:'รถโดยสาร/วินมอเตอร์ไซค์' },
+  other:       { icon:'📍', label:'อื่น ๆ' }
+};
+const NEARBY_CAT_ORDER = Object.keys(NEARBY_CATS);
+
+function nearbyCatMeta(cat){ return NEARBY_CATS[cat] || NEARBY_CATS.other; }
+
+function normalizeNearby(list){
+  if(!Array.isArray(list)) return [];
+  return list
+    .filter(p => p && String(p.name||'').trim())
+    .slice(0, 30)
+    .map(p => ({
+      cat: NEARBY_CATS[p.cat] ? p.cat : 'other',
+      name: String(p.name).trim().slice(0,60),
+      dist: String(p.dist || '').trim().slice(0,30)
+    }));
+}
+
+function hasNearby(d){ return !!(d && Array.isArray(d.nearby) && d.nearby.length); }
+
+// วาดรายการร้านรอบหอ (ใช้ทั้งฝั่งนักศึกษาและหลังบ้าน)
+function nearbyPlacesHtml(list, opts){
+  const o = opts || {};
+  const places = normalizeNearby(list);
+  if(!places.length) return '';
+  return `<div class="np-grid">${places.map((p,i)=>{
+    const m = nearbyCatMeta(p.cat);
+    return `<div class="np-item">
+      <span class="np-ic" title="${escapeAttr(m.label)}">${m.icon}</span>
+      <span class="np-name">${escapeAttr(p.name)}</span>
+      ${p.dist ? `<span class="np-dist">${escapeAttr(p.dist)}</span>` : ''}
+      ${o.edit ? `<button type="button" class="np-x" data-rmnear="${i}" title="ลบรายการนี้">✕</button>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
 
 function nearestGate(dorm){
   if(!dorm.gates) return null;
@@ -283,6 +465,9 @@ function normalizeFloorPlan(plan){
             no: c.no || '', type: c.type || '', price: (c.price === '' || c.price == null) ? null : Number(c.price),
             status: ROOM_STATUS_META[c.status] ? c.status : 'vacant',
             note: c.note || '',
+            amen: Array.isArray(c.amen)
+              ? c.amen.filter(x=>String(x||'').trim()).map(x=>String(x).trim().slice(0,30)).slice(0,20)
+              : [],
             bookingId: c.bookingId || null, userId: c.userId || null
           };
         })
@@ -370,15 +555,28 @@ function planCellHtml(cell, opts){
   const meta = ROOM_STATUS_META[st];
   const mine = o.myUserId && cell.userId === o.myUserId;
   const canBook = o.bookable && st === 'vacant';
-  const tag = canBook ? 'button' : 'div';
+  const amen = (cell.amen || []).filter(Boolean);
+  // ฝั่งนักศึกษา: กดห้องไหนก็ดูรายละเอียดห้องนั้นได้ ไม่ใช่เฉพาะห้องว่าง
+  const clickable = o.bookable || o.edit;
+  const tag = clickable ? 'button' : 'div';
+  const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
+              (amen.length ? ' · ' + amen.join(', ') : '');
   return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''}"
       ${o.edit ? `data-cell="${escapeAttr(cell.id)}"` : ''}
-      ${canBook ? `data-bookcell="${escapeAttr(cell.id)}"` : ''}
-      title="${escapeAttr((cell.no?('ห้อง '+cell.no):'ห้อง') + ' · ' + meta.label)}">
+      ${o.bookable ? `data-roominfo="${escapeAttr(cell.id)}"` : ''}
+      title="${escapeAttr(tip)}">
     <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
     <span class="fp-st">${mine ? 'คุณจองไว้' : meta.short}</span>
     ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
+    ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
   </${tag}>`;
+}
+
+// ป้ายสิ่งอำนวยความสะดวกในห้อง (ใช้ในหน้าต่างรายละเอียดห้อง)
+function roomAmenChipsHtml(list){
+  const a = (list || []).filter(Boolean);
+  if(!a.length) return '<span class="muted" style="font-size:.85rem">เจ้าของหอยังไม่ได้ระบุของในห้อง</span>';
+  return `<div class="ra-chips">${a.map(x=>`<span class="ra-chip">✓ ${escapeAttr(x)}</span>`).join('')}</div>`;
 }
 
 function floorPlanHtml(plan, opts){
@@ -489,6 +687,7 @@ function toDormRow(d){
   };
   if(typeof d.verified === 'boolean') row.verified = d.verified;
   if(d.floorPlan) row.floor_plan = normalizeFloorPlan(d.floorPlan);
+  if(d.nearby)    row.nearby_places = normalizeNearby(d.nearby);
   return row;
 }
 function mapDormRow(row){
@@ -504,6 +703,7 @@ function mapDormRow(row){
     published: row.published !== false,
     reviewNote: row.review_note || '',
     floorPlan: normalizeFloorPlan(row.floor_plan),
+    nearby: normalizeNearby(row.nearby_places),
     verified: !!row.verified
   };
 }
@@ -629,7 +829,8 @@ function watchDorms(callback){
 // ---------------------------------------------------------------------------
 const OPTIONAL_DORM_COLUMNS = {
   contact_email: 'add-contact-email.sql',
-  floor_plan:    'fix-v17.sql'
+  floor_plan:    'fix-v17.sql',
+  nearby_places: 'fix-v19.sql'
 };
 
 function missingColumnFrom(error){

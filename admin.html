@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <header class="topbar">
@@ -122,14 +122,22 @@
     <div class="form-field"><label>ประเภทหอพัก</label>
       <select id="fHallType"><option value="หอหญิงล้วน">หอหญิงล้วน</option><option value="หอชายล้วน">หอชายล้วน</option><option value="หอรวม">หอรวม</option></select>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-      <div class="form-field"><label>ระยะจากประตู 1 (กม.)</label><input type="number" step="0.1" id="fGate1"></div>
-      <div class="form-field"><label>ระยะจากประตู 2 (กม.)</label><input type="number" step="0.1" id="fGate2"></div>
-      <div class="form-field"><label>ระยะจากประตู 3 (กม.)</label><input type="number" step="0.1" id="fGate3"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-field"><label>ละติจูด (lat)</label><input type="number" step="0.0001" id="fLat"></div>
-      <div class="form-field"><label>ลองจิจูด (lng)</label><input type="number" step="0.0001" id="fLng"></div>
+    <!-- ================= ตำแหน่งหอ ================= -->
+    <div class="form-field">
+      <label>📍 ตำแหน่งหอพักบนแผนที่</label>
+      <div class="ef-row">
+        <input type="text" id="fMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
+        <button type="button" class="btn btn-outline btn-sm" id="btnParseMap">ใช้ลิงก์นี้</button>
+      </div>
+      <div class="form-hint">
+        เปิด Google Maps → ค้นหาหอของคุณ → คัดลอกลิงก์จากช่อง URL มาวาง
+        <button type="button" class="btn btn-sm btn-ghost" id="btnHereLoc">📱 ใช้ตำแหน่งที่ยืนอยู่ตอนนี้</button>
+      </div>
+      <div class="loc-state" id="locState"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+        <div class="form-field" style="margin:0"><label>ละติจูด (lat)</label><input type="number" step="0.000001" id="fLat"></div>
+        <div class="form-field" style="margin:0"><label>ลองจิจูด (lng)</label><input type="number" step="0.000001" id="fLng"></div>
+      </div>
     </div>
     <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
     <div class="form-field">
@@ -228,6 +236,18 @@
       <input type="number" id="rmPrice" placeholder="เว้นว่าง = ใช้ราคาตามประเภทห้อง">
     </div>
 
+    <!-- ของที่มีในห้องนี้ — เจ้าของหอเพิ่มเองได้ไม่จำกัด -->
+    <div class="form-field">
+      <label>สิ่งอำนวยความสะดวกในห้อง</label>
+      <div class="ra-quick" id="rmAmenQuick"></div>
+      <div class="ef-row" style="margin-top:8px">
+        <input type="text" id="rmAmenOther" placeholder="อื่น ๆ เช่น โต๊ะเขียนหนังสือ, ตู้เสื้อผ้าบิลท์อิน">
+        <button type="button" class="btn btn-outline btn-sm" id="btnAddAmen">+ เพิ่ม</button>
+      </div>
+      <div class="form-hint">กดปุ่มด้านบนเพื่อเลือกเร็ว ๆ หรือพิมพ์เองแล้วกด Enter — กด ✕ บนป้ายเพื่อลบ</div>
+      <div class="ef-chips" id="rmAmenChips"></div>
+    </div>
+
     <div class="form-field">
       <label>สถานะห้อง</label>
       <div class="rm-status" id="rmStatus"></div>
@@ -276,9 +296,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=17"></script>
-<script src="app.js?v=17"></script>
-<script src="admin.js?v=17"></script>
+<script src="db.js?v=19"></script>
+<script src="app.js?v=19"></script>
+<script src="admin.js?v=19"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 
@@ -142,6 +142,14 @@
   </div>
 </div>
 
+<!-- ============== รายละเอียดห้องในผัง (กดที่ช่องห้อง) ============== -->
+<div class="modal-backdrop" id="roomInfoModal">
+  <div class="modal" style="max-width:400px">
+    <button class="modal-close" id="closeRoomInfo">✕</button>
+    <div id="roomInfoContent"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="imgModal">
   <div class="modal"><button class="modal-close" id="closeImgModal">✕</button><img id="modalImg" src="" alt=""></div>
 </div>
@@ -227,8 +235,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=17"></script>
-<script src="app.js?v=17"></script>
+<script src="db.js?v=19"></script>
+<script src="app.js?v=19"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -273,7 +281,7 @@ function cardRatingHtml(dormId){
 function dormCardHtml(d){
   const vac = totalVacancy(d);
   const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
-  const ng = hasGates(d) ? nearestGate(d) : null;
+  const km = distanceToCrru(d);
   return `
   <div class="card-dorm">
     <div class="card-media" data-open="${d.id}" style="cursor:pointer">
@@ -286,8 +294,8 @@ function dormCardHtml(d){
     <button class="wishlist-btn ${wished?'active':''}" data-wish="${d.id}" aria-label="บันทึกที่ถูกใจ">${wished?'❤️':'🤍'}</button>
     <div class="card-body">
       <h3 data-open="${d.id}" style="cursor:pointer">${escapeHtml(d.name)}</h3>
-      <div class="card-meta">${ng
-        ? `<span class="walk-chip">🚶 ${d.gates[ng].toFixed(1)} กม. จาก${CRRU_GATE[ng].label}</span>`
+      <div class="card-meta">${km != null
+        ? `<span class="walk-chip">🚶 ห่างมอ ${distanceLabel(km)}${km<=3?' · เดิน '+walkMinutes(km)+' นาที':''}</span>`
         : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
       <div class="card-meta">${cardRatingHtml(d.id)}${facilityIcons(d.facilities)}</div>
       <div class="card-price">
@@ -403,9 +411,9 @@ function galleryHtml(d){
 function highlightsHtml(d){
   const items = [];
   items.push({ ic:'🏠', label: d.hallType });
-  const ng = hasGates(d) ? nearestGate(d) : null;
-  if(ng) items.push({ ic:'🚶', label:`ห่างมอ ${d.gates[ng].toFixed(1)} กม.` });
-  else   items.push({ ic:'📍', label:'ต.บ้านดู่ ใกล้ มร.ชร.' });
+  const km = distanceToCrru(d);
+  if(km != null) items.push({ ic:'🚶', label:`ห่างมอ ${distanceLabel(km)}` });
+  else           items.push({ ic:'📍', label:'ต.บ้านดู่ ใกล้ มร.ชร.' });
   if(d.verified) items.push({ ic:'✓', label:'เจ้าของหอยืนยันแล้ว' });
   else items.push({ ic:'⚠', label:'รอเจ้าของหอยืนยัน' });
   (d.facilities||[]).slice(0,3).forEach(c=>{
@@ -421,10 +429,12 @@ function highlightsHtml(d){
 // บล็อกสถานะข้อมูล (ตำแหน่งเดียวกับคะแนนรีวิวในเว็บจองโรงแรม)
 // ไม่มีการปั้นคะแนนปลอม — ใช้ระยะทางจริงและสถานะการยืนยันข้อมูลจริง
 function statusBlockHtml(d){
-  const ng = hasGates(d) ? nearestGate(d) : null;
-  const big = ng ? d.gates[ng].toFixed(1) : '—';
-  const unit = ng ? '<span class="unit">กม.</span>' : '';
-  const head = ng ? `ห่างจาก${CRRU_GATE[ng].label}` : 'ยังไม่ระบุระยะทาง';
+  const km  = distanceToCrru(d);
+  // ปัดเลขให้ตรงกับ distanceLabel() ที่ใช้ในที่อื่น ไม่งั้นหน้าเดียวกันขึ้นคนละตัวเลข
+  const big = km == null ? '—' : (km < 1 ? Math.round(km*100)*10 : km.toFixed(1));
+  const unit = km == null ? '' : `<span class="unit">${km < 1 ? 'ม.' : 'กม.'}</span>`;
+  const head = km == null ? 'ยังไม่ได้ปักหมุดหอ'
+             : `ห่างจากมหาวิทยาลัย${km <= 3 ? ' · เดินราว ' + walkMinutes(km) + ' นาที' : ''}`;
   const note = d.verified
     ? 'เจ้าของหอเข้ามายืนยันราคาและห้องว่างในระบบแล้ว'
     : 'ข้อมูลรวบรวมจากประกาศสาธารณะของมหาวิทยาลัย ยังรอเจ้าของหอเข้ามายืนยัน — แนะนำให้สอบถามหอโดยตรงอีกครั้ง';
@@ -439,20 +449,29 @@ function statusBlockHtml(d){
   </div>`;
 }
 
-// บริเวณโดยรอบ — ระยะทางจากประตูมอทั้ง 3 (ข้อมูลจริงเท่านั้น)
+// รอบ ๆ หอมีอะไรบ้าง — ร้านค้า/สถานที่ที่เจ้าของหอกรอกไว้เอง
+// (เดิมส่วนนี้เป็นตารางระยะจากประตูมอ 3 ประตู ซึ่งแทบไม่มีหอไหนกรอก
+//  จึงขึ้นว่า "ยังไม่ระบุ" ทุกช่อง เปลี่ยนมาเป็นข้อมูลที่หอกรอกจริงและนักศึกษาอยากรู้กว่า)
 function nearbyHtml(d){
-  const rows = Object.keys(CRRU_GATE).map(g=>`
-    <div class="nb-item">
-      <span class="nb-ic">🚪</span>
-      <span class="nb-name">${CRRU_GATE[g].label}</span>
-      <span class="nb-dist">${hasGates(d) ? d.gates[g].toFixed(1)+' กม.' : 'ยังไม่ระบุ'}</span>
-    </div>`).join('');
-  return `<div class="td-nearby">${rows}
-    <div class="nb-item">
+  const km = distanceToCrru(d);
+  const uni = `
+    <div class="nb-item nb-uni">
       <span class="nb-ic">🎓</span>
       <span class="nb-name">มหาวิทยาลัยราชภัฏเชียงราย</span>
-      <span class="nb-dist"><a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทาง</a></span>
-    </div></div>`;
+      <span class="nb-dist">
+        ${km != null ? `${distanceLabel(km)}${km<=3?' · เดิน '+walkMinutes(km)+' นาที':''} · ` : ''}
+        <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทาง</a>
+      </span>
+    </div>`;
+
+  if(!hasNearby(d)){
+    return `<div class="td-nearby">${uni}</div>
+      <p class="muted" style="font-size:.86rem;margin-top:8px">
+        หอนี้ยังไม่ได้ระบุร้านค้ารอบ ๆ — สอบถามกับหอโดยตรงได้จากช่องทางติดต่อด้านบน
+      </p>`;
+  }
+  return `<div class="td-nearby">${uni}</div>
+    ${nearbyPlacesHtml(d.nearby)}`;
 }
 
 // แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บจองที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
@@ -534,7 +553,7 @@ function openDetail(id){
         <h3 class="td-h">รายละเอียดหอพัก</h3>
         <p class="td-desc">${escapeHtml(d.desc||'')}</p>
 
-        <h3 class="td-h">บริเวณโดยรอบ</h3>
+        <h3 class="td-h">รอบ ๆ หอมีอะไรบ้าง</h3>
         ${nearbyHtml(d)}
 
         <h3 class="td-h">สิ่งอำนวยความสะดวก</h3>
@@ -625,9 +644,9 @@ function openDetail(id){
   document.querySelectorAll('#detailContent [data-book]').forEach(btn=>{
     btn.addEventListener('click', ()=> openBooking(d, btn.dataset.book));
   });
-  // กดห้องว่างในผังห้องพัก = จองห้องนั้นโดยเฉพาะ
-  document.querySelectorAll('#detailContent [data-bookcell]').forEach(btn=>{
-    btn.addEventListener('click', ()=> openBooking(d, null, btn.dataset.bookcell));
+  // กดห้องในผังห้องพัก = เปิดรายละเอียดห้องนั้น (ห้องว่างจะมีปุ่มจองในหน้าต่างนั้นเลย)
+  document.querySelectorAll('#detailContent [data-roominfo]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openRoomInfo(d, btn.dataset.roominfo));
   });
 
   const shareBtn = document.getElementById('shareBtn');
@@ -822,10 +841,60 @@ function refreshPlanBox(dorm){
   if(!box || !hasFloorPlan(dorm)) return;
   activeDorm = dorm;
   box.innerHTML = floorPlanHtml(dorm.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid });
-  box.querySelectorAll('[data-bookcell]').forEach(btn=>{
-    btn.addEventListener('click', ()=> openBooking(dorm, null, btn.dataset.bookcell));
+  box.querySelectorAll('[data-roominfo]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openRoomInfo(dorm, btn.dataset.roominfo));
   });
 }
+
+// ---------------------------------------------------------------------------
+// หน้าต่างรายละเอียดห้อง (ฝั่งนักศึกษา) — กดที่ช่องห้องในผังเพื่อดู
+// บอกว่าห้องนี้มีอะไรบ้าง ราคาเท่าไหร่ และจองได้เลยถ้าห้องว่าง
+// ---------------------------------------------------------------------------
+function openRoomInfo(dorm, cellId){
+  const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
+  if(!found) return;
+  const cell = found.cell;
+  const meta = roomStatusMeta(cell.status);
+  const type = (dorm.rooms||[]).find(r=>r.code === cell.type);
+  const price = cell.price || (type ? type.price : null);
+  const mine = myProfile && cell.userId === myProfile.uid;
+
+  document.getElementById('roomInfoContent').innerHTML = `
+    <h3 style="margin-top:0">ห้อง ${escapeHtml(cell.no || '')}
+      <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณจองไว้' : meta.label)}</span>
+    </h3>
+    <p class="muted" style="font-size:.86rem;margin-top:-4px">
+      ${escapeHtml(found.floor.name)} · ${escapeHtml(dorm.name)}${type ? ' · ' + escapeHtml(type.label) : ''}
+    </p>
+
+    ${price ? `<div class="ri-price">${fmtBaht(price)} <span>บาท/เดือน</span></div>` : ''}
+
+    <h4 style="margin:14px 0 8px;font-size:.95rem">สิ่งอำนวยความสะดวกในห้องนี้</h4>
+    ${roomAmenChipsHtml(cell.amen)}
+
+    ${cell.status === 'vacant'
+      ? `<button class="btn btn-primary btn-block" id="riBook" style="margin-top:16px">📌 จองห้องนี้</button>`
+      : `<div class="ri-note">${escapeHtml(
+            cell.status === 'pending'  ? (mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
+                                              : 'ห้องนี้มีคนกดจองไว้แล้ว กำลังรอเจ้าของหอยืนยัน')
+          : cell.status === 'occupied' ? 'ห้องนี้มีผู้เช่าอยู่แล้ว'
+          : 'ห้องนี้ปิดปรับปรุง ยังไม่เปิดให้เช่า')}</div>`}
+  `;
+  document.getElementById('roomInfoModal').classList.add('open');
+
+  const bk = document.getElementById('riBook');
+  if(bk){
+    bk.addEventListener('click', ()=>{
+      document.getElementById('roomInfoModal').classList.remove('open');
+      openBooking(dorm, null, cellId);
+    });
+  }
+}
+document.getElementById('closeRoomInfo')?.addEventListener('click',
+  ()=> document.getElementById('roomInfoModal').classList.remove('open'));
+document.getElementById('roomInfoModal')?.addEventListener('click', (e)=>{
+  if(e.target.id === 'roomInfoModal') e.currentTarget.classList.remove('open');
+});
 
 async function openBooking(dorm, preselectCode, cellId){
   const p = await requireLogin('กรุณาเข้าสู่ระบบก่อนจองห้องพัก');
