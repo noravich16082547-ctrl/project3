@@ -834,3 +834,121 @@ footer{ margin-bottom: 0; }
   .rev-summary{ grid-template-columns:1fr; }
   .op-room{ grid-template-columns:1fr; gap:6px; }
 }
+
+/* ==========================================================================
+   ผังห้องพักแต่ละชั้น (floor plan)
+   สีห้อง: เทา=ว่าง / แดง=มีคนจองแล้ว / น้ำเงิน=มีผู้เช่าอยู่ / เทาเข้ม=ปิดปรับปรุง
+   ========================================================================== */
+.fp-wrap{ display:flex; flex-direction:column; gap:16px; }
+
+.fp-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:.8rem; color:var(--ink-soft); }
+.fp-lg{ display:inline-flex; align-items:center; gap:6px; }
+.fp-swatch{ width:13px; height:13px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.12); }
+.fp-swatch.st-vacant{ background:#C9D3DD; }
+.fp-swatch.st-pending{ background:#E03B2F; }
+.fp-swatch.st-occupied{ background:#2D62B5; }
+.fp-swatch.st-closed{ background:#6E7A6B; }
+
+.fp-floor{ border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; background:var(--cream); }
+.fp-floor-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+.fp-floor-head h4{ margin:0; font-size:1rem; }
+.fp-floor-tools{ display:flex; gap:6px; flex-wrap:wrap; }
+.fp-floor-tools .fp-del{ color:#B23A24; }
+.fp-floor-count{ font-size:.82rem; color:var(--ink-soft); }
+
+.fp-row{
+  display:flex; gap:10px; align-items:stretch; flex-wrap:wrap;
+  padding:8px 0; border-bottom:1px dashed var(--line);
+}
+.fp-row:last-child{ border-bottom:none; }
+
+.fp-cell{
+  width:92px; min-height:76px; border-radius:var(--radius-sm);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  font-family:var(--font-body); font-size:.78rem; text-align:center;
+  border:1px solid rgba(0,0,0,.10); position:relative; padding:6px 4px;
+}
+.fp-no{ font-family:var(--font-display); font-weight:700; font-size:.95rem; line-height:1.1; }
+.fp-st{ font-size:.68rem; opacity:.9; }
+.fp-price{ font-size:.68rem; opacity:.8; }
+
+.fp-room.st-vacant{ background:#C9D3DD; color:#22303C; }
+.fp-room.st-pending{ background:#E03B2F; color:#fff; }
+.fp-room.st-occupied{ background:#2D62B5; color:#fff; }
+.fp-room.st-closed{ background:#6E7A6B; color:#fff; }
+
+/* กดได้ = ห้องว่างในฝั่งนักศึกษา */
+.fp-room.is-bookable{ cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+.fp-room.is-bookable:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(31,58,46,.22); outline:2px solid var(--gold); }
+.fp-room.is-bookable::after{
+  content:'กดเพื่อจอง'; position:absolute; bottom:3px; left:0; right:0;
+  font-size:.62rem; opacity:0; transition:opacity .12s ease;
+}
+.fp-room.is-bookable:hover::after{ opacity:.75; }
+.fp-room.is-mine{ outline:3px solid var(--gold); outline-offset:-3px; }
+
+/* โหมดแก้ไข: กดห้องเพื่อเปิด pop up */
+.fp-room[data-cell]{ cursor:pointer; }
+.fp-room[data-cell]:hover{ outline:2px solid var(--gold); }
+
+.fp-stair{
+  background:repeating-linear-gradient(45deg, #EDF1E7, #EDF1E7 6px, #E3E9DA 6px, #E3E9DA 12px);
+  color:var(--ink-soft); border-style:dashed;
+}
+.fp-stair-ic{ font-size:1.1rem; }
+.fp-x{
+  position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%;
+  border:none; background:rgba(255,255,255,.9); color:#B23A24; font-size:.62rem; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.fp-add{
+  background:var(--white); border:2px dashed var(--line); color:var(--gold-deep);
+  font-size:1.3rem; cursor:pointer;
+}
+.fp-add:hover{ border-color:var(--gold); background:#FDF6E8; }
+.fp-add-stair{ font-size:1rem; }
+.fp-rowx{
+  align-self:center; border:none; background:none; color:var(--ink-soft);
+  font-size:.75rem; text-decoration:underline; padding:0 6px;
+}
+.fp-rowx:hover{ color:#B23A24; }
+
+.fp-empty{
+  border:2px dashed var(--line); border-radius:var(--radius);
+  padding:26px 20px; text-align:center; background:var(--cream);
+}
+.fp-empty strong{ font-family:var(--font-display); color:var(--forest); font-size:1rem; }
+.fp-empty p{ font-size:.88rem; max-width:520px; margin:6px auto 14px; }
+
+/* หัวการ์ดผังห้องในหลังบ้าน */
+.op-plan{ grid-column:1/-1; }
+.op-plan-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+.op-plan-sum{ display:flex; gap:14px; flex-wrap:wrap; font-size:.84rem; white-space:nowrap; }
+.op-plan-sum strong{ font-family:var(--font-display); }
+.st-vacant-txt{ color:#4A5A68; }
+.st-pending-txt{ color:#C22A1E; }
+.st-occupied-txt{ color:#2D62B5; }
+
+/* pop up แก้รายละเอียดห้อง */
+.rm-status{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.rm-st{
+  display:flex; align-items:center; gap:8px; padding:9px 12px; font-size:.86rem;
+  border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--white); text-align:left;
+}
+.rm-st.on{ border-color:var(--forest); border-width:2px; background:var(--sage-bg); font-weight:600; }
+
+/* แถบ "กำลังจองห้องนี้" ในฟอร์มจอง */
+.bk-picked{
+  background:var(--sage-bg); border-left:4px solid var(--gold);
+  border-radius:var(--radius-sm); padding:10px 13px; font-size:.88rem; margin-bottom:14px;
+}
+.bk-picked small{ color:var(--ink-soft); }
+
+@media (max-width:640px){
+  .fp-cell{ width:76px; min-height:66px; }
+  .rm-status{ grid-template-columns:1fr; }
+}
+
+/* ปุ่ม "เพิ่มชั้น" ไม่ต้องยืดเต็มความกว้าง */
+.fp-wrap > [data-addfloor]{ align-self:flex-start; }

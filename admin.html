@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 <header class="topbar">
@@ -205,6 +205,47 @@
   </div>
 </div>
 
+<!-- ===== pop up แก้รายละเอียดห้องในผัง (กดที่ช่องห้องเพื่อเปิด) ===== -->
+<div class="modal-backdrop" id="roomModal">
+  <div class="modal" style="max-width:440px">
+    <button class="modal-close" id="closeRoomModal">✕</button>
+    <h3 style="margin-top:0" id="roomModalTitle">รายละเอียดห้อง</h3>
+    <p class="muted" style="font-size:.85rem;margin-top:-4px" id="roomModalSub"></p>
+
+    <div class="form-field">
+      <label>เลขห้อง</label>
+      <input type="text" id="rmNo" placeholder="เช่น 101" maxlength="12">
+    </div>
+
+    <div class="form-field">
+      <label>ประเภทห้อง</label>
+      <select id="rmType"></select>
+      <div class="form-hint">ประเภทห้องมาจากราคาที่ตั้งไว้ในหน้า "แก้ไขข้อมูลหอ"</div>
+    </div>
+
+    <div class="form-field">
+      <label>ราคาเฉพาะห้องนี้ (บาท/เดือน)</label>
+      <input type="number" id="rmPrice" placeholder="เว้นว่าง = ใช้ราคาตามประเภทห้อง">
+    </div>
+
+    <div class="form-field">
+      <label>สถานะห้อง</label>
+      <div class="rm-status" id="rmStatus"></div>
+      <div class="form-hint" id="rmStatusHint"></div>
+    </div>
+
+    <div class="form-field">
+      <label>หมายเหตุ (เห็นเฉพาะคุณ)</label>
+      <input type="text" id="rmNote" placeholder="เช่น แอร์เสีย รอช่างมาซ่อม" maxlength="120">
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="rmSave" style="flex:1">บันทึกห้องนี้</button>
+      <button class="btn btn-reject" id="rmDelete">ลบห้องนี้</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== หน้าต่างดูข้อมูลหอแบบอ่านอย่างเดียว (ผู้ดูแลระบบใช้ดูหอของคนอื่น) ===== -->
 <div class="modal-backdrop" id="viewModal">
   <div class="modal" style="max-width:720px">
@@ -235,9 +276,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=16"></script>
-<script src="app.js?v=16"></script>
-<script src="admin.js?v=16"></script>
+<script src="db.js?v=17"></script>
+<script src="app.js?v=17"></script>
+<script src="admin.js?v=17"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

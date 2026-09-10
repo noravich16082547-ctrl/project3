@@ -9,8 +9,8 @@
    ก่อนเสมอ ถ้ายังไม่ตั้งค่าจะโชว์แบนเนอร์เตือนแทนที่จะพังเงียบๆ
    ========================================================================== */
 
-const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
 function isSupabaseConfigured(){
   return !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
@@ -156,7 +156,27 @@ function nearestGate(dorm){
   Object.keys(dorm.gates).forEach(g=>{ if(dorm.gates[g] < dorm.gates[best]) best = g; });
   return best;
 }
-function totalVacancy(dorm){ return (dorm.rooms||[]).reduce((s,r)=>s+r.vacant,0); }
+// จำนวนห้องว่างรวมของหอ
+// หอที่วาดผังห้องไว้แล้ว ให้นับจาก "ช่องห้องที่ยังว่าง" ในผัง เพราะเป็นข้อมูลที่จริงกว่า
+// (ตัวเลขที่กรอกมือในหน้าแก้ไขหอ จะถูกใช้เฉพาะหอที่ยังไม่ได้วาดผัง)
+function totalVacancy(dorm){
+  if(hasFloorPlan(dorm)) return planSummary(dorm.floorPlan).vacant;
+  return (dorm.rooms||[]).reduce((s,r)=>s+(r.vacant||0),0);
+}
+// จำนวนห้องทั้งหมดของหอ
+function totalRooms(dorm){
+  if(hasFloorPlan(dorm)) return planSummary(dorm.floorPlan).total;
+  return (dorm.rooms||[]).reduce((s,r)=>s+(r.total||0),0);
+}
+// ห้องแต่ละประเภท ว่างกี่ห้อง/ทั้งหมดกี่ห้อง (คืน {vacant,total} หรือ null ถ้าไม่รู้)
+function roomTypeCount(dorm, code){
+  if(hasFloorPlan(dorm)){
+    const m = planVacancyByType(dorm.floorPlan)[code];
+    return m ? { vacant:m.vacant, total:m.total } : { vacant:0, total:0 };
+  }
+  const r = (dorm.rooms||[]).find(x=>x.code===code);
+  return r ? { vacant:r.vacant, total:r.total } : null;
+}
 // คืน null เมื่อยังไม่มีข้อมูลราคา (หอที่เจ้าของยังไม่เข้ามากรอก) — อย่าคืนตัวเลขมั่ว
 function minPrice(dorm){
   if(!dorm.rooms || dorm.rooms.length===0) return null;
@@ -216,6 +236,195 @@ function amenityGridHtml(codes){
     return `<div class="amenity"><span class="ic">${m.icon}</span><span>${escapeAttr(m.label)}</span></div>`;
   }).join('');
 }
+// ---------------------------------------------------------------------------
+// ผังห้องพักแต่ละชั้น (floor plan)
+//
+// โครงข้อมูล:
+//   { floors: [ { id, name, rows: [ { id, cells: [ cell, ... ] } ] } ] }
+//
+// ช่องในแถว (cell) มี 2 แบบ
+//   ห้องพัก   { k:'room',  id, no:'101', type:'air', price:2800, status:'vacant', note }
+//   ทางเดิน   { k:'stair', id, label:'บันได' }   ใช้แทนบันได ลิฟต์ หรือช่องว่าง
+//
+// สถานะห้อง (status) — ตรงกับสีที่แสดงในเว็บ
+//   vacant   เทา      ว่าง
+//   pending  แดง      มีคนกดจองแล้ว รอเจ้าของหอยืนยัน
+//   occupied น้ำเงิน  มีผู้เช่าอยู่แล้ว
+//   closed   เทาเข้ม  ปิดปรับปรุง ไม่ปล่อยเช่า
+// ---------------------------------------------------------------------------
+const ROOM_STATUS_META = {
+  vacant:   { label:'ว่าง',              short:'ว่าง',        cls:'st-vacant'   },
+  pending:  { label:'มีคนจองแล้ว',       short:'จองแล้ว',    cls:'st-pending'  },
+  occupied: { label:'มีผู้เช่าอยู่',      short:'มีผู้เช่า',   cls:'st-occupied' },
+  closed:   { label:'ปิดปรับปรุง',        short:'ปิด',        cls:'st-closed'   }
+};
+const ROOM_STATUS_ORDER = ['vacant','pending','occupied','closed'];
+
+function roomStatusMeta(s){ return ROOM_STATUS_META[s] || ROOM_STATUS_META.vacant; }
+
+// ผังเปล่าที่ถูกต้องตามโครง (ใช้ตอนหอยังไม่เคยวาดผัง)
+function emptyFloorPlan(){ return { floors: [] }; }
+
+// รับผังจากฐานข้อมูลแล้วทำให้แน่ใจว่าโครงครบทุกชั้น (กันข้อมูลเก่า/ข้อมูลเพี้ยน)
+function normalizeFloorPlan(plan){
+  const p = (plan && typeof plan === 'object') ? plan : {};
+  const floors = Array.isArray(p.floors) ? p.floors : [];
+  return {
+    floors: floors.map((f,fi)=>({
+      id: f.id || 'f'+(fi+1),
+      name: f.name || ('ชั้น ' + (fi+1)),
+      rows: (Array.isArray(f.rows) ? f.rows : []).map((r,ri)=>({
+        id: r.id || 'r'+(fi+1)+'-'+(ri+1),
+        cells: (Array.isArray(r.cells) ? r.cells : []).map(c=>{
+          if((c.k || 'room') !== 'room') return { k:'stair', id: c.id || newCellId(), label: c.label || 'บันได' };
+          return {
+            k:'room', id: c.id || newCellId(),
+            no: c.no || '', type: c.type || '', price: (c.price === '' || c.price == null) ? null : Number(c.price),
+            status: ROOM_STATUS_META[c.status] ? c.status : 'vacant',
+            note: c.note || '',
+            bookingId: c.bookingId || null, userId: c.userId || null
+          };
+        })
+      }))
+    }))
+  };
+}
+
+function newCellId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function hasFloorPlan(d){
+  return !!(d && d.floorPlan && Array.isArray(d.floorPlan.floors) && d.floorPlan.floors.length > 0);
+}
+
+// ไล่ทุกช่องห้องในผัง (ไม่รวมบันได) — คืน array ของ {floor, row, cell}
+function eachRoomCell(plan){
+  const out = [];
+  ((plan && plan.floors) || []).forEach(f=>{
+    (f.rows||[]).forEach(r=>{
+      (r.cells||[]).forEach(c=>{ if((c.k||'room') === 'room') out.push({ floor:f, row:r, cell:c }); });
+    });
+  });
+  return out;
+}
+
+// สรุปจำนวนห้องตามสถานะ {total, vacant, pending, occupied, closed}
+function planSummary(plan){
+  const s = { total:0, vacant:0, pending:0, occupied:0, closed:0 };
+  eachRoomCell(plan).forEach(({cell})=>{
+    s.total++;
+    const st = ROOM_STATUS_META[cell.status] ? cell.status : 'vacant';
+    s[st]++;
+  });
+  return s;
+}
+
+// จำนวนห้องว่างแยกตามประเภทห้อง (ใช้แทนตัวเลขที่กรอกมือ เมื่อหอวาดผังแล้ว)
+function planVacancyByType(plan){
+  const map = {};
+  eachRoomCell(plan).forEach(({cell})=>{
+    const t = cell.type || '_';
+    if(!map[t]) map[t] = { total:0, vacant:0 };
+    map[t].total++;
+    if(cell.status === 'vacant') map[t].vacant++;
+  });
+  return map;
+}
+
+// รายการห้องว่างที่จองได้จริง (เรียงตามชั้น/เลขห้อง) — ใช้เติมตัวเลือกในฟอร์มจอง
+function vacantRoomCells(plan){
+  const out = [];
+  ((plan && plan.floors) || []).forEach(f=>{
+    (f.rows||[]).forEach(r=>{
+      (r.cells||[]).forEach(c=>{
+        if((c.k||'room') === 'room' && c.status === 'vacant') out.push({ ...c, floorName: f.name });
+      });
+    });
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// วาดผังห้องพักเป็น HTML (ใช้ร่วมกันทั้งหน้าหลังบ้านและหน้าฝั่งนักศึกษา)
+//
+// opts.edit      true = โหมดแก้ไข (มีปุ่มเพิ่มห้อง/เพิ่มแถว/เพิ่มชั้น)
+// opts.bookable  true = กดห้องว่างเพื่อจองได้ (ฝั่งนักศึกษา)
+// opts.myUserId  ใช้ทำเครื่องหมายห้องที่ "คุณจองไว้เอง"
+// ---------------------------------------------------------------------------
+function floorPlanLegendHtml(){
+  return `<div class="fp-legend">${ROOM_STATUS_ORDER.map(s=>{
+    const m = ROOM_STATUS_META[s];
+    return `<span class="fp-lg"><i class="fp-swatch ${m.cls}"></i>${m.label}</span>`;
+  }).join('')}</div>`;
+}
+
+function planCellHtml(cell, opts){
+  const o = opts || {};
+  if((cell.k||'room') !== 'room'){
+    return `<div class="fp-cell fp-stair" ${o.edit?`data-cell="${escapeAttr(cell.id)}"`:''}>
+      <span class="fp-stair-ic">🪜</span><span>${escapeAttr(cell.label||'บันได')}</span>
+      ${o.edit?'<button type="button" class="fp-x" data-rmcell="'+escapeAttr(cell.id)+'" title="เอาออก">✕</button>':''}
+    </div>`;
+  }
+  const st   = ROOM_STATUS_META[cell.status] ? cell.status : 'vacant';
+  const meta = ROOM_STATUS_META[st];
+  const mine = o.myUserId && cell.userId === o.myUserId;
+  const canBook = o.bookable && st === 'vacant';
+  const tag = canBook ? 'button' : 'div';
+  return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''}"
+      ${o.edit ? `data-cell="${escapeAttr(cell.id)}"` : ''}
+      ${canBook ? `data-bookcell="${escapeAttr(cell.id)}"` : ''}
+      title="${escapeAttr((cell.no?('ห้อง '+cell.no):'ห้อง') + ' · ' + meta.label)}">
+    <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
+    <span class="fp-st">${mine ? 'คุณจองไว้' : meta.short}</span>
+    ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
+  </${tag}>`;
+}
+
+function floorPlanHtml(plan, opts){
+  const o = opts || {};
+  const p = normalizeFloorPlan(plan);
+  if(!p.floors.length){
+    return o.edit
+      ? `<div class="fp-empty">
+           <strong>ยังไม่ได้ทำผังห้องพัก</strong>
+           <p class="muted">วาดผังหอของคุณได้เลย — บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง
+           นักศึกษาจะเห็นว่าห้องไหนว่าง ห้องไหนมีคนจองแล้ว และกดจองห้องที่ต้องการได้โดยตรง</p>
+           <button type="button" class="btn btn-primary" data-addfloor="1">+ เพิ่มชั้นแรก</button>
+         </div>`
+      : '';
+  }
+  return `
+  <div class="fp-wrap">
+    ${floorPlanLegendHtml()}
+    ${p.floors.map((f,fi)=>`
+      <div class="fp-floor" data-floor="${escapeAttr(f.id)}">
+        <div class="fp-floor-head">
+          <h4>${escapeAttr(f.name)}</h4>
+          ${o.edit ? `<div class="fp-floor-tools">
+            <button type="button" class="btn btn-sm btn-ghost" data-renamefloor="${escapeAttr(f.id)}">เปลี่ยนชื่อชั้น</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-addrow="${escapeAttr(f.id)}">+ เพิ่มแถว</button>
+            <button type="button" class="btn btn-sm btn-ghost fp-del" data-rmfloor="${escapeAttr(f.id)}">ลบชั้นนี้</button>
+          </div>` : `<span class="fp-floor-count">${(()=>{
+            const s = planSummary({floors:[f]});
+            return `${s.total} ห้อง · ว่าง ${s.vacant}`;
+          })()}</span>`}
+        </div>
+        ${f.rows.map(r=>`
+          <div class="fp-row" data-row="${escapeAttr(r.id)}">
+            ${r.cells.map(c=> planCellHtml(c, o)).join('')}
+            ${o.edit ? `
+              <button type="button" class="fp-cell fp-add" data-addroom="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มห้องในแถวนี้">✚</button>
+              <button type="button" class="fp-cell fp-add fp-add-stair" data-addstair="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มบันได/ลิฟต์">🪜</button>
+              <button type="button" class="fp-rowx" data-rmrow="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="ลบแถวนี้">ลบแถว</button>
+            ` : ''}
+          </div>`).join('')}
+        ${(o.edit && f.rows.length === 0)
+          ? `<p class="muted" style="font-size:.86rem">ชั้นนี้ยังไม่มีแถวห้อง — กด "+ เพิ่มแถว"</p>` : ''}
+      </div>`).join('')}
+    ${o.edit ? `<button type="button" class="btn btn-outline btn-sm" data-addfloor="1">+ เพิ่มชั้น</button>` : ''}
+  </div>`;
+}
+
 function statusPill(status){
   const map = {
     pending: ['status-pending','รอหอติดต่อกลับ/ยืนยันนัด'],
@@ -278,6 +487,7 @@ function toDormRow(d){
     contact_email: d.contactEmail || null
   };
   if(typeof d.verified === 'boolean') row.verified = d.verified;
+  if(d.floorPlan) row.floor_plan = normalizeFloorPlan(d.floorPlan);
   return row;
 }
 function mapDormRow(row){
@@ -292,6 +502,7 @@ function mapDormRow(row){
     contactEmail: row.contact_email || '',
     published: row.published !== false,
     reviewNote: row.review_note || '',
+    floorPlan: normalizeFloorPlan(row.floor_plan),
     verified: !!row.verified
   };
 }
@@ -299,6 +510,7 @@ function mapBookingRow(row){
   return {
     id: row.id, dormId: row.dorm_id, dormName: row.dorm_name, ownerId: row.owner_id,
     roomCode: row.room_code, roomLabel: row.room_label, deposit: Number(row.deposit),
+    roomUid: row.room_uid || '', roomNo: row.room_no || '',
     slipUrl: row.slip_url, contactPhone: row.contact_phone || '', note: row.note || '',
     status: row.status,
     visitDate: row.visit_date || '', ownerEmail: row.owner_email || '',
@@ -415,7 +627,8 @@ function watchDorms(callback){
 // ข้อมูลส่วนที่เหลือจะถูกบันทึกตามปกติ พร้อมเตือนให้ไปรันไฟล์ SQL
 // ---------------------------------------------------------------------------
 const OPTIONAL_DORM_COLUMNS = {
-  contact_email: 'add-contact-email.sql'
+  contact_email: 'add-contact-email.sql',
+  floor_plan:    'fix-v17.sql'
 };
 
 function missingColumnFrom(error){
@@ -744,7 +957,7 @@ async function uploadSlip(uid, file){
   return data.publicUrl;
 }
 // สร้างคำขอจอง แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
-async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, user, profile }){
+async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, roomUid, user, profile }){
   requireSupabase();
   if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังจองผ่านเว็บไม่ได้');
 
@@ -763,7 +976,31 @@ async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, cont
     status: 'pending', user_id: user.id, user_name: profile.name, user_email: profile.email
   }).select().single();
   if(error) throw error;
+
+  // ถ้าเลือกห้องเจาะจงจากผังห้องพัก ให้จองช่องห้องนั้นไว้ด้วย (ห้องจะเปลี่ยนเป็นสีแดง)
+  // ทำหลังจากสร้างใบจองแล้ว เพราะฟังก์ชันฝั่งฐานข้อมูลต้องอ้างอิงเลขที่ใบจอง
+  if(roomUid){
+    try{
+      await reserveRoomUnit(data.id, roomUid);
+    }catch(err){
+      // จองช่องห้องไม่สำเร็จ (เช่น มีคนตัดหน้าไปแล้ว) — ยกเลิกใบจองที่เพิ่งสร้าง
+      // ไม่งั้นนักศึกษาจะได้ใบจองที่ไม่ผูกกับห้องไหนเลย
+      try{ await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id); }catch(e){ console.error(e); }
+      throw err;
+    }
+  }
   return mapBookingRow(data);
+}
+
+// จองช่องห้องเจาะจงในผัง — ฝั่งฐานข้อมูลจะกันไม่ให้จองห้องที่ไม่ว่าง
+async function reserveRoomUnit(bookingId, cellId){
+  const { error } = await sb.rpc('book_room_unit', { p_booking_id: bookingId, p_cell_id: cellId });
+  if(!error) return;
+  if(isMissingFunction(error)){
+    console.warn('ยังไม่มีฟังก์ชัน book_room_unit — ไปรันไฟล์ fix-v17.sql ใน Supabase');
+    return;   // ยังจองได้ตามปกติ แค่ผังห้องไม่เปลี่ยนสี
+  }
+  throw error;
 }
 
 // ---------------------------------------------------------------------------

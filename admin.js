@@ -230,6 +230,28 @@ async function renderOwnerPage(){
       </section>
     </div>
 
+    <!-- ---------- ผังห้องพักแต่ละชั้น ---------- -->
+    <section class="op-card op-plan">
+      <div class="op-plan-head">
+        <div>
+          <h3>ผังห้องพัก</h3>
+          <p class="muted" style="font-size:.85rem;margin:0">
+            บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง — นักศึกษาจะเห็นผังนี้ในหน้าหอของคุณ
+            และกดจองห้องที่ต้องการได้โดยตรง กดที่ช่องห้องเพื่อแก้เลขห้อง ราคา และสถานะ
+          </p>
+        </div>
+        ${(()=>{ const s = planSummary(d.floorPlan); return s.total ? `
+          <div class="op-plan-sum">
+            <span><strong>${s.total}</strong> ห้อง</span>
+            <span class="st-vacant-txt">ว่าง <strong>${s.vacant}</strong></span>
+            <span class="st-pending-txt">จองแล้ว <strong>${s.pending}</strong></span>
+            <span class="st-occupied-txt">มีผู้เช่า <strong>${s.occupied}</strong></span>
+            ${s.closed ? `<span class="muted">ปิด <strong>${s.closed}</strong></span>` : ''}
+          </div>` : ''; })()}
+      </div>
+      <div id="opPlan">${floorPlanHtml(d.floorPlan, { edit:true })}</div>
+    </section>
+
     <!-- ---------- รีวิวจากผู้ใช้ ---------- -->
     <section class="op-card op-reviews">
       <h3>⭐ รีวิวจากผู้ใช้</h3>
@@ -338,6 +360,9 @@ async function renderOwnerPage(){
     });
   });
 
+  // ผังห้องพัก — ปุ่มเพิ่มชั้น/แถว/ห้อง/บันได และกดห้องเพื่อแก้รายละเอียด
+  bindPlanEditor(box, d);
+
   // ผู้ดูแลระบบลบรีวิวที่ไม่เหมาะสม
   box.querySelectorAll('[data-delrev]').forEach(b=>{
     b.addEventListener('click', async ()=>{
@@ -347,6 +372,249 @@ async function renderOwnerPage(){
     });
   });
 }
+
+// ===========================================================================
+// ตัวแก้ไขผังห้องพัก (ฝั่งเจ้าของหอ)
+//
+// ทุกการแก้ไขทำกับสำเนาผังในหน่วยความจำก่อน แล้วค่อยบันทึกลงฐานข้อมูลทีเดียว
+// ผ่าน updateDorm() — เจ้าของหอแก้หอของตัวเองได้อยู่แล้วตาม RLS
+// ===========================================================================
+let planRoomCtx = null;   // ห้องที่กำลังเปิด pop up แก้อยู่ {dorm, cellId}
+
+function nextRoomNumber(dorm, floorIndex){
+  // เดาเลขห้องถัดไปให้อัตโนมัติ เช่น ชั้น 1 -> 101, 102 ... ชั้น 2 -> 201
+  const used = eachRoomCell(dorm.floorPlan).map(x=>x.cell.no).filter(Boolean);
+  const base = (floorIndex + 1) * 100;
+  for(let i = 1; i <= 99; i++){
+    const cand = String(base + i);
+    if(!used.includes(cand)) return cand;
+  }
+  return '';
+}
+
+// บันทึกผังที่แก้แล้วลงฐานข้อมูล แล้ววาดหน้าใหม่
+async function savePlan(dorm, plan, okMsg){
+  try{
+    await updateDorm(dorm.id, { ...dorm, floorPlan: plan });
+    dorm.floorPlan = plan;
+    if(okMsg) toast(okMsg, 'success');
+    await renderOwnerPage(); renderStats(); renderListings();
+  }catch(err){
+    console.error(err);
+    toast('บันทึกผังห้องไม่สำเร็จ: ' + (err.message || ''), 'error');
+  }
+}
+
+function bindPlanEditor(box, d){
+  const plan = () => normalizeFloorPlan(d.floorPlan);
+
+  // ---- เพิ่มชั้น ----
+  box.querySelectorAll('[data-addfloor]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const p = plan();
+      const n = p.floors.length + 1;
+      const name = prompt('ชื่อชั้นใหม่', 'ชั้น ' + n);
+      if(name === null) return;
+      p.floors.push({ id:'f'+Date.now().toString(36), name: (name||'ชั้น '+n).trim().slice(0,20), rows: [{ id:'r'+Date.now().toString(36), cells: [] }] });
+      await savePlan(d, p, 'เพิ่มชั้นแล้ว');
+    });
+  });
+
+  // ---- เปลี่ยนชื่อชั้น / ลบชั้น ----
+  box.querySelectorAll('[data-renamefloor]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const p = plan();
+      const f = p.floors.find(x=>x.id === b.dataset.renamefloor);
+      if(!f) return;
+      const name = prompt('ชื่อชั้น', f.name);
+      if(name === null || !name.trim()) return;
+      f.name = name.trim().slice(0,20);
+      await savePlan(d, p, 'เปลี่ยนชื่อชั้นแล้ว');
+    });
+  });
+  box.querySelectorAll('[data-rmfloor]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const p = plan();
+      const f = p.floors.find(x=>x.id === b.dataset.rmfloor);
+      if(!f) return;
+      const n = planSummary({ floors:[f] }).total;
+      if(!confirm(`ลบ "${f.name}" ทั้งชั้น?\n\nห้องในชั้นนี้ ${n} ห้องจะหายไปจากผังด้วย`)) return;
+      p.floors = p.floors.filter(x=>x.id !== b.dataset.rmfloor);
+      await savePlan(d, p, 'ลบชั้นแล้ว');
+    });
+  });
+
+  // ---- เพิ่มแถว / ลบแถว ----
+  box.querySelectorAll('[data-addrow]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const p = plan();
+      const f = p.floors.find(x=>x.id === b.dataset.addrow);
+      if(!f) return;
+      f.rows.push({ id:'r'+Date.now().toString(36), cells: [] });
+      await savePlan(d, p, 'เพิ่มแถวแล้ว');
+    });
+  });
+  box.querySelectorAll('[data-rmrow]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const [fid, rid] = b.dataset.rmrow.split('|');
+      const p = plan();
+      const f = p.floors.find(x=>x.id === fid);
+      if(!f) return;
+      const row = f.rows.find(x=>x.id === rid);
+      const n = (row ? row.cells : []).filter(c=>(c.k||'room')==='room').length;
+      if(n > 0 && !confirm(`ลบแถวนี้? ห้อง ${n} ห้องในแถวจะหายไปด้วย`)) return;
+      f.rows = f.rows.filter(x=>x.id !== rid);
+      await savePlan(d, p, 'ลบแถวแล้ว');
+    });
+  });
+
+  // ---- เพิ่มห้อง / เพิ่มบันได ----
+  box.querySelectorAll('[data-addroom]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const [fid, rid] = b.dataset.addroom.split('|');
+      const p = plan();
+      const fi = p.floors.findIndex(x=>x.id === fid);
+      if(fi < 0) return;
+      const row = p.floors[fi].rows.find(x=>x.id === rid);
+      if(!row) return;
+      const firstType = (d.rooms && d.rooms[0]) ? d.rooms[0].code : '';
+      row.cells.push({ k:'room', id:newCellId(), no: nextRoomNumber(d, fi),
+        type: firstType, price: null, status:'vacant', note:'' });
+      await savePlan(d, p, '');
+    });
+  });
+  box.querySelectorAll('[data-addstair]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const [fid, rid] = b.dataset.addstair.split('|');
+      const label = prompt('ช่องนี้คืออะไร (ไม่ใช่ห้องพัก)', 'บันได');
+      if(label === null) return;
+      const p = plan();
+      const f = p.floors.find(x=>x.id === fid);
+      const row = f && f.rows.find(x=>x.id === rid);
+      if(!row) return;
+      row.cells.push({ k:'stair', id:newCellId(), label: (label||'บันได').trim().slice(0,16) });
+      await savePlan(d, p, '');
+    });
+  });
+
+  // ---- เอาช่องบันไดออก ----
+  box.querySelectorAll('[data-rmcell]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const p = plan();
+      p.floors.forEach(f=> f.rows.forEach(r=>{ r.cells = r.cells.filter(c=>c.id !== b.dataset.rmcell); }));
+      await savePlan(d, p, '');
+    });
+  });
+
+  // ---- กดที่ช่องห้อง -> เปิด pop up แก้รายละเอียด ----
+  box.querySelectorAll('.fp-room[data-cell]').forEach(el=>{
+    el.addEventListener('click', ()=> openRoomEditor(d, el.dataset.cell));
+  });
+}
+
+// เปิด pop up แก้รายละเอียดห้องหนึ่งห้อง
+function openRoomEditor(dorm, cellId){
+  const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
+  if(!found) return;
+  const cell = found.cell;
+  planRoomCtx = { dorm, cellId };
+
+  document.getElementById('roomModalTitle').textContent = cell.no ? ('ห้อง ' + cell.no) : 'ห้องใหม่';
+  document.getElementById('roomModalSub').textContent = found.floor.name + ' · ' + dorm.name;
+  document.getElementById('rmNo').value    = cell.no || '';
+  document.getElementById('rmPrice').value = (cell.price == null) ? '' : cell.price;
+  document.getElementById('rmNote').value  = cell.note || '';
+
+  // ตัวเลือกประเภทห้องมาจากราคาที่เจ้าของหอตั้งไว้
+  const sel = document.getElementById('rmType');
+  const types = (dorm.rooms || []);
+  sel.innerHTML = `<option value="">— ไม่ระบุประเภท —</option>` + types.map(r=>
+    `<option value="${escapeHtml(r.code)}">${escapeHtml(r.label)} · ${fmtBaht(r.price)} บาท/เดือน</option>`).join('');
+  sel.value = cell.type || '';
+
+  // ปุ่มเลือกสถานะ
+  const wrap = document.getElementById('rmStatus');
+  wrap.innerHTML = ROOM_STATUS_ORDER.map(s=>{
+    const m = ROOM_STATUS_META[s];
+    return `<button type="button" class="rm-st ${m.cls} ${cell.status===s?'on':''}" data-setst="${s}">
+      <i class="fp-swatch ${m.cls}"></i>${m.label}</button>`;
+  }).join('');
+  wrap.querySelectorAll('[data-setst]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      wrap.querySelectorAll('.rm-st').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      updateRoomStatusHint(b.dataset.setst, cell);
+    });
+  });
+  updateRoomStatusHint(cell.status, cell);
+
+  document.getElementById('roomModal').classList.add('open');
+}
+
+function updateRoomStatusHint(status, cell){
+  const el = document.getElementById('rmStatusHint');
+  if(!el) return;
+  if(status === 'pending' && cell && cell.bookingId){
+    el.innerHTML = 'ห้องนี้มีนักศึกษากดจองไว้ รอคุณกด <strong>"ยืนยันรับจอง"</strong> ในเมนู "คำขอจองห้อง" — ' +
+                   'พอยืนยันแล้วห้องจะเปลี่ยนเป็นสีน้ำเงินเอง';
+  }else if(status === 'occupied'){
+    el.textContent = 'ใช้กับห้องที่มีผู้เช่าอยู่แล้ว นักศึกษาจะเห็นเป็นสีน้ำเงินและกดจองไม่ได้';
+  }else if(status === 'closed'){
+    el.textContent = 'ห้องที่ไม่ปล่อยเช่าตอนนี้ เช่น กำลังซ่อม — นักศึกษาจะเห็นแต่กดจองไม่ได้';
+  }else{
+    el.textContent = 'ห้องว่างพร้อมให้เช่า นักศึกษากดจองห้องนี้ได้จากผังในหน้าหอของคุณ';
+  }
+}
+
+document.getElementById('closeRoomModal')?.addEventListener('click',
+  ()=> document.getElementById('roomModal').classList.remove('open'));
+document.getElementById('roomModal')?.addEventListener('click', (e)=>{
+  if(e.target.id === 'roomModal') e.currentTarget.classList.remove('open');
+});
+
+document.getElementById('rmSave')?.addEventListener('click', async ()=>{
+  if(!planRoomCtx) return;
+  const { dorm, cellId } = planRoomCtx;
+  const p = normalizeFloorPlan(dorm.floorPlan);
+  const target = eachRoomCell(p).find(x=>x.cell.id === cellId);
+  if(!target){ toast('ไม่พบห้องนี้ในผัง','error'); return; }
+
+  const newStatus = (document.querySelector('#rmStatus .rm-st.on') || {}).dataset?.setst || 'vacant';
+  const priceRaw  = document.getElementById('rmPrice').value.trim();
+
+  target.cell.no    = document.getElementById('rmNo').value.trim().slice(0,12);
+  target.cell.type  = document.getElementById('rmType').value;
+  target.cell.price = priceRaw === '' ? null : Math.max(0, Number(priceRaw) || 0);
+  target.cell.note  = document.getElementById('rmNote').value.trim().slice(0,120);
+
+  // เปลี่ยนสถานะจาก "มีคนจองแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบจองเดิม
+  if(newStatus !== target.cell.status){
+    if(target.cell.status === 'pending' && target.cell.bookingId){
+      if(!confirm('ห้องนี้มีนักศึกษากดจองไว้อยู่\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอจองนั้น\n' +
+                  '(คำขอจองยังอยู่ในเมนู "คำขอจองห้อง" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
+    }
+    target.cell.status = newStatus;
+    if(newStatus === 'vacant'){ target.cell.bookingId = null; target.cell.userId = null; }
+  }
+
+  document.getElementById('roomModal').classList.remove('open');
+  await savePlan(dorm, p, 'บันทึกห้องแล้ว');
+});
+
+document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
+  if(!planRoomCtx) return;
+  const { dorm, cellId } = planRoomCtx;
+  const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
+  if(found && found.cell.status === 'pending' && found.cell.bookingId){
+    if(!confirm('ห้องนี้มีคนกดจองไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
+  }else if(!confirm('ลบห้องนี้ออกจากผัง?')) return;
+
+  const p = normalizeFloorPlan(dorm.floorPlan);
+  p.floors.forEach(f=> f.rows.forEach(r=>{ r.cells = r.cells.filter(c=>c.id !== cellId); }));
+  document.getElementById('roomModal').classList.remove('open');
+  await savePlan(dorm, p, 'ลบห้องแล้ว');
+});
 
 // บันทึกรายการรูปชุดใหม่ลงหอ แล้ววาดหน้าใหม่
 async function saveDormImages(dorm, images, okMsg){

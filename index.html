@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 
@@ -175,8 +175,10 @@
       เจ้าของหอจะได้รับแจ้งเตือนในระบบและทางอีเมลทันที
     </p>
 
+    <div class="bk-picked" id="bk-picked" style="display:none"></div>
+
     <form id="bookingForm">
-      <div class="form-field">
+      <div class="form-field" id="bk-room-wrap">
         <label>ห้องที่ต้องการจอง</label>
         <select id="bk-room"></select>
       </div>
@@ -225,8 +227,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="db.js?v=17"></script>
+<script src="app.js?v=17"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -477,9 +479,14 @@ function roomRowsHtml(d){
         </div>
       </div>
       <div class="rr-book">
-        <div class="rr-status ${d.verified ? (r.vacant>0?'ok':'full') : 'ask'}">
-          ${d.verified ? (r.vacant>0 ? `ว่าง ${r.vacant} ห้อง` : 'เต็มแล้ว') : 'สอบถามห้องว่าง'}
-        </div>
+        ${(()=>{
+          // หอที่วาดผังห้องแล้ว ใช้จำนวนห้องว่างจากผัง (ตรงกับความจริงมากกว่าตัวเลขที่กรอกมือ)
+          const known = d.verified || hasFloorPlan(d);
+          const cnt = roomTypeCount(d, r.code) || { vacant:r.vacant, total:r.total };
+          return `<div class="rr-status ${known ? (cnt.vacant>0?'ok':'full') : 'ask'}">
+            ${known ? (cnt.vacant>0 ? `ว่าง ${cnt.vacant} ห้อง` : 'เต็มแล้ว') : 'สอบถามห้องว่าง'}
+          </div>`;
+        })()}
         <div class="rr-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
         ${canChat(d)
           ? `<div class="rr-actions">
@@ -578,6 +585,19 @@ function openDetail(id){
       </aside>
     </div>
 
+    ${hasFloorPlan(d) ? `
+      <h2 class="td-rooms-h">ผังห้องพัก</h2>
+      <p class="muted" style="font-size:.88rem;margin-top:-6px">
+        ${(()=>{ const s = planSummary(d.floorPlan);
+          return `หอนี้มี ${d.floorPlan.floors.length} ชั้น ทั้งหมด ${s.total} ห้อง · ` +
+                 `<strong>ว่าง ${s.vacant} ห้อง</strong>` +
+                 (s.pending ? ` · มีคนจองแล้วรอหอยืนยัน ${s.pending} ห้อง` : '') +
+                 (s.occupied ? ` · มีผู้เช่าอยู่ ${s.occupied} ห้อง` : ''); })()}
+        <br>กดที่ <strong>ห้องสีเทา</strong> เพื่อจองห้องนั้นได้เลย
+      </p>
+      <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid })}</div>
+    ` : ''}
+
     <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
     ${roomRowsHtml(d)}
 
@@ -604,6 +624,10 @@ function openDetail(id){
   // ปุ่มจองทุกจุดในหน้านี้ (ค่าใน data-book คือรหัสห้องที่จะเลือกไว้ให้ล่วงหน้า)
   document.querySelectorAll('#detailContent [data-book]').forEach(btn=>{
     btn.addEventListener('click', ()=> openBooking(d, btn.dataset.book));
+  });
+  // กดห้องว่างในผังห้องพัก = จองห้องนั้นโดยเฉพาะ
+  document.querySelectorAll('#detailContent [data-bookcell]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openBooking(d, null, btn.dataset.bookcell));
   });
 
   const shareBtn = document.getElementById('shareBtn');
@@ -790,8 +814,20 @@ document.getElementById('closeImgModal').addEventListener('click', ()=> document
 //         + ยิงอีเมลแจ้งเจ้าของหอผ่าน /api/notify-booking
 // ===========================================================================
 let bookingDorm = null;
+let bookingCellId = null;   // ห้องเจาะจงในผังที่กำลังจะจอง (ถ้ากดมาจากผังห้องพัก)
 
-async function openBooking(dorm, preselectCode){
+// วาดผังห้องในหน้ารายละเอียดใหม่ (ใช้หลังจองห้องเสร็จ ห้องจะได้เปลี่ยนสีทันที)
+function refreshPlanBox(dorm){
+  const box = document.getElementById('planBox');
+  if(!box || !hasFloorPlan(dorm)) return;
+  activeDorm = dorm;
+  box.innerHTML = floorPlanHtml(dorm.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid });
+  box.querySelectorAll('[data-bookcell]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openBooking(dorm, null, btn.dataset.bookcell));
+  });
+}
+
+async function openBooking(dorm, preselectCode, cellId){
   const p = await requireLogin('กรุณาเข้าสู่ระบบก่อนจองห้องพัก');
   if(!p) return;
   if(!dorm.ownerId){ toast('หอนี้ยังไม่มีเจ้าของหอในระบบ จึงยังจองผ่านเว็บไม่ได้','error'); return; }
@@ -800,20 +836,46 @@ async function openBooking(dorm, preselectCode){
   if(dorm.ownerId === user.id){ toast('นี่คือหอของคุณเอง จองห้องตัวเองไม่ได้นะ','error'); return; }
 
   bookingDorm = dorm;
-  document.getElementById('bookingTitle').textContent = 'จองห้องพัก · ' + dorm.name;
+  bookingCellId = cellId || null;
+
+  // ถ้ากดมาจากผังห้องพัก = จองห้องนั้นเจาะจง เลือกประเภทห้องตามที่หอตั้งไว้ให้เลย
+  const picked = cellId ? eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId) : null;
+  document.getElementById('bookingTitle').textContent = picked
+    ? `จองห้อง ${picked.cell.no || ''} · ${dorm.name}`
+    : 'จองห้องพัก · ' + dorm.name;
+
+  // แถบบอกว่ากำลังจองห้องไหน (เฉพาะตอนกดมาจากผัง)
+  const pickBox = document.getElementById('bk-picked');
+  if(picked){
+    const t = (dorm.rooms||[]).find(r=>r.code === picked.cell.type);
+    const price = picked.cell.price || (t ? t.price : null);
+    pickBox.innerHTML = `🏠 กำลังจอง <strong>ห้อง ${escapeHtml(picked.cell.no||'')}</strong>
+      · ${escapeHtml(picked.floor.name)}${t?' · '+escapeHtml(t.label):''}
+      ${price?` · ${fmtBaht(price)} บาท/เดือน`:''}
+      <br><small>ห้องนี้จะถูกกันไว้ให้คุณทันที และขึ้นเป็นสีแดงในผัง จนกว่าหอจะยืนยันหรือคุณกดยกเลิก</small>`;
+    pickBox.style.display = 'block';
+  }else{
+    pickBox.style.display = 'none';
+  }
 
   // เติมรายการห้องให้เลือก
   const sel = document.getElementById('bk-room');
+  const selWrap = document.getElementById('bk-room-wrap');
   if(dorm.rooms && dorm.rooms.length){
     sel.innerHTML = dorm.rooms.map(r=>{
       const code = r.code || r.label;
-      const vac = dorm.verified ? (r.vacant > 0 ? ` · ว่าง ${r.vacant} ห้อง` : ' · เต็มแล้ว') : '';
+      const cnt = roomTypeCount(dorm, r.code);
+      const vac = (dorm.verified || hasFloorPlan(dorm))
+        ? ((cnt && cnt.vacant > 0) ? ` · ว่าง ${cnt.vacant} ห้อง` : ' · เต็มแล้ว') : '';
       return `<option value="${escapeHtml(code)}">${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน${vac}</option>`;
     }).join('');
-    if(preselectCode) sel.value = preselectCode;
+    if(picked && picked.cell.type) sel.value = picked.cell.type;
+    else if(preselectCode) sel.value = preselectCode;
   }else{
     sel.innerHTML = '<option value="">ยังไม่ระบุประเภทห้อง (ให้เจ้าของหอแนะนำ)</option>';
   }
+  // จองห้องเจาะจงแล้ว ไม่ต้องให้เลือกประเภทซ้ำ
+  if(selWrap) selWrap.style.display = picked ? 'none' : 'block';
 
   // เติมเบอร์โทรจากโปรไฟล์ให้อัตโนมัติ ถ้ามี
   document.getElementById('bk-phone').value = p.phone || '';
@@ -842,18 +904,27 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     const code = document.getElementById('bk-room').value;
     const room = (bookingDorm.rooms||[]).find(r => (r.code||r.label) === code);
 
+    // จองห้องเจาะจงจากผัง -> ใส่เลขห้องลงในชื่อห้องด้วย เจ้าของหอจะได้รู้ทันทีว่าห้องไหน
+    const picked = bookingCellId
+      ? eachRoomCell(bookingDorm.floorPlan).find(x=>x.cell.id === bookingCellId) : null;
+    const label = picked
+      ? `ห้อง ${picked.cell.no || ''}${room ? ' ('+room.label+')' : ''} · ${picked.floor.name}`
+      : (room ? room.label : 'ยังไม่ระบุประเภทห้อง');
+
     const booking = await createBooking({
       dorm: bookingDorm,
       roomCode: code || null,
-      roomLabel: room ? room.label : 'ยังไม่ระบุประเภทห้อง',
+      roomLabel: label,
       deposit: 0, slipUrl: null,
       contactPhone: phone,
       note: document.getElementById('bk-note').value.trim() || null,
       visitDate: document.getElementById('bk-date').value || null,
+      roomUid: bookingCellId,
       user, profile
     });
 
     document.getElementById('bookingModal').classList.remove('open');
+    bookingCellId = null;
 
     // ยิงอีเมลแจ้งเจ้าของหอ (ไม่บล็อกการจอง ถ้าเมลส่งไม่ออกก็ยังจองสำเร็จ)
     const mail = await notifyOwnerByEmail(booking.id);
@@ -862,6 +933,16 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     }else{
       toast('ส่งคำขอจองแล้ว — ติดตามสถานะได้ที่เมนู "การจองของฉัน"','success');
     }
+
+    // ดึงข้อมูลหอใหม่ แล้ววาดผังห้องใหม่ ห้องที่เพิ่งจองจะเปลี่ยนเป็นสีแดงทันที
+    try{
+      const fresh = await getDormById(bookingDorm.id);
+      if(fresh){
+        const i = allDorms.findIndex(x=>x.id === fresh.id);
+        if(i >= 0) allDorms[i] = fresh;
+        if(activeDorm && activeDorm.id === fresh.id) refreshPlanBox(fresh);
+      }
+    }catch(e3){ console.error(e3); }
 
     // เปิดแชทต่อให้อัตโนมัติ พร้อมข้อความตั้งต้น จะได้คุยรายละเอียดกันต่อได้เลย
     setTimeout(()=> openChat(bookingDorm, `สวัสดีครับ/ค่ะ ผม/ดิฉันเพิ่งส่งคำขอจอง "${booking.roomLabel}" ไว้ รบกวนยืนยันห้องด้วยครับ/ค่ะ`), 600);
