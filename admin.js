@@ -127,10 +127,12 @@ async function renderOwnerPage(){
   box.innerHTML = `
   <div class="op-page">
 
-    ${mine.length > 1 ? `<div class="op-switch">
-      ${mine.map(x=>`<button type="button" class="op-tab ${x.id===d.id?'on':''}" data-dorm="${x.id}">${escapeHtml(x.name)}</button>`).join('')}
+    <div class="op-switch">
+      ${mine.length > 1
+        ? mine.map(x=>`<button type="button" class="op-tab ${x.id===d.id?'on':''}" data-dorm="${x.id}">${escapeHtml(x.name)}</button>`).join('')
+        : ''}
       <button type="button" class="op-tab add" id="opAddDorm">+ เพิ่มหอใหม่</button>
-    </div>` : ''}
+    </div>
 
     <!-- ---------- รูปปก ---------- -->
     <div class="op-cover">
@@ -171,6 +173,7 @@ async function renderOwnerPage(){
       </div>
       <div class="op-head-actions">
         <button class="btn btn-primary btn-sm" id="opEdit">✏️ แก้ไขข้อมูลหอ</button>
+        <button class="btn btn-sm btn-reject" id="opDelete">🗑 ลบหอนี้</button>
       </div>
     </div>
 
@@ -196,7 +199,10 @@ async function renderOwnerPage(){
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "แก้ไขข้อมูลหอ" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
       </section>
 
-      <!-- ---------- ห้องพักและราคา ---------- -->
+      <!-- ---------- ห้องพักและราคา ----------
+           แสดงเฉพาะหอที่ยังไม่ได้วาดผังห้อง เพราะถ้ามีผังแล้ว ผังบอกครบกว่า
+           (เลขห้อง ชั้น ราคาเฉพาะห้อง ของในห้อง และจำนวนห้องว่างที่นับจากผังจริง) -->
+      ${hasFloorPlan(d) ? '' : `
       <section class="op-card">
         <h3>ห้องพักและราคา</h3>
         ${(d.rooms && d.rooms.length)
@@ -215,7 +221,7 @@ async function renderOwnerPage(){
                 </div>
               </div>`).join('')}</div>`
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"</p>`}
-      </section>
+      </section>`}
 
       <!-- ---------- รอบ ๆ หอมีอะไรบ้าง ---------- -->
       <section class="op-card op-nearby">
@@ -320,6 +326,20 @@ async function renderOwnerPage(){
 
   const editBtn = document.getElementById('opEdit');
   if(editBtn) editBtn.addEventListener('click', ()=> openEdit(d));
+
+  // ลบหอของตัวเอง (ย้ายมาจากหน้า "จัดการห้องพัก" ที่ถูกเอาออกแล้ว)
+  const delBtn = document.getElementById('opDelete');
+  if(delBtn) delBtn.addEventListener('click', async ()=>{
+    if(!confirm(`ลบหอ "${d.name}" ออกจากระบบ?\n\n` +
+                'ผังห้อง รูปภาพ รีวิว และประวัติการจองของหอนี้จะหายไปทั้งหมด\nลบแล้วกู้คืนไม่ได้')) return;
+    if(!confirm('ยืนยันอีกครั้ง — ลบหอนี้ถาวรใช่ไหม')) return;
+    try{
+      await deleteDorm(d.id);
+      activeOwnerDormId = null;
+      toast('ลบหอพักแล้ว','success');
+      await renderOwnerPage(); renderStats(); renderListings();
+    }catch(err){ console.error(err); toast('ลบไม่สำเร็จ: '+(err.message||''),'error'); }
+  });
 
   // อัปโหลดรูปจากเครื่อง — ใช้ช่อง "＋ เพิ่มรูป" ท้ายแถวรูปย่อ
   const fileInput = document.getElementById('opPhotoInput');
@@ -832,6 +852,8 @@ async function addPhotosToDorm(dorm, files){
 }
 
 async function renderListings(){
+  // หน้ารวมหอมีให้เฉพาะผู้ดูแลระบบแล้ว เจ้าของหอไม่ต้องโหลดตารางนี้เลย
+  if(!ME || ME.role !== 'admin') return;
   const hint = document.getElementById('listingHint');
   if(hint){
     hint.innerHTML = (ME && ME.role === 'owner' && myDorms.length === 0)
@@ -1630,6 +1652,8 @@ document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
     }
   }
   if(profile.role==='admin'){
+    // เจ้าของหอใช้หน้า "หน้าหอพักของฉัน" หน้าเดียวจบ — หน้ารวมหอเหลือไว้ให้ผู้ดูแลระบบตรวจสอบ
+    document.getElementById('listingsTabBtn').style.display='flex';
     document.getElementById('ownersTabBtn').style.display='flex';
     document.getElementById('dormReviewTabBtn').style.display='flex';
   }
@@ -1638,7 +1662,9 @@ document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
 
   try{
     if(isSuspended) return;   // บัญชีถูกระงับ ไม่ต้องโหลดอะไรต่อ
-    await renderStats(); await renderListings(); await renderOwnerPage();
+    await renderStats();
+    if(profile.role === 'admin') await renderListings();
+    await renderOwnerPage();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
 

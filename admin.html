@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <header class="topbar">
@@ -34,7 +34,7 @@
   <aside class="dash-side">
     <div class="side-title">เมนูจัดการ</div>
     <button class="side-link active" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
-    <button class="side-link" data-sec="listings">🏠 จัดการห้องพัก</button>
+    <button class="side-link" data-sec="listings" id="listingsTabBtn" style="display:none">🏠 หอพักทั้งหมดในระบบ (ผู้ดูแลระบบ)</button>
     <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="dormreview" id="dormReviewTabBtn" style="display:none">🛡️ หอพักที่ถูกซ่อน<span id="dormReviewBadge"></span></button>
@@ -61,9 +61,13 @@
 
     <div id="sec-listings" style="display:none">
       <div class="section-head">
-        <h2>จัดการห้องพัก</h2>
+        <h2>หอพักทั้งหมดในระบบ</h2>
         <button class="btn btn-primary btn-sm" id="btnAddDorm">+ เพิ่มหอพักใหม่</button>
       </div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        หน้านี้สำหรับผู้ดูแลระบบตรวจสอบหอพักทุกหอ — ดูข้อมูล ซ่อน หรือลบหอที่มีปัญหาได้
+        แต่แก้ข้อมูลหอของเจ้าของหอรายอื่นไม่ได้
+      </p>
       <div id="listingHint"></div>
       <div class="table-wrap">
         <table>
@@ -305,9 +309,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=21"></script>
-<script src="app.js?v=21"></script>
-<script src="admin.js?v=21"></script>
+<script src="db.js?v=23"></script>
+<script src="app.js?v=23"></script>
+<script src="admin.js?v=23"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

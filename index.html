@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 
@@ -235,8 +235,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="db.js?v=23"></script>
+<script src="app.js?v=23"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -858,6 +858,8 @@ function openRoomInfo(dorm, cellId){
   const price = cell.price || (type ? type.price : null);
   const mine = myProfile && cell.userId === myProfile.uid;
 
+  const isVacant = normalizeRoomStatus(cell.status) === 'vacant';
+
   document.getElementById('roomInfoContent').innerHTML = `
     <h3 style="margin-top:0">ห้อง ${escapeHtml(cell.no || '')}
       <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณจองไว้' : meta.label)}</span>
@@ -868,14 +870,19 @@ function openRoomInfo(dorm, cellId){
 
     ${price ? `<div class="ri-price">${fmtBaht(price)} <span>บาท/เดือน</span></div>` : ''}
 
-    <h4 style="margin:14px 0 8px;font-size:.95rem">สิ่งอำนวยความสะดวกในห้องนี้</h4>
+    <h4 class="ri-h">สิ่งอำนวยความสะดวกในห้องนี้</h4>
     ${roomAmenChipsHtml(cell.amen)}
 
-    ${cell.status === 'vacant'
-      ? `<button class="btn btn-primary btn-block" id="riBook" style="margin-top:16px">📌 จองห้องนี้</button>`
-      : `<div class="ri-note">${escapeHtml(
-            mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
-                 : 'ห้องนี้ไม่ว่างแล้ว ลองดูห้องอื่นในผังที่เป็นสีเขียวได้เลย')}</div>`}
+    ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
+
+    ${isVacant ? '' : `<div class="ri-note">${escapeHtml(
+        mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
+             : 'ห้องนี้ไม่ว่างแล้ว ลองดูห้องอื่นในผังที่เป็นสีเขียวได้เลย')}</div>`}
+
+    <div class="ri-actions">
+      ${isVacant ? `<button class="btn btn-primary" id="riBook">📌 จอง</button>` : ''}
+      <button class="btn btn-outline ${isVacant?'':'btn-block'}" id="riChat">💬 ข้อความ</button>
+    </div>
   `;
   document.getElementById('roomInfoModal').classList.add('open');
 
@@ -884,6 +891,15 @@ function openRoomInfo(dorm, cellId){
     bk.addEventListener('click', ()=>{
       document.getElementById('roomInfoModal').classList.remove('open');
       openBooking(dorm, null, cellId);
+    });
+  }
+  // ปุ่มข้อความ — เปิดแชทกับเจ้าของหอ พร้อมข้อความตั้งต้นที่ระบุห้องให้เลย
+  const ch = document.getElementById('riChat');
+  if(ch){
+    ch.addEventListener('click', ()=>{
+      document.getElementById('roomInfoModal').classList.remove('open');
+      const where = `ห้อง ${cell.no || ''}${found.floor.name ? ' ('+found.floor.name+')' : ''}`.trim();
+      openChat(dorm, `สวัสดีครับ/ค่ะ สอบถามเกี่ยวกับ${where} หน่อยครับ/ค่ะ`);
     });
   }
 }

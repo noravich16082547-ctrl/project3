@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -578,11 +578,15 @@ function planCellHtml(cell, opts){
   </${tag}>`;
 }
 
-// ป้ายสิ่งอำนวยความสะดวกในห้อง (ใช้ในหน้าต่างรายละเอียดห้อง)
+// ป้ายสิ่งอำนวยความสะดวกในห้อง (ใช้ในหน้าต่างรายละเอียดห้องฝั่งนักศึกษา)
+// หน้าตาเหมือนป้ายที่เจ้าของหอติ๊กไว้ในหลังบ้าน จะได้เห็นตรงกันทั้งสองฝั่ง
 function roomAmenChipsHtml(list){
   const a = (list || []).filter(Boolean);
-  if(!a.length) return '<span class="muted" style="font-size:.85rem">เจ้าของหอยังไม่ได้ระบุของในห้อง</span>';
-  return `<div class="ra-chips">${a.map(x=>`<span class="ra-chip">✓ ${escapeAttr(x)}</span>`).join('')}</div>`;
+  if(!a.length){
+    return `<p class="muted" style="font-size:.85rem;margin:0">
+      เจ้าของหอยังไม่ได้ระบุของในห้องนี้ — กดปุ่ม "ข้อความ" ด้านล่างเพื่อสอบถามได้เลย</p>`;
+  }
+  return `<div class="ra-chips">${a.map(x=>`<span class="ra-chip on">✓ ${escapeAttr(x)}</span>`).join('')}</div>`;
 }
 
 function floorPlanHtml(plan, opts){
