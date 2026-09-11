@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -436,14 +436,21 @@ function amenityGridHtml(codes){
 //   closed   เทาเข้ม  ปิดปรับปรุง ไม่ปล่อยเช่า
 // ---------------------------------------------------------------------------
 const ROOM_STATUS_META = {
-  vacant:   { label:'ว่าง',              short:'ว่าง',        cls:'st-vacant'   },
-  pending:  { label:'มีคนจองแล้ว',       short:'จองแล้ว',    cls:'st-pending'  },
-  occupied: { label:'มีผู้เช่าอยู่',      short:'มีผู้เช่า',   cls:'st-occupied' },
-  closed:   { label:'ปิดปรับปรุง',        short:'ปิด',        cls:'st-closed'   }
+  vacant: { label:'ว่าง',      short:'ว่าง',    cls:'st-vacant' },   // เขียว
+  booked: { label:'จองแล้ว',   short:'จองแล้ว', cls:'st-booked' }    // แดง
 };
-const ROOM_STATUS_ORDER = ['vacant','pending','occupied','closed'];
+const ROOM_STATUS_ORDER = ['vacant','booked'];
 
-function roomStatusMeta(s){ return ROOM_STATUS_META[s] || ROOM_STATUS_META.vacant; }
+// สถานะเก่าจากเวอร์ชันก่อน (4 แบบ) ให้ยุบมาเหลือ 2 แบบ
+// ห้องที่เคยเป็น "มีผู้เช่าอยู่" หรือ "ปิดปรับปรุง" = ห้องที่จองไม่ได้ -> จองแล้ว
+// ทำไว้ที่ฝั่งเว็บด้วย เผื่อยังไม่ได้รันไฟล์ fix-v21.sql จะได้ไม่แสดงห้องที่มีคนอยู่ว่าว่าง
+const LEGACY_ROOM_STATUS = { pending:'booked', occupied:'booked', closed:'booked' };
+
+function normalizeRoomStatus(s){
+  if(ROOM_STATUS_META[s]) return s;
+  return LEGACY_ROOM_STATUS[s] || 'vacant';
+}
+function roomStatusMeta(s){ return ROOM_STATUS_META[normalizeRoomStatus(s)]; }
 
 // ผังเปล่าที่ถูกต้องตามโครง (ใช้ตอนหอยังไม่เคยวาดผัง)
 function emptyFloorPlan(){ return { floors: [] }; }
@@ -463,7 +470,7 @@ function normalizeFloorPlan(plan){
           return {
             k:'room', id: c.id || newCellId(),
             no: c.no || '', type: c.type || '', price: (c.price === '' || c.price == null) ? null : Number(c.price),
-            status: ROOM_STATUS_META[c.status] ? c.status : 'vacant',
+            status: normalizeRoomStatus(c.status),
             note: c.note || '',
             amen: Array.isArray(c.amen)
               ? c.amen.filter(x=>String(x||'').trim()).map(x=>String(x).trim().slice(0,30)).slice(0,20)
@@ -495,11 +502,10 @@ function eachRoomCell(plan){
 
 // สรุปจำนวนห้องตามสถานะ {total, vacant, pending, occupied, closed}
 function planSummary(plan){
-  const s = { total:0, vacant:0, pending:0, occupied:0, closed:0 };
+  const s = { total:0, vacant:0, booked:0 };
   eachRoomCell(plan).forEach(({cell})=>{
     s.total++;
-    const st = ROOM_STATUS_META[cell.status] ? cell.status : 'vacant';
-    s[st]++;
+    s[normalizeRoomStatus(cell.status)]++;
   });
   return s;
 }
@@ -551,7 +557,7 @@ function planCellHtml(cell, opts){
       ${o.edit?'<button type="button" class="fp-x" data-rmcell="'+escapeAttr(cell.id)+'" title="เอาออก">✕</button>':''}
     </div>`;
   }
-  const st   = ROOM_STATUS_META[cell.status] ? cell.status : 'vacant';
+  const st   = normalizeRoomStatus(cell.status);
   const meta = ROOM_STATUS_META[st];
   const mine = o.myUserId && cell.userId === o.myUserId;
   const canBook = o.bookable && st === 'vacant';
@@ -612,8 +618,10 @@ function floorPlanHtml(plan, opts){
           <div class="fp-row" data-row="${escapeAttr(r.id)}">
             ${r.cells.map(c=> planCellHtml(c, o)).join('')}
             ${o.edit ? `
-              <button type="button" class="fp-cell fp-add" data-addroom="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มห้องในแถวนี้">✚</button>
-              <button type="button" class="fp-cell fp-add fp-add-stair" data-addstair="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มบันได/ลิฟต์">🪜</button>
+              <button type="button" class="fp-cell fp-add" data-addroom="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มห้องในแถวนี้">
+                <span class="fp-add-ic">✚</span><span class="fp-add-tx">เพิ่มห้อง</span></button>
+              <button type="button" class="fp-cell fp-add fp-add-stair" data-addstair="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="เพิ่มบันได ลิฟต์ หรือทางเดิน">
+                <span class="fp-add-ic">🪜</span><span class="fp-add-tx">เพิ่มบันได</span></button>
               <button type="button" class="fp-rowx" data-rmrow="${escapeAttr(f.id)}|${escapeAttr(r.id)}" title="ลบแถวนี้">ลบแถว</button>
             ` : ''}
           </div>`).join('')}

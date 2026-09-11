@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 
@@ -235,8 +235,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="db.js?v=21"></script>
+<script src="app.js?v=21"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -610,15 +610,14 @@ function openDetail(id){
         ${(()=>{ const s = planSummary(d.floorPlan);
           return `หอนี้มี ${d.floorPlan.floors.length} ชั้น ทั้งหมด ${s.total} ห้อง · ` +
                  `<strong>ว่าง ${s.vacant} ห้อง</strong>` +
-                 (s.pending ? ` · มีคนจองแล้วรอหอยืนยัน ${s.pending} ห้อง` : '') +
-                 (s.occupied ? ` · มีผู้เช่าอยู่ ${s.occupied} ห้อง` : ''); })()}
-        <br>กดที่ <strong>ห้องสีเทา</strong> เพื่อจองห้องนั้นได้เลย
+                 (s.booked ? ` · ไม่ว่าง ${s.booked} ห้อง` : ''); })()}
+        <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>กดจองได้เลย
       </p>
       <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid })}</div>
-    ` : ''}
-
-    <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
-    ${roomRowsHtml(d)}
+    ` : `
+      <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
+      ${roomRowsHtml(d)}
+    `}
 
     <h2 class="td-rooms-h">รีวิวจากผู้ใช้</h2>
     <div id="reviewBox"><div class="chat-empty">กำลังโหลดรีวิว...</div></div>
@@ -875,10 +874,8 @@ function openRoomInfo(dorm, cellId){
     ${cell.status === 'vacant'
       ? `<button class="btn btn-primary btn-block" id="riBook" style="margin-top:16px">📌 จองห้องนี้</button>`
       : `<div class="ri-note">${escapeHtml(
-            cell.status === 'pending'  ? (mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
-                                              : 'ห้องนี้มีคนกดจองไว้แล้ว กำลังรอเจ้าของหอยืนยัน')
-          : cell.status === 'occupied' ? 'ห้องนี้มีผู้เช่าอยู่แล้ว'
-          : 'ห้องนี้ปิดปรับปรุง ยังไม่เปิดให้เช่า')}</div>`}
+            mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
+                 : 'ห้องนี้ไม่ว่างแล้ว ลองดูห้องอื่นในผังที่เป็นสีเขียวได้เลย')}</div>`}
   `;
   document.getElementById('roomInfoModal').classList.add('open');
 

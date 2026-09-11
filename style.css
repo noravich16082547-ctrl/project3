@@ -844,10 +844,8 @@ footer{ margin-bottom: 0; }
 .fp-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:.8rem; color:var(--ink-soft); }
 .fp-lg{ display:inline-flex; align-items:center; gap:6px; }
 .fp-swatch{ width:13px; height:13px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.12); }
-.fp-swatch.st-vacant{ background:#C9D3DD; }
-.fp-swatch.st-pending{ background:#E03B2F; }
-.fp-swatch.st-occupied{ background:#2D62B5; }
-.fp-swatch.st-closed{ background:#6E7A6B; }
+.fp-swatch.st-vacant{ background:#2E9E5B; }
+.fp-swatch.st-booked{ background:#E03B2F; }
 
 .fp-floor{ border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; background:var(--cream); }
 .fp-floor-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
@@ -872,10 +870,8 @@ footer{ margin-bottom: 0; }
 .fp-st{ font-size:.68rem; opacity:.9; }
 .fp-price{ font-size:.68rem; opacity:.8; }
 
-.fp-room.st-vacant{ background:#C9D3DD; color:#22303C; }
-.fp-room.st-pending{ background:#E03B2F; color:#fff; }
-.fp-room.st-occupied{ background:#2D62B5; color:#fff; }
-.fp-room.st-closed{ background:#6E7A6B; color:#fff; }
+.fp-room.st-vacant{ background:#2E9E5B; color:#fff; }
+.fp-room.st-booked{ background:#E03B2F; color:#fff; }
 
 /* กดได้ = ห้องว่างในฝั่งนักศึกษา */
 .fp-room.is-bookable{ cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
@@ -904,10 +900,12 @@ footer{ margin-bottom: 0; }
 
 .fp-add{
   background:var(--white); border:2px dashed var(--line); color:var(--gold-deep);
-  font-size:1.3rem; cursor:pointer;
+  cursor:pointer; gap:3px;
 }
 .fp-add:hover{ border-color:var(--gold); background:#FDF6E8; }
-.fp-add-stair{ font-size:1rem; }
+.fp-add-ic{ font-size:1.25rem; line-height:1; }
+.fp-add-tx{ font-size:.72rem; color:var(--ink-soft); font-weight:600; }
+.fp-add-stair .fp-add-ic{ font-size:1.05rem; }
 .fp-rowx{
   align-self:center; border:none; background:none; color:var(--ink-soft);
   font-size:.75rem; text-decoration:underline; padding:0 6px;
@@ -926,9 +924,8 @@ footer{ margin-bottom: 0; }
 .op-plan-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
 .op-plan-sum{ display:flex; gap:14px; flex-wrap:wrap; font-size:.84rem; white-space:nowrap; }
 .op-plan-sum strong{ font-family:var(--font-display); }
-.st-vacant-txt{ color:#4A5A68; }
-.st-pending-txt{ color:#C22A1E; }
-.st-occupied-txt{ color:#2D62B5; }
+.st-vacant-txt{ color:#1F6D3D; }
+.st-booked-txt{ color:#C22A1E; }
 
 /* pop up แก้รายละเอียดห้อง */
 .rm-status{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -1016,10 +1013,8 @@ footer{ margin-bottom: 0; }
   font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:999px;
   vertical-align:middle; margin-left:6px; color:#fff;
 }
-.ri-pill.st-vacant{ background:#C9D3DD; color:#22303C; }
-.ri-pill.st-pending{ background:#E03B2F; }
-.ri-pill.st-occupied{ background:#2D62B5; }
-.ri-pill.st-closed{ background:#6E7A6B; }
+.ri-pill.st-vacant{ background:#2E9E5B; }
+.ri-pill.st-booked{ background:#E03B2F; }
 .ri-price{
   font-family:var(--font-display); font-size:1.7rem; font-weight:700;
   color:var(--gold-deep); margin-top:10px;
@@ -1033,4 +1028,49 @@ footer{ margin-bottom: 0; }
 @media (max-width:640px){
   .np-grid{ grid-template-columns:1fr; }
   .op-nearby .ef-row input{ min-width:120px; }
+}
+
+/* ==========================================================================
+   ดูรูปขนาดเต็ม (photo viewer)
+   แสดงรูปตามสัดส่วนจริง ไม่ครอบภาพ ไม่ยืดภาพ
+   ========================================================================== */
+.photo-viewer{
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(15,29,22,.93); align-items:center; justify-content:center; gap:10px;
+  padding:40px 20px;
+}
+.photo-viewer.open{ display:flex; }
+.pv-stage{
+  flex:1; height:100%; display:flex; align-items:center; justify-content:center;
+  overflow:auto;
+}
+.pv-stage img{
+  max-width:100%; max-height:100%;
+  width:auto; height:auto;          /* คงสัดส่วนจริงของรูป */
+  object-fit:contain;
+  border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,.5); background:#000;
+}
+.pv-close{
+  position:absolute; top:16px; right:20px; width:42px; height:42px; border-radius:50%;
+  border:none; background:rgba(255,255,255,.15); color:#fff; font-size:1.2rem;
+  display:flex; align-items:center; justify-content:center;
+}
+.pv-close:hover{ background:rgba(255,255,255,.28); }
+.pv-nav{
+  width:46px; height:46px; border-radius:50%; flex-shrink:0;
+  border:none; background:rgba(255,255,255,.15); color:#fff; font-size:1.8rem; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.pv-nav:hover{ background:rgba(255,255,255,.28); }
+.pv-count{
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  color:rgba(255,255,255,.85); font-size:.85rem;
+  background:rgba(0,0,0,.4); padding:4px 14px; border-radius:999px;
+}
+/* บอกให้รู้ว่ารูปกดดูได้ */
+.op-cover > img, .op-photo:not(.add) img{ cursor:zoom-in; }
+
+@media (max-width:640px){
+  .photo-viewer{ padding:60px 8px; }
+  .pv-nav{ width:38px; height:38px; font-size:1.4rem; }
 }

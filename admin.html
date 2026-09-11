@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 <header class="topbar">
@@ -213,6 +213,15 @@
   </div>
 </div>
 
+<!-- ===== ดูรูปขนาดเต็ม (กดที่รูปหอเพื่อเปิด) ===== -->
+<div class="photo-viewer" id="photoViewer">
+  <button class="pv-close" id="closePhotoViewer" title="ปิด">✕</button>
+  <button class="pv-nav pv-prev" id="pvPrev" title="รูปก่อนหน้า">‹</button>
+  <div class="pv-stage" id="pvStage"><img id="pvImg" src="" alt="รูปหอพักขนาดเต็ม"></div>
+  <button class="pv-nav pv-next" id="pvNext" title="รูปถัดไป">›</button>
+  <div class="pv-count" id="pvCount"></div>
+</div>
+
 <!-- ===== pop up แก้รายละเอียดห้องในผัง (กดที่ช่องห้องเพื่อเปิด) ===== -->
 <div class="modal-backdrop" id="roomModal">
   <div class="modal" style="max-width:440px">
@@ -296,9 +305,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=19"></script>
-<script src="app.js?v=19"></script>
-<script src="admin.js?v=19"></script>
+<script src="db.js?v=21"></script>
+<script src="app.js?v=21"></script>
+<script src="admin.js?v=21"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

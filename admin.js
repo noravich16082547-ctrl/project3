@@ -143,7 +143,6 @@ async function renderOwnerPage(){
            </div>`}
       <div class="op-cover-bar">
         <input type="file" id="opPhotoInput" accept="image/*" multiple hidden>
-        <button type="button" class="btn btn-primary btn-sm" id="opAddPhoto">📷 เพิ่มรูปจากเครื่อง</button>
         <a class="btn btn-outline btn-sm" href="index.html#dorm=${encodeURIComponent(d.id)}" target="_blank" rel="noopener">👁 ดูหน้าที่นักศึกษาเห็น</a>
       </div>
       <div class="op-upstate" id="opUpState" style="display:none"></div>
@@ -273,9 +272,7 @@ async function renderOwnerPage(){
           <div class="op-plan-sum">
             <span><strong>${s.total}</strong> ห้อง</span>
             <span class="st-vacant-txt">ว่าง <strong>${s.vacant}</strong></span>
-            <span class="st-pending-txt">จองแล้ว <strong>${s.pending}</strong></span>
-            <span class="st-occupied-txt">มีผู้เช่า <strong>${s.occupied}</strong></span>
-            ${s.closed ? `<span class="muted">ปิด <strong>${s.closed}</strong></span>` : ''}
+            <span class="st-booked-txt">จองแล้ว <strong>${s.booked}</strong></span>
           </div>` : ''; })()}
       </div>
       <div id="opPlan">${floorPlanHtml(d.floorPlan, { edit:true })}</div>
@@ -324,12 +321,10 @@ async function renderOwnerPage(){
   const editBtn = document.getElementById('opEdit');
   if(editBtn) editBtn.addEventListener('click', ()=> openEdit(d));
 
-  // อัปโหลดรูปจากเครื่อง (ทั้งปุ่มบนรูปปกและช่อง "+ เพิ่มรูป" ในแกลเลอรี)
+  // อัปโหลดรูปจากเครื่อง — ใช้ช่อง "＋ เพิ่มรูป" ท้ายแถวรูปย่อ
   const fileInput = document.getElementById('opPhotoInput');
-  ['opAddPhoto','opAddPhoto2'].forEach(id=>{
-    const b = document.getElementById(id);
-    if(b) b.addEventListener('click', ()=> fileInput.click());
-  });
+  const addBtn = document.getElementById('opAddPhoto2');
+  if(addBtn) addBtn.addEventListener('click', ()=> fileInput.click());
   if(fileInput){
     fileInput.addEventListener('change', async ()=>{
       const files = fileInput.files;
@@ -338,6 +333,14 @@ async function renderOwnerPage(){
       fileInput.value = '';
     });
   }
+
+  // กดที่รูป (ทั้งรูปปกและรูปย่อ) = เปิดดูขนาดเต็มตามสัดส่วนจริงของรูป
+  box.querySelectorAll('.op-cover > img, .op-photo:not(.add) img').forEach(img=>{
+    img.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openPhotoViewer(d.images || [], img.src);
+    });
+  });
 
   // ตั้งรูปปก / ลบรูป
   box.querySelectorAll('[data-cover]').forEach(b=>{
@@ -674,13 +677,11 @@ function openRoomEditor(dorm, cellId){
 function updateRoomStatusHint(status, cell){
   const el = document.getElementById('rmStatusHint');
   if(!el) return;
-  if(status === 'pending' && cell && cell.bookingId){
-    el.innerHTML = 'ห้องนี้มีนักศึกษากดจองไว้ รอคุณกด <strong>"ยืนยันรับจอง"</strong> ในเมนู "คำขอจองห้อง" — ' +
-                   'พอยืนยันแล้วห้องจะเปลี่ยนเป็นสีน้ำเงินเอง';
-  }else if(status === 'occupied'){
-    el.textContent = 'ใช้กับห้องที่มีผู้เช่าอยู่แล้ว นักศึกษาจะเห็นเป็นสีน้ำเงินและกดจองไม่ได้';
-  }else if(status === 'closed'){
-    el.textContent = 'ห้องที่ไม่ปล่อยเช่าตอนนี้ เช่น กำลังซ่อม — นักศึกษาจะเห็นแต่กดจองไม่ได้';
+  if(status === 'booked'){
+    el.innerHTML = (cell && cell.bookingId)
+      ? 'ห้องนี้มีนักศึกษากดจองไว้ รอคุณกด <strong>"ยืนยันรับจอง"</strong> ในเมนู "คำขอจองห้อง"'
+      : 'ห้องไม่ว่าง — ใช้กับห้องที่มีคนอยู่แล้ว หรือห้องที่ยังไม่ปล่อยเช่า เช่น กำลังซ่อม ' +
+        'นักศึกษาจะเห็นเป็นสีแดงและกดจองไม่ได้';
   }else{
     el.textContent = 'ห้องว่างพร้อมให้เช่า นักศึกษากดจองห้องนี้ได้จากผังในหน้าหอของคุณ';
   }
@@ -710,7 +711,7 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
 
   // เปลี่ยนสถานะจาก "มีคนจองแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบจองเดิม
   if(newStatus !== target.cell.status){
-    if(target.cell.status === 'pending' && target.cell.bookingId){
+    if(target.cell.status === 'booked' && target.cell.bookingId){
       if(!confirm('ห้องนี้มีนักศึกษากดจองไว้อยู่\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอจองนั้น\n' +
                   '(คำขอจองยังอยู่ในเมนู "คำขอจองห้อง" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
     }
@@ -726,7 +727,7 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   if(!planRoomCtx) return;
   const { dorm, cellId } = planRoomCtx;
   const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
-  if(found && found.cell.status === 'pending' && found.cell.bookingId){
+  if(found && found.cell.status === 'booked' && found.cell.bookingId){
     if(!confirm('ห้องนี้มีคนกดจองไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
   }else if(!confirm('ลบห้องนี้ออกจากผัง?')) return;
 
@@ -734,6 +735,59 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   p.floors.forEach(f=> f.rows.forEach(r=>{ r.cells = r.cells.filter(c=>c.id !== cellId); }));
   document.getElementById('roomModal').classList.remove('open');
   await savePlan(dorm, p, 'ลบห้องแล้ว');
+});
+
+// ---------------------------------------------------------------------------
+// ดูรูปขนาดเต็ม — แสดงรูปตามสัดส่วนจริง ไม่ครอบ ไม่ยืด
+// เลื่อนดูรูปถัดไป/ก่อนหน้าได้ด้วยลูกศรหรือปุ่มซ้ายขวา
+// ---------------------------------------------------------------------------
+let viewerList = [];
+let viewerIndex = 0;
+
+function openPhotoViewer(images, currentSrc){
+  viewerList = (images || []).filter(Boolean);
+  if(!viewerList.length) return;
+  const i = viewerList.findIndex(u => u === currentSrc);
+  viewerIndex = i >= 0 ? i : 0;
+  renderPhotoViewer();
+  document.getElementById('photoViewer').classList.add('open');
+}
+
+function renderPhotoViewer(){
+  const img = document.getElementById('pvImg');
+  const cnt = document.getElementById('pvCount');
+  if(!img) return;
+  img.src = viewerList[viewerIndex];
+  if(cnt) cnt.textContent = `${viewerIndex + 1} / ${viewerList.length}`;
+  const many = viewerList.length > 1;
+  ['pvPrev','pvNext'].forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.style.display = many ? 'flex' : 'none';
+  });
+}
+
+function stepPhotoViewer(delta){
+  if(viewerList.length < 2) return;
+  viewerIndex = (viewerIndex + delta + viewerList.length) % viewerList.length;
+  renderPhotoViewer();
+}
+
+document.getElementById('pvPrev')?.addEventListener('click', (e)=>{ e.stopPropagation(); stepPhotoViewer(-1); });
+document.getElementById('pvNext')?.addEventListener('click', (e)=>{ e.stopPropagation(); stepPhotoViewer(1); });
+document.getElementById('closePhotoViewer')?.addEventListener('click',
+  ()=> document.getElementById('photoViewer').classList.remove('open'));
+document.getElementById('photoViewer')?.addEventListener('click', (e)=>{
+  // กดพื้นที่ว่างรอบรูปเพื่อปิด (กดที่ตัวรูปไม่ปิด จะได้ซูมดูได้)
+  if(e.target.id === 'photoViewer' || e.target.id === 'pvStage'){
+    document.getElementById('photoViewer').classList.remove('open');
+  }
+});
+document.addEventListener('keydown', (e)=>{
+  const v = document.getElementById('photoViewer');
+  if(!v || !v.classList.contains('open')) return;
+  if(e.key === 'Escape') v.classList.remove('open');
+  if(e.key === 'ArrowLeft')  stepPhotoViewer(-1);
+  if(e.key === 'ArrowRight') stepPhotoViewer(1);
 });
 
 // บันทึกรายการร้านรอบหอ
