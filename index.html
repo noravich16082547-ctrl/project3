@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
 
@@ -235,8 +235,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=23"></script>
-<script src="app.js?v=23"></script>
+<script src="db.js?v=24"></script>
+<script src="app.js?v=24"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -881,7 +881,7 @@ function openRoomInfo(dorm, cellId){
 
     <div class="ri-actions">
       ${isVacant ? `<button class="btn btn-primary" id="riBook">📌 จอง</button>` : ''}
-      <button class="btn btn-outline ${isVacant?'':'btn-block'}" id="riChat">💬 ข้อความ</button>
+      <button class="btn btn-outline ${isVacant?'':'btn-block'}" id="riChat">💬 สอบถามห้องนี้</button>
     </div>
   `;
   document.getElementById('roomInfoModal').classList.add('open');
