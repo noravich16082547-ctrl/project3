@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 <header class="topbar">
@@ -249,6 +249,21 @@
       <input type="number" id="rmPrice" placeholder="เว้นว่าง = ใช้ราคาตามประเภทห้อง">
     </div>
 
+    <!-- รูปภายในห้องนี้ -->
+    <div class="form-field">
+      <label>รูปภายในห้องนี้</label>
+      <div class="photo-drop" id="rmPhotoDrop">
+        <input type="file" id="rmPhotoInput" accept="image/*" multiple hidden>
+        <button type="button" class="btn btn-outline btn-sm" id="btnRmPickPhotos">📷 เพิ่มรูปจากเครื่อง</button>
+        <div class="form-hint" style="margin-top:6px">
+          รูปห้องจริงของห้องนี้โดยเฉพาะ — เลือกได้ทีละหลายรูป หรือลากไฟล์มาวางตรงนี้<br>
+          รูปแรกจะเป็นรูปหลักของห้อง นักศึกษาเห็นตอนกดดูห้องนี้
+        </div>
+        <div class="photo-progress" id="rmPhotoProgress" style="display:none"></div>
+      </div>
+      <div class="photo-grid" id="rmPhotoGrid"></div>
+    </div>
+
     <!-- ของที่มีในห้องนี้ — เจ้าของหอเพิ่มเองได้ไม่จำกัด -->
     <div class="form-field">
       <label>สิ่งอำนวยความสะดวกในห้อง</label>
@@ -309,9 +324,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=24"></script>
-<script src="app.js?v=24"></script>
-<script src="admin.js?v=24"></script>
+<script src="db.js?v=25"></script>
+<script src="app.js?v=25"></script>
+<script src="admin.js?v=25"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

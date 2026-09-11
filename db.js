@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -440,6 +440,7 @@ const ROOM_STATUS_META = {
   booked: { label:'จองแล้ว',   short:'จองแล้ว', cls:'st-booked' }    // แดง
 };
 const ROOM_STATUS_ORDER = ['vacant','booked'];
+const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด
 
 // สถานะเก่าจากเวอร์ชันก่อน (4 แบบ) ให้ยุบมาเหลือ 2 แบบ
 // ห้องที่เคยเป็น "มีผู้เช่าอยู่" หรือ "ปิดปรับปรุง" = ห้องที่จองไม่ได้ -> จองแล้ว
@@ -474,6 +475,11 @@ function normalizeFloorPlan(plan){
             note: c.note || '',
             amen: Array.isArray(c.amen)
               ? c.amen.filter(x=>String(x||'').trim()).map(x=>String(x).trim().slice(0,30)).slice(0,20)
+              : [],
+            // รูปภายในห้องนี้ (สูงสุด 8 รูปต่อห้อง) — รูปแรกคือรูปหลักที่โชว์บนช่องห้องในผัง
+            // *** ถ้าลืมใส่ตรงนี้ รูปจะหายทุกครั้งที่เจ้าของหอกดบันทึกผัง ***
+            photos: Array.isArray(c.photos)
+              ? c.photos.filter(u=>typeof u === 'string' && u.trim()).slice(0, MAX_ROOM_PHOTOS)
               : [],
             bookingId: c.bookingId || null, userId: c.userId || null
           };
@@ -575,7 +581,18 @@ function planCellHtml(cell, opts){
     <span class="fp-st">${mine ? 'คุณจองไว้' : meta.short}</span>
     ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
     ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
+    ${(cell.photos && cell.photos.length) ? `<span class="fp-pic" title="มีรูปห้อง ${cell.photos.length} รูป">📷 ${cell.photos.length}</span>` : ''}
   </${tag}>`;
+}
+
+// แกลเลอรีรูปภายในห้อง (ใช้ในหน้าต่างรายละเอียดห้องฝั่งนักศึกษา)
+function roomPhotosHtml(photos){
+  const list = (photos || []).filter(Boolean);
+  if(!list.length) return '';
+  return `<div class="rp-gallery">${list.map((u,i)=>`
+    <button type="button" class="rp-thumb" data-roomphoto="${escapeAttr(u)}" title="กดดูรูปขนาดเต็ม">
+      <img src="${escapeAttr(u)}" alt="รูปในห้อง ${i+1}" loading="lazy" ${imgFallbackAttr()}>
+    </button>`).join('')}</div>`;
 }
 
 // ป้ายสิ่งอำนวยความสะดวกในห้อง (ใช้ในหน้าต่างรายละเอียดห้องฝั่งนักศึกษา)

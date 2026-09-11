@@ -600,7 +600,85 @@ function bindPlanEditor(box, d){
 // ---------------------------------------------------------------------------
 const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่องทำน้ำอุ่น','ตู้เย็น','ทีวี','ระเบียง',
                            'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต','เฟอร์นิเจอร์ครบ'];
-let editRoomAmen = [];   // ของในห้องที่กำลังแก้อยู่ใน pop up
+let editRoomAmen = [];     // ของในห้องที่กำลังแก้อยู่ใน pop up
+let editRoomPhotos = [];   // รูปในห้องที่กำลังแก้อยู่ใน pop up
+
+// ---------------------------------------------------------------------------
+// รูปภายในห้อง — อัปโหลดจากเครื่องเหมือนรูปหอ แต่ผูกกับห้องนั้น ๆ
+// เก็บไว้ใน bucket เดียวกัน (dorm-photos) จึงไม่ต้องรัน SQL เพิ่ม
+// ---------------------------------------------------------------------------
+function renderRoomPhotos(){
+  const grid = document.getElementById('rmPhotoGrid');
+  if(!grid) return;
+  grid.innerHTML = editRoomPhotos.map((u,i)=>`
+    <div class="op-photo ${i===0?'is-cover':''}">
+      <img src="${escapeHtml(u)}" alt="รูปในห้อง ${i+1}" ${imgFallbackAttr()}>
+      ${i===0 ? '<span class="op-cover-tag">รูปหลัก</span>' : ''}
+      <div class="op-photo-tools">
+        ${i===0?'':`<button type="button" class="op-mini" data-rpcover="${i}" title="ตั้งเป็นรูปหลักของห้อง">⭐</button>`}
+        <button type="button" class="op-mini danger" data-rprm="${i}" title="เอารูปนี้ออก">✕</button>
+      </div>
+    </div>`).join('');
+
+  grid.querySelectorAll('[data-rpcover]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i = +b.dataset.rpcover;
+      const [pick] = editRoomPhotos.splice(i,1);
+      editRoomPhotos.unshift(pick);
+      renderRoomPhotos();
+    });
+  });
+  grid.querySelectorAll('[data-rprm]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      editRoomPhotos.splice(+b.dataset.rprm, 1);
+      renderRoomPhotos();
+    });
+  });
+}
+
+async function handleRoomPhotoFiles(files){
+  const prog = document.getElementById('rmPhotoProgress');
+  const show = (m)=>{ if(prog){ prog.style.display='block'; prog.textContent = m; } };
+  const room = MAX_ROOM_PHOTOS - editRoomPhotos.length;
+  if(room <= 0){ toast(`ห้องหนึ่งใส่รูปได้สูงสุด ${MAX_ROOM_PHOTOS} รูป`,'error'); return; }
+  const list = Array.from(files).slice(0, room);
+  if(list.length < files.length){
+    toast(`ใส่ได้อีก ${room} รูป (สูงสุด ${MAX_ROOM_PHOTOS} รูปต่อห้อง) — อัปโหลดให้เท่าที่ใส่ได้`,'error');
+  }
+  try{
+    show('กำลังเตรียมรูป...');
+    const urls = await uploadDormImages(list, (done,total,name)=> show(`กำลังอัปโหลด ${done+1}/${total} — ${name||''}`));
+    editRoomPhotos = editRoomPhotos.concat(urls);
+    renderRoomPhotos();
+    show(`✓ เพิ่มรูปแล้ว ${urls.length} รูป — กด "บันทึกห้องนี้" ด้านล่างเพื่อบันทึก`);
+    setTimeout(()=>{ if(prog) prog.style.display='none'; }, 4000);
+  }catch(err){
+    console.error(err);
+    if(prog) prog.style.display = 'none';
+    toast(err.message || 'อัปโหลดรูปไม่สำเร็จ','error');
+  }
+}
+
+document.getElementById('btnRmPickPhotos')?.addEventListener('click',
+  ()=> document.getElementById('rmPhotoInput').click());
+document.getElementById('rmPhotoInput')?.addEventListener('change', async (e)=>{
+  const files = e.target.files;
+  if(files && files.length) await handleRoomPhotoFiles(files);
+  e.target.value = '';
+});
+const rmDrop = document.getElementById('rmPhotoDrop');
+if(rmDrop){
+  ['dragenter','dragover'].forEach(ev=> rmDrop.addEventListener(ev, (e)=>{
+    e.preventDefault(); rmDrop.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev=> rmDrop.addEventListener(ev, (e)=>{
+    e.preventDefault(); rmDrop.classList.remove('drag');
+  }));
+  rmDrop.addEventListener('drop', async (e)=>{
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if(files && files.length) await handleRoomPhotoFiles(files);
+  });
+}
 
 function renderRoomAmen(){
   // ปุ่มเลือกเร็ว
@@ -667,6 +745,10 @@ function openRoomEditor(dorm, cellId){
   document.getElementById('rmNote').value  = cell.note || '';
   editRoomAmen = (cell.amen || []).slice();
   renderRoomAmen();
+  editRoomPhotos = (cell.photos || []).slice();
+  renderRoomPhotos();
+  const rmProg = document.getElementById('rmPhotoProgress');
+  if(rmProg){ rmProg.style.display='none'; rmProg.textContent=''; }
 
   // ตัวเลือกประเภทห้องมาจากราคาที่เจ้าของหอตั้งไว้
   const sel = document.getElementById('rmType');
@@ -728,6 +810,7 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.price = priceRaw === '' ? null : Math.max(0, Number(priceRaw) || 0);
   target.cell.note  = document.getElementById('rmNote').value.trim().slice(0,120);
   target.cell.amen  = editRoomAmen.slice(0,20);
+  target.cell.photos = editRoomPhotos.slice(0, MAX_ROOM_PHOTOS);
 
   // เปลี่ยนสถานะจาก "มีคนจองแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบจองเดิม
   if(newStatus !== target.cell.status){
@@ -752,9 +835,12 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   }else if(!confirm('ลบห้องนี้ออกจากผัง?')) return;
 
   const p = normalizeFloorPlan(dorm.floorPlan);
+  const gonePhotos = (found && found.cell.photos) ? found.cell.photos.slice() : [];
   p.floors.forEach(f=> f.rows.forEach(r=>{ r.cells = r.cells.filter(c=>c.id !== cellId); }));
   document.getElementById('roomModal').classList.remove('open');
   await savePlan(dorm, p, 'ลบห้องแล้ว');
+  // ลบไฟล์รูปของห้องที่ถูกลบออกจากที่เก็บด้วย ไม่งั้นรูปจะค้างกินพื้นที่ไปเรื่อย ๆ
+  gonePhotos.forEach(u=> deleteDormPhoto(u));
 });
 
 // ---------------------------------------------------------------------------
