@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=27"></script>
-<script src="app.js?v=27"></script>
+<script src="db.js?v=28"></script>
+<script src="app.js?v=28"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -916,8 +916,9 @@ function openRoomInfo(dorm, cellId){
   if(!found) return;
   const cell = found.cell;
   const meta = roomStatusMeta(cell.status);
-  const type = (dorm.rooms||[]).find(r=>r.code === cell.type);
-  const price = cell.price || (type ? type.price : null);
+  const typeLabel = roomTypeLabel(cell.type, dorm);
+  const legacyType = roomTypes(dorm).find(r=>r.code === cell.type);
+  const price = cell.price || (legacyType ? legacyType.price : null);
   const mine = myProfile && cell.userId === myProfile.uid;
 
   const isVacant = normalizeRoomStatus(cell.status) === 'vacant';
@@ -927,7 +928,7 @@ function openRoomInfo(dorm, cellId){
       <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณจองไว้' : meta.label)}</span>
     </h3>
     <p class="muted" style="font-size:.86rem;margin-top:-4px">
-      ${escapeHtml(found.floor.name)} · ${escapeHtml(dorm.name)}${type ? ' · ' + escapeHtml(type.label) : ''}
+      ${escapeHtml(found.floor.name)} · ${escapeHtml(dorm.name)}${typeLabel ? ' · ห้อง' + escapeHtml(typeLabel) : ''}
     </p>
 
     ${price ? `<div class="ri-price">${fmtBaht(price)} <span>บาท/เดือน</span></div>` : ''}
@@ -1002,10 +1003,11 @@ async function openBooking(dorm, preselectCode, cellId){
   // แถบบอกว่ากำลังจองห้องไหน (เฉพาะตอนกดมาจากผัง)
   const pickBox = document.getElementById('bk-picked');
   if(picked){
-    const t = (dorm.rooms||[]).find(r=>r.code === picked.cell.type);
+    const tLabel = roomTypeLabel(picked.cell.type, dorm);
+    const t = roomTypes(dorm).find(r=>r.code === picked.cell.type);
     const price = picked.cell.price || (t ? t.price : null);
     pickBox.innerHTML = `🏠 กำลังจอง <strong>ห้อง ${escapeHtml(picked.cell.no||'')}</strong>
-      · ${escapeHtml(picked.floor.name)}${t?' · '+escapeHtml(t.label):''}
+      · ${escapeHtml(picked.floor.name)}${tLabel?' · ห้อง'+escapeHtml(tLabel):''}
       ${price?` · ${fmtBaht(price)} บาท/เดือน`:''}
       <br><small>ห้องนี้จะถูกกันไว้ให้คุณทันที และขึ้นเป็นสีแดงในผัง จนกว่าหอจะยืนยันหรือคุณกดยกเลิก</small>`;
     pickBox.style.display = 'block';
@@ -1063,8 +1065,10 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     // จองห้องเจาะจงจากผัง -> ใส่เลขห้องลงในชื่อห้องด้วย เจ้าของหอจะได้รู้ทันทีว่าห้องไหน
     const picked = bookingCellId
       ? eachRoomCell(bookingDorm.floorPlan).find(x=>x.cell.id === bookingCellId) : null;
+    // ชื่อห้องที่ส่งไปให้เจ้าของหอ ใช้ประเภทห้องที่ตั้งไว้ในผัง (แอร์/พัดลม) ถ้ามี
+    const pickedType = picked ? roomTypeLabel(picked.cell.type, bookingDorm) : '';
     const label = picked
-      ? `ห้อง ${picked.cell.no || ''}${room ? ' ('+room.label+')' : ''} · ${picked.floor.name}`
+      ? `ห้อง ${picked.cell.no || ''}${pickedType ? ' (ห้อง'+pickedType+')' : ''} · ${picked.floor.name}`
       : (room ? room.label : 'ยังไม่ระบุประเภทห้อง');
 
     const booking = await createBooking({

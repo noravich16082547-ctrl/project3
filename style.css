@@ -1247,3 +1247,12 @@ footer{ margin-bottom: 0; }
   .rp-field input{ min-width:0; width:100%; }
   .report-bar .btn{ flex:1 1 100%; }
 }
+
+/* ---------- ตารางสรุปการเช่า: ช่องสัญญา ---------- */
+.rt-contract{ white-space:nowrap; }
+.rt-has{ color:var(--forest); font-weight:600; font-size:.85rem; margin-right:6px; }
+.rental-table td.rt-contract .btn{ margin-right:4px; }
+@media (max-width:640px){
+  .rt-contract{ white-space:normal; }
+  .rental-table td.rt-contract .btn{ margin:2px 4px 2px 0; }
+}

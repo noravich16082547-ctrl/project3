@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -355,6 +355,28 @@ function nearestGate(dorm){
 // เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้จอง"
 // ต้องกรองตัวนี้ออกก่อนด้วย roomTypes() ไม่งั้นนักศึกษาจะเห็นห้องชื่อ "ราคาเริ่มต้น"
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ประเภทห้อง — ตายตัว 2 แบบ ไม่ต้องให้เจ้าของหอไปตั้งราคาก่อนถึงจะเลือกได้
+//
+// เดิมตัวเลือก "ประเภทห้อง" ในหน้าต่างแก้ไขห้อง สร้างมาจาก dorm.rooms
+// พอ v27 ยุบช่องราคาพัดลม/แอร์เหลือ "ราคาเริ่มต้น" ช่องเดียว dorm.rooms ก็ไม่มีประเภทห้องแล้ว
+// ตัวเลือกเลยว่างเปล่า เหลือแค่ "— ไม่ระบุประเภท —" อย่างเดียว
+// ตอนนี้ใช้รายการตายตัวแทน เลือกได้ตลอด และตั้งราคาแยกรายห้องในผังได้อยู่แล้ว
+// ---------------------------------------------------------------------------
+const ROOM_TYPE_META = {
+  air: { label:'แอร์',   icon:'❄️' },
+  fan: { label:'พัดลม',  icon:'🌀' }
+};
+const ROOM_TYPE_ORDER = ['air','fan'];
+
+// ชื่อประเภทห้องจากรหัส — ดูรายการมาตรฐานก่อน แล้วค่อยดูของที่หอเคยตั้งไว้เอง (หอเก่า)
+function roomTypeLabel(code, dorm){
+  if(!code) return '';
+  if(ROOM_TYPE_META[code]) return ROOM_TYPE_META[code].label;
+  const r = (dorm && dorm.rooms || []).find(x => x.code === code);
+  return r ? r.label : '';
+}
+
 const BASE_PRICE_CODE = 'base';
 function isBasePriceRow(r){ return r && r.code === BASE_PRICE_CODE; }
 // ประเภทห้องจริง ๆ ของหอ (ตัดรายการราคาเริ่มต้นออก)
@@ -795,6 +817,7 @@ function mapBookingRow(row){
     slipUrl: row.slip_url, contactPhone: row.contact_phone || '', note: row.note || '',
     status: row.status,
     visitDate: row.visit_date || '', ownerEmail: row.owner_email || '',
+    contractUrl: row.contract_url || '',
     notifiedAt: row.notified_at ? new Date(row.notified_at).getTime() : null,
     ownerReadAt: row.owner_read_at ? new Date(row.owner_read_at).getTime() : null,
     userId: row.user_id, userName: row.user_name, userEmail: row.user_email,
@@ -1054,6 +1077,73 @@ async function uploadDormImages(files, onProgress){
   }
   if(typeof onProgress === 'function') onProgress(list.length, list.length, '');
   return urls;
+}
+
+// ---------------------------------------------------------------------------
+// รูปสัญญาเช่า — เก็บในถัง private แยกจากรูปหอ
+//
+// ทำไมต้องแยกถัง: สัญญาเช่ามีชื่อ-สกุล เลขบัตร ลายเซ็นของนักศึกษาอยู่
+// ถ้าเก็บรวมกับรูปหอ (ถัง public) ใครได้ลิงก์ไปก็เปิดดูได้หมด
+// ถังนี้ปิด ต้องขอลิงก์ชั่วคราวทุกครั้งที่จะเปิดดู และเปิดได้เฉพาะคนที่อัปโหลดกับแอดมิน
+// ---------------------------------------------------------------------------
+const CONTRACT_BUCKET = 'dorm-contracts';
+const CONTRACT_LINK_TTL = 60 * 10;   // ลิงก์ดูสัญญาอายุ 10 นาที
+
+// อัปโหลดรูปสัญญา 1 ไฟล์ — คืน "path ในถัง" ไม่ใช่ URL (เพราะถังเป็น private)
+async function uploadContractImage(file){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อนอัปโหลด');
+  if(!file || !/^image\//.test(file.type || '')) throw new Error('กรุณาเลือกไฟล์รูปภาพ (jpg, png, webp)');
+
+  const blob = await compressImage(file);
+  const ext  = (blob.type === 'image/jpeg') ? 'jpg'
+             : ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,4) || 'jpg');
+  const path = `${user.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+
+  const { error } = await sb.storage.from(CONTRACT_BUCKET)
+    .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert:false });
+  if(error){
+    if(/bucket not found/i.test(error.message || '')){
+      throw new Error('ยังไม่มีที่เก็บไฟล์สัญญา — ไปรันไฟล์ fix-v28.sql ใน Supabase SQL Editor ก่อน');
+    }
+    throw new Error(storageErrorMessage(error));
+  }
+  return path;
+}
+
+// ขอลิงก์ชั่วคราวไว้เปิดดูรูปสัญญา
+async function contractViewUrl(path){
+  requireSupabase();
+  if(!path) return null;
+  const { data, error } = await sb.storage.from(CONTRACT_BUCKET).createSignedUrl(path, CONTRACT_LINK_TTL);
+  if(error) throw new Error(storageErrorMessage(error));
+  return data && data.signedUrl;
+}
+
+async function deleteContractImage(path){
+  if(!sb || !path) return;
+  try{ await sb.storage.from(CONTRACT_BUCKET).remove([path]); }
+  catch(err){ console.warn('ลบไฟล์สัญญาไม่สำเร็จ (ไม่เป็นไร):', err); }
+}
+
+// ผูก/ถอด รูปสัญญาเข้ากับรายการเช่า (ใบจองที่ยืนยันแล้ว)
+async function saveBookingContract(bookingId, contractPath){
+  requireSupabase();
+  const { error } = await sb.from('bookings')
+    .update({ contract_url: contractPath || null }).eq('id', bookingId);
+  if(error){
+    if(isMissingColumn(error, 'contract_url')){
+      throw new Error('ฐานข้อมูลยังไม่มีช่องเก็บสัญญา — ไปรันไฟล์ fix-v28.sql ใน Supabase SQL Editor ก่อน');
+    }
+    throw error;
+  }
+}
+
+// เช็กว่า error นี้เกิดจาก "ยังไม่มีคอลัมน์นี้ในตาราง" หรือเปล่า
+function isMissingColumn(error, col){
+  const m = (error && (error.message || '')) + ' ' + (error && (error.details || ''));
+  return /column/i.test(m) && (!col || m.includes(col));
 }
 
 // รูปนี้เป็นไฟล์ที่เราอัปโหลดเองหรือเป็นลิงก์จากเว็บอื่น

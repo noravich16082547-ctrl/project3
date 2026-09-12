@@ -13,7 +13,7 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   location.href = 'login.html';
 });
 
-const DASH_SECTIONS = ['overview','listings','bookings','messages','report','dormreview','owners'];
+const DASH_SECTIONS = ['overview','listings','bookings','messages','report','rental','dormreview','owners'];
 
 document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -26,6 +26,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
     });
     if(btn.dataset.sec === 'dormreview'){ renderPendingDorms(); }
     if(btn.dataset.sec === 'report'){ renderReport(); }
+    if(btn.dataset.sec === 'rental'){ renderRental(); }
     if(btn.dataset.sec === 'overview'){ renderOwnerPage(); }
     // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
     if(btn.dataset.sec === 'bookings'){
@@ -751,11 +752,15 @@ function openRoomEditor(dorm, cellId){
   const rmProg = document.getElementById('rmPhotoProgress');
   if(rmProg){ rmProg.style.display='none'; rmProg.textContent=''; }
 
-  // ตัวเลือกประเภทห้องมาจากราคาที่เจ้าของหอตั้งไว้
+  // ตัวเลือกประเภทห้อง = แอร์ / พัดลม (มีให้เลือกตลอด ไม่ต้องไปตั้งราคาก่อน)
+  // + ประเภทเก่าที่หอเคยตั้งไว้เอง ถ้ามี จะได้ไม่หายไปจากห้องที่เลือกไว้แล้ว
   const sel = document.getElementById('rmType');
-  const types = roomTypes(dorm);   // ตัด 'ราคาเริ่มต้น' ออก ไม่ใช่ประเภทห้อง
-  sel.innerHTML = `<option value="">— ไม่ระบุประเภท —</option>` + types.map(r=>
-    `<option value="${escapeHtml(r.code)}">${escapeHtml(r.label)} · ${fmtBaht(r.price)} บาท/เดือน</option>`).join('');
+  const legacy = roomTypes(dorm).filter(r => !ROOM_TYPE_META[r.code]);
+  sel.innerHTML = `<option value="">— ไม่ระบุประเภท —</option>`
+    + ROOM_TYPE_ORDER.map(code=>
+        `<option value="${code}">${ROOM_TYPE_META[code].icon} ${escapeHtml(ROOM_TYPE_META[code].label)}</option>`).join('')
+    + legacy.map(r=>
+        `<option value="${escapeHtml(r.code)}">${escapeHtml(r.label)} · ${fmtBaht(r.price)} บาท/เดือน</option>`).join('');
   sel.value = cell.type || '';
 
   // ปุ่มเลือกสถานะ
@@ -1918,6 +1923,169 @@ document.getElementById('rpClear')?.addEventListener('click', ()=>{
   applyReportFilter();
 });
 document.getElementById('rpCsv')?.addEventListener('click', downloadReportCsv);
+
+// ===========================================================================
+// สรุปการเช่า
+//
+// ใช้ข้อมูลชุดเดียวกับหน้ารายงาน (ใบจองที่ยืนยันแล้ว = ผู้เช่าจริง)
+// ต่างกันตรงกรองเป็น "รายเดือน" และมีช่องแนบรูปสัญญาเช่าให้เจ้าของหออัปจากเครื่อง
+//
+// รูปสัญญาเก็บในถัง dorm-contracts แบบ private (ดู fix-v28.sql)
+// เพราะในสัญญามีข้อมูลส่วนตัวของนักศึกษา ไม่ควรอยู่ในถังรูปสาธารณะ
+// ===========================================================================
+let rentalRows = [];
+let rentalUploadId = null;   // กำลังอัปสัญญาของรายการไหนอยู่
+
+function rentalMonthKey(b){ return reportDateKey(b).slice(0, 7); }   // YYYY-MM
+
+async function renderRental(){
+  const body = document.getElementById('rentalTable');
+  if(!body) return;
+  body.innerHTML = '<tr><td colspan="4" class="rp-empty">กำลังโหลด...</td></tr>';
+  try{
+    const all = ME.role === 'admin' ? await getAllBookings() : await getBookingsForOwner(ME.uid);
+    rentalRows = all.filter(b => b.status === 'confirmed');
+    applyRentalFilter();
+  }catch(err){
+    console.error(err);
+    body.innerHTML = `<tr><td colspan="4" class="rp-empty">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message||'')}</td></tr>`;
+  }
+}
+
+function filteredRentalRows(){
+  const m = (document.getElementById('rtMonth') || {}).value || '';
+  return rentalRows
+    .filter(b => !m || rentalMonthKey(b) === m)
+    .sort((a,b)=> reportDateKey(a) < reportDateKey(b) ? 1 : -1);
+}
+
+function applyRentalFilter(){
+  const body = document.getElementById('rentalTable');
+  const cnt  = document.getElementById('rentalCount');
+  if(!body) return;
+  const rows = filteredRentalRows();
+  const m = (document.getElementById('rtMonth')||{}).value;
+
+  if(cnt) cnt.textContent = rentalRows.length ? `แสดง ${rows.length} จากทั้งหมด ${rentalRows.length} รายการ` : '';
+
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="4" class="rp-empty">${
+      rentalRows.length === 0
+        ? 'ยังไม่มีผู้เช่า — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอจองห้อง รายการจะมาแสดงที่นี่'
+        : (m ? 'ไม่มีผู้เช่าในเดือนที่เลือก — ลองเลือกเดือนอื่น หรือกด "ดูทุกเดือน"' : 'ไม่มีรายการ')
+    }</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows.map(b=>`
+    <tr>
+      <td>${escapeHtml(reportDateText(b))}</td>
+      <td>${escapeHtml(reportRoomText(b))}</td>
+      <td>${escapeHtml(b.userName || '-')}${b.contactPhone ? `<br><small class="muted">${escapeHtml(b.contactPhone)}</small>` : ''}</td>
+      <td class="rt-contract">${b.contractUrl
+        ? `<span class="rt-has">✓ แนบแล้ว</span>
+           <button class="btn btn-sm btn-ghost" data-rtview="${escapeHtml(b.id)}">ดูรูป</button>
+           <button class="btn btn-sm btn-ghost" data-rtdel="${escapeHtml(b.id)}">ลบ</button>`
+        : `<button class="btn btn-sm btn-outline" data-rtup="${escapeHtml(b.id)}">📷 อัปรูปสัญญา</button>`}
+      </td>
+    </tr>`).join('');
+
+  // ---- อัปรูปสัญญาจากเครื่อง ----
+  body.querySelectorAll('[data-rtup]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      rentalUploadId = btn.dataset.rtup;
+      const input = document.getElementById('rtFileInput');
+      input.value = '';       // เลือกไฟล์เดิมซ้ำได้
+      input.click();
+    });
+  });
+
+  // ---- เปิดดูรูปสัญญา (ขอลิงก์ชั่วคราวทุกครั้ง) ----
+  body.querySelectorAll('[data-rtview]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = rentalRows.find(x=>x.id === btn.dataset.rtview);
+      if(!row) return;
+      btn.disabled = true;
+      try{
+        const url = await contractViewUrl(row.contractUrl);
+        if(!url) throw new Error('เปิดไฟล์ไม่ได้');
+        window.open(url, '_blank', 'noopener');
+      }catch(err){
+        console.error(err);
+        toast('เปิดรูปสัญญาไม่สำเร็จ: ' + (err.message||''), 'error');
+      }finally{ btn.disabled = false; }
+    });
+  });
+
+  // ---- ลบรูปสัญญา ----
+  body.querySelectorAll('[data-rtdel]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = rentalRows.find(x=>x.id === btn.dataset.rtdel);
+      if(!row) return;
+      if(!confirm('ลบรูปสัญญาของรายการนี้?')) return;
+      btn.disabled = true;
+      try{
+        const old = row.contractUrl;
+        await saveBookingContract(row.id, null);
+        row.contractUrl = '';
+        deleteContractImage(old);     // ลบไฟล์จริง ล้มเหลวก็ไม่เป็นไร
+        applyRentalFilter();
+        toast('ลบรูปสัญญาแล้ว','success');
+      }catch(err){
+        console.error(err);
+        toast('ลบไม่สำเร็จ: ' + (err.message||''), 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+document.getElementById('rtFileInput')?.addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  const id = rentalUploadId;
+  rentalUploadId = null;
+  if(!file || !id) return;
+
+  const row = rentalRows.find(x=>x.id === id);
+  const btn = document.querySelector(`[data-rtup="${id}"]`);
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังอัปโหลด...'; }
+  try{
+    const path = await uploadContractImage(file);
+    await saveBookingContract(id, path);
+    if(row) row.contractUrl = path;
+    applyRentalFilter();
+    toast('แนบรูปสัญญาแล้ว','success');
+  }catch(err){
+    console.error(err);
+    toast('อัปโหลดไม่สำเร็จ: ' + (err.message||''), 'error');
+    if(btn){ btn.disabled = false; btn.textContent = '📷 อัปรูปสัญญา'; }
+  }
+});
+
+function downloadRentalCsv(){
+  const rows = filteredRentalRows();
+  if(!rows.length){ toast('ไม่มีรายการให้บันทึก','error'); return; }
+  const esc = (v)=> `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
+  const lines = [['วันที่','ห้อง','ผู้เช่า','เบอร์ติดต่อ','สัญญา'].map(esc).join(',')];
+  rows.forEach(b=> lines.push([
+    reportDateText(b), reportRoomText(b), b.userName || '', b.contactPhone || '',
+    b.contractUrl ? 'แนบแล้ว' : 'ยังไม่แนบ'
+  ].map(esc).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `สรุปการเช่า-${(document.getElementById('rtMonth')||{}).value || 'ทุกเดือน'}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+document.getElementById('rtMonth')?.addEventListener('change', applyRentalFilter);
+document.getElementById('rtClear')?.addEventListener('click', ()=>{
+  const m = document.getElementById('rtMonth');
+  if(m) m.value = '';
+  applyRentalFilter();
+});
+document.getElementById('rtCsv')?.addEventListener('click', downloadRentalCsv);
 
 async function renderPendingDorms(){
   const box = document.getElementById('pendingDormList');
