@@ -1174,13 +1174,165 @@ function openEdit(dorm){
   document.getElementById('verifiedWrap').style.display = 'block';
   document.getElementById('fVerified').checked = dorm ? !!dorm.verified : false;
   document.getElementById('editModal').classList.add('open');
+  // แผนที่ต้องสร้าง "หลัง" modal เปิดแล้ว ไม่งั้น Leaflet วัดขนาดกล่องได้ 0 แล้วแผนที่จะเพี้ยน
+  setTimeout(openLocMap, 60);
 }
 document.getElementById('btnAddDorm').addEventListener('click', ()=> openEdit(null));
 document.getElementById('closeEditModal').addEventListener('click', ()=> document.getElementById('editModal').classList.remove('open'));
 
 // ---------------------------------------------------------------------------
-// ตำแหน่งหอบนแผนที่ — วางลิงก์ Google Maps แล้วระบบดึงพิกัดให้
+// ตำแหน่งหอบนแผนที่
+//
+// มี 3 วิธีปักหมุด เรียงจากที่แนะนำมากสุด:
+//   1) ลากหมุดบนแผนที่เอง   <- แม่นที่สุดเสมอ เพราะเจ้าของหอเห็นกับตาว่าหมุดอยู่ตรงหอจริง
+//   2) กดปุ่ม "ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้" (ต้องยืนอยู่ที่หอ)
+//   3) วางลิงก์ Google Maps / กรอกพิกัดเอง
+//
+// ทุกวิธีจะไปลงที่ setLocation() จุดเดียว เพื่อให้ช่อง lat/lng กับหมุดบนแผนที่
+// ตรงกันเสมอ ไม่มีทางหลุดกัน
 // ---------------------------------------------------------------------------
+const LOCMAP = { map:null, marker:null, acc:null, failed:false };
+
+// สร้าง marker แบบวาดด้วย CSS ไม่ใช้ไฟล์รูปของ Leaflet
+// (ไฟล์รูป default ของ Leaflet อ้างพาธแบบ relative ซึ่งพังเมื่อโหลดจาก CDN)
+function locPinIcon(kind){
+  return L.divIcon({
+    className: 'loc-pin loc-pin-' + kind,
+    html: kind === 'dorm' ? '<span>🏠</span>' : '<span>🎓</span>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+}
+
+function openLocMap(){
+  const box = document.getElementById('locMap');
+  const fb  = document.getElementById('locMapFallback');
+  if(!box) return;
+
+  // Leaflet โหลดไม่ขึ้น (เน็ตมีปัญหา/โดนบล็อก) — ไม่เป็นไร ยังกรอกพิกัดเองได้
+  if(typeof L === 'undefined'){
+    LOCMAP.failed = true;
+    box.style.display = 'none';
+    if(fb){
+      fb.style.display = 'block';
+      fb.textContent = 'โหลดแผนที่ไม่สำเร็จ — ใช้วิธีวางลิงก์ Google Maps หรือกรอกพิกัดเองด้านล่างได้';
+    }
+    // สำคัญ: ต้องกางช่องกรอกสำรองให้เห็นด้วย
+    // ไม่งั้นแผนที่ก็ไม่ขึ้น ช่องกรอกก็ยังพับอยู่ = เจ้าของหอปักหมุดไม่ได้เลย
+    document.querySelector('.loc-adv')?.setAttribute('open', '');
+    showLocationState();
+    return;
+  }
+  if(fb) fb.style.display = 'none';
+  box.style.display = 'block';
+
+  const cur = readLocation();
+  const center = cur || CRRU_CENTER;
+
+  if(!LOCMAP.map){
+    LOCMAP.map = L.map(box, { zoomControl:true, attributionControl:true })
+                  .setView([center.lat, center.lng], cur ? 17 : 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(LOCMAP.map);
+
+    // หมุดมหาวิทยาลัยไว้อ้างอิง จะได้รู้ว่าหอเราอยู่ทางไหนของมอ
+    L.marker([CRRU_CENTER.lat, CRRU_CENTER.lng], { icon: locPinIcon('crru'), interactive:false })
+      .addTo(LOCMAP.map)
+      .bindTooltip('มหาวิทยาลัยราชภัฏเชียงราย', { permanent:false });
+
+    // แตะที่ไหนบนแผนที่ = ย้ายหมุดไปตรงนั้น
+    LOCMAP.map.on('click', (e)=>{
+      setLocation(e.latlng.lat, e.latlng.lng, { pan:false, src:'map' });
+    });
+  }
+
+  syncMapToInputs({ pan:false });
+
+  // modal เพิ่งเปิด กล่องแผนที่เพิ่งมีขนาดจริง ต้องบอก Leaflet ให้วัดใหม่
+  setTimeout(()=>{
+    try{
+      LOCMAP.map.invalidateSize();
+      if(cur){
+        // เปิดมาให้เห็นทั้งหมุดหอและหมุดมอในจอเดียว จะได้ดูออกว่าปักถูกที่ไหม
+        LOCMAP.map.fitBounds(
+          L.latLngBounds([[cur.lat, cur.lng], [CRRU_CENTER.lat, CRRU_CENTER.lng]]),
+          { padding:[45,45], maxZoom:17 }
+        );
+      }else{
+        LOCMAP.map.setView([CRRU_CENTER.lat, CRRU_CENTER.lng], 15);
+      }
+    }catch(e){}
+  }, 40);
+
+  showLocationState();
+}
+
+// อ่านพิกัดจากช่อง lat/lng — คืน null ถ้ายังไม่ได้ปัก
+function readLocation(){
+  const lat = parseFloat(document.getElementById('fLat').value);
+  const lng = parseFloat(document.getElementById('fLng').value);
+  if(isNaN(lat) || isNaN(lng)) return null;
+  return { lat, lng };
+}
+
+// เอาค่าจากช่อง lat/lng ไปวาดหมุดบนแผนที่
+function syncMapToInputs(opts){
+  if(!LOCMAP.map) return;
+  const p = readLocation();
+  if(!p){
+    if(LOCMAP.marker){ LOCMAP.map.removeLayer(LOCMAP.marker); LOCMAP.marker = null; }
+    clearAccuracyCircle();
+    return;
+  }
+  if(!LOCMAP.marker){
+    LOCMAP.marker = L.marker([p.lat, p.lng], { icon: locPinIcon('dorm'), draggable:true })
+      .addTo(LOCMAP.map)
+      .bindTooltip('ลากหมุดนี้ไปวางตรงหอของคุณ', { direction:'top' });
+    // ลากหมุดเสร็จ = พิกัดใหม่
+    LOCMAP.marker.on('dragend', ()=>{
+      const ll = LOCMAP.marker.getLatLng();
+      setLocation(ll.lat, ll.lng, { pan:false, src:'drag' });
+    });
+  }else{
+    LOCMAP.marker.setLatLng([p.lat, p.lng]);
+  }
+  if(opts && opts.pan) LOCMAP.map.setView([p.lat, p.lng], Math.max(LOCMAP.map.getZoom(), 17));
+}
+
+function clearAccuracyCircle(){
+  if(LOCMAP.acc && LOCMAP.map){ LOCMAP.map.removeLayer(LOCMAP.acc); }
+  LOCMAP.acc = null;
+}
+
+// วงกลมบอก "ความแม่นยำ" ของ GPS — ให้เจ้าของหอเห็นว่าตำแหน่งที่ได้เชื่อถือได้แค่ไหน
+function showAccuracyCircle(lat, lng, metres){
+  if(!LOCMAP.map || !metres) return;
+  clearAccuracyCircle();
+  LOCMAP.acc = L.circle([lat, lng], {
+    radius: metres, color:'#2563eb', weight:1, fillColor:'#2563eb', fillOpacity:.12
+  }).addTo(LOCMAP.map);
+}
+
+// ---- ทางเข้าเดียวของการตั้งพิกัด ----
+function setLocation(lat, lng, opts){
+  opts = opts || {};
+  const la = +Number(lat).toFixed(6), ln = +Number(lng).toFixed(6);
+  document.getElementById('fLat').value = la;
+  document.getElementById('fLng').value = ln;
+  syncMapToInputs({ pan: opts.pan !== false });
+  if(opts.src !== 'gps') clearAccuracyCircle();
+  showLocationState(opts.msg, opts.kind);
+}
+
+function clearLocation(){
+  document.getElementById('fLat').value = '';
+  document.getElementById('fLng').value = '';
+  syncMapToInputs({ pan:false });
+  showLocationState();
+}
+
 function showLocationState(msg, kind){
   const el = document.getElementById('locState');
   if(!el) return;
@@ -1191,18 +1343,25 @@ function showLocationState(msg, kind){
     return;
   }
   // ไม่ได้ส่งข้อความมา = สรุปสถานะจากพิกัดที่กรอกอยู่
-  const lat = parseFloat(document.getElementById('fLat').value);
-  const lng = parseFloat(document.getElementById('fLng').value);
-  if(isNaN(lat) || isNaN(lng)){
+  const p = readLocation();
+  if(!p){
     el.className = 'loc-state warn';
     el.innerHTML = '⚠️ ยังไม่ได้ปักหมุดหอ — นักศึกษาจะกดนำทางมาหอไม่ได้ และเว็บจะบอกระยะจากมอไม่ได้';
     el.style.display = 'block';
     return;
   }
-  const km = distanceToCrru({ lat, lng });
+  const km = distanceToCrru(p);
+  // ปักไกลจากมอผิดปกติ = น่าจะปักผิดที่ เตือนไว้ก่อน
+  if(km != null && km > 15){
+    el.className = 'loc-state warn';
+    el.innerHTML = `⚠️ หมุดนี้ห่างจากมหาวิทยาลัยถึง <strong>${distanceLabel(km)}</strong> —
+      ลองตรวจดูว่าลากหมุดไปถูกที่ไหม แล้วซูมแผนที่เข้าไปดูให้ชัด`;
+    el.style.display = 'block';
+    return;
+  }
   el.className = 'loc-state ok';
-  el.innerHTML = `✓ ปักหมุดแล้ว — <strong>${locationSummary({ lat, lng })}</strong>
-    <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">ดูหมุดบนแผนที่</a>`;
+  el.innerHTML = `✓ ปักหมุดแล้ว — <strong>${locationSummary(p)}</strong>
+    <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">เปิดหมุดนี้ใน Google Maps เพื่อตรวจสอบ</a>`;
   el.style.display = 'block';
 }
 
@@ -1210,10 +1369,8 @@ function applyParsedLocation(text){
   const r = parseLatLng(text);
   if(!r){ showLocationState('กรุณาวางลิงก์ Google Maps ของหอก่อน', 'warn'); return; }
   if(r.error){ showLocationState('⚠️ ' + r.error, 'warn'); return; }
-  document.getElementById('fLat').value = r.lat;
-  document.getElementById('fLng').value = r.lng;
-  showLocationState();
-  toast('ดึงพิกัดจากลิงก์เรียบร้อย','success');
+  setLocation(r.lat, r.lng, { src:'link' });
+  toast('ดึงพิกัดจากลิงก์เรียบร้อย — ตรวจบนแผนที่อีกทีว่าหมุดตรงหอไหม','success');
 }
 
 document.getElementById('btnParseMap')?.addEventListener('click', ()=>{
@@ -1227,27 +1384,129 @@ document.getElementById('fMapLink')?.addEventListener('paste', (e)=>{
   const text = (e.clipboardData || window.clipboardData).getData('text');
   setTimeout(()=> applyParsedLocation(text), 30);
 });
-document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
-  if(!navigator.geolocation){ showLocationState('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง','warn'); return; }
-  showLocationState('กำลังหาตำแหน่ง...','');
-  navigator.geolocation.getCurrentPosition(
-    (pos)=>{
-      const lat = +pos.coords.latitude.toFixed(6), lng = +pos.coords.longitude.toFixed(6);
-      if(lat < 18.5 || lat > 20.5 || lng < 99.0 || lng > 100.6){
-        showLocationState('⚠️ ตำแหน่งที่ได้อยู่นอกพื้นที่เชียงราย — ปุ่มนี้ใช้ตอนที่คุณอยู่ที่หอเท่านั้น','warn');
-        return;
-      }
-      document.getElementById('fLat').value = lat;
-      document.getElementById('fLng').value = lng;
-      showLocationState();
-      toast('ใช้ตำแหน่งปัจจุบันเป็นที่ตั้งหอแล้ว','success');
-    },
-    (err)=> showLocationState('⚠️ หาตำแหน่งไม่สำเร็จ: ' + (err.message||'') + ' — ลองใช้วิธีวางลิงก์แทน','warn'),
-    { enableHighAccuracy:true, timeout:10000 }
-  );
+document.getElementById('btnCrruLoc')?.addEventListener('click', ()=>{
+  if(LOCMAP.map) LOCMAP.map.setView([CRRU_CENTER.lat, CRRU_CENTER.lng], 15);
 });
+document.getElementById('btnClearLoc')?.addEventListener('click', clearLocation);
+
+// ---------------------------------------------------------------------------
+// ปุ่ม "ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้"
+//
+// ของเดิมเรียก getCurrentPosition ครั้งเดียวแล้วรับค่าที่ได้มาเลย ซึ่งมีปัญหา 2 ข้อ:
+//   1) ไม่ได้ใส่ maximumAge:0  -> เบราว์เซอร์คืน "ตำแหน่งเก่าที่ cache ไว้" ได้
+//      เป็นเหตุผลที่บางทีมันขึ้นเป็นตำแหน่งที่เราเคยอยู่ ไม่ใช่ที่ยืนอยู่จริง
+//   2) ไม่ได้ดู coords.accuracy -> ถ้าเปิดจากคอมที่หาตำแหน่งด้วย Wi-Fi/IP
+//      ค่าที่ได้อาจคลาดไปเป็นกิโล แต่ระบบรับมาใช้เงียบ ๆ เหมือนมันแม่น
+//
+// ของใหม่: บังคับขอตำแหน่งสด (maximumAge:0) แล้วเฝ้าดูหลายครั้งด้วย watchPosition
+// เก็บอันที่แม่นที่สุดไว้ พร้อมบอกค่าความแม่นยำ (± กี่เมตร) ให้เจ้าของหอเห็นตรง ๆ
+// และวาดวงกลมความแม่นยำบนแผนที่ ถ้ามันหยาบก็ให้ลากหมุดแก้เองได้
+// ---------------------------------------------------------------------------
+const GPS_GOOD_M = 30;    // แม่นระดับนี้ = พอใช้ได้เลย หยุดรอได้
+const GPS_OK_M   = 100;   // ยังพอไหว แต่ควรลากหมุดตรวจอีกที
+const GPS_WATCH_MS = 12000;   // รอไม่เกินเท่านี้ แล้วเอาค่าที่ดีที่สุดเท่าที่ได้
+let gpsWatchId = null, gpsBest = null, gpsTimer = null;
+
+function stopGpsWatch(){
+  if(gpsWatchId != null){ try{ navigator.geolocation.clearWatch(gpsWatchId); }catch(e){} }
+  gpsWatchId = null;
+  if(gpsTimer){ clearTimeout(gpsTimer); gpsTimer = null; }
+  const btn = document.getElementById('btnHereLoc');
+  if(btn){ btn.disabled = false; btn.textContent = '📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้'; }
+}
+
+function finishGps(){
+  stopGpsWatch();
+  if(!gpsBest){
+    showLocationState('⚠️ หาตำแหน่งไม่สำเร็จ — ลากหมุดบนแผนที่เอง หรือวางลิงก์ Google Maps แทนได้','warn');
+    return;
+  }
+  const { lat, lng, acc } = gpsBest;
+  const accTxt = acc ? `±${Math.round(acc)} ม.` : 'ไม่ทราบความแม่นยำ';
+
+  if(lat < 18.5 || lat > 20.5 || lng < 99.0 || lng > 100.6){
+    showLocationState(`⚠️ ตำแหน่งที่เครื่องบอกมา (${lat.toFixed(4)}, ${lng.toFixed(4)}) อยู่นอกพื้นที่เชียงราย
+      จึงยังไม่ปักหมุดให้ — ปุ่มนี้ต้องกดตอนที่ <strong>ยืนอยู่ที่หอจริง ๆ</strong>
+      ถ้าตอนนี้ไม่ได้อยู่ที่หอ ให้ลากหมุดบนแผนที่แทน`, 'warn');
+    return;
+  }
+
+  setLocation(lat, lng, { src:'gps', pan:true });
+  showAccuracyCircle(lat, lng, acc);
+
+  if(acc && acc > GPS_OK_M){
+    showLocationState(`⚠️ ปักหมุดให้แล้ว แต่ตำแหน่งที่ได้<strong>ยังหยาบมาก (${accTxt})</strong> —
+      หอจริงอาจอยู่ห่างจากหมุดเป็นร้อยเมตร<br>
+      มักเกิดตอนเปิดจากคอมพิวเตอร์ (คอมเดาตำแหน่งจาก Wi-Fi/เน็ต ไม่ได้ใช้ GPS จริง)<br>
+      <strong>แนะนำ: ลากหมุดบนแผนที่ไปวางตรงหอเอง</strong> หรือเปิดหน้านี้จากมือถือตอนยืนอยู่ที่หอ
+      แล้วกดปุ่มนี้ใหม่`, 'warn');
+  }else if(acc && acc > GPS_GOOD_M){
+    showLocationState(`✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว (ความแม่นยำ ${accTxt}) —
+      ${locationSummary({lat,lng})}<br>
+      ซูมแผนที่เข้าไปดูอีกนิด ถ้าหมุดยังไม่ตรงตัวอาคาร ลากปรับได้เลย`, 'ok');
+  }else{
+    showLocationState(`✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว ความแม่นยำดี (${accTxt}) —
+      ${locationSummary({lat,lng})}`, 'ok');
+    toast('ใช้ตำแหน่งปัจจุบันเป็นที่ตั้งหอแล้ว','success');
+  }
+}
+
+document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
+  if(!navigator.geolocation){
+    showLocationState('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง — ลากหมุดบนแผนที่เองได้เลย','warn');
+    return;
+  }
+  // เบราว์เซอร์ยอมให้ขอตำแหน่งเฉพาะหน้าที่ปลอดภัย (https หรือ localhost)
+  // ใช้ isSecureContext เพราะเป็นตัวเดียวกับที่เบราว์เซอร์ใช้ตัดสินจริง ๆ
+  if(window.isSecureContext === false){
+    showLocationState('⚠️ เบราว์เซอร์ยอมให้หาตำแหน่งเฉพาะเว็บที่เป็น https เท่านั้น — ลากหมุดบนแผนที่แทนได้','warn');
+    return;
+  }
+
+  stopGpsWatch();
+  gpsBest = null;
+  const btn = document.getElementById('btnHereLoc');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ กำลังหาตำแหน่ง...'; }
+  showLocationState('กำลังหาตำแหน่ง... รอสัก 2-3 วินาที ระบบกำลังรอให้สัญญาณแม่นขึ้น','');
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (pos)=>{
+      const acc = pos.coords.accuracy;
+      // เก็บเฉพาะครั้งที่แม่นกว่าเดิม
+      if(!gpsBest || (acc && acc < gpsBest.acc)){
+        gpsBest = { lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6), acc };
+      }
+      // แม่นพอแล้ว ไม่ต้องรอต่อ
+      if(gpsBest.acc && gpsBest.acc <= GPS_GOOD_M){ finishGps(); return; }
+      // ยังไม่แม่น รอต่อ แต่ให้ปุ่มกดข้ามไว้ด้วย จะได้ไม่ต้องนั่งรอจนครบ
+      showLocationState(`กำลังหาตำแหน่ง... ตอนนี้ได้ความแม่นยำ ±${Math.round(gpsBest.acc||0)} ม.
+        (กำลังรอให้แม่นขึ้น)
+        <button type="button" class="btn btn-sm btn-ghost" id="btnGpsNow"
+          style="margin-left:8px">ใช้ค่านี้เลย</button>`, '');
+      document.getElementById('btnGpsNow')?.addEventListener('click', finishGps);
+    },
+    (err)=>{
+      stopGpsWatch();
+      let m = 'หาตำแหน่งไม่สำเร็จ';
+      if(err && err.code === 1) m = 'คุณยังไม่ได้อนุญาตให้เว็บนี้เข้าถึงตำแหน่ง — กดไอคอนรูปกุญแจ/หมุด ข้างช่อง URL แล้วเปิดสิทธิ์ "ตำแหน่ง" ให้เว็บนี้ก่อน';
+      else if(err && err.code === 2) m = 'เครื่องหาตำแหน่งไม่เจอ (อาจอยู่ในอาคารหรือปิด GPS อยู่)';
+      else if(err && err.code === 3) m = 'หาตำแหน่งนานเกินไป';
+      showLocationState(`⚠️ ${m} — ระหว่างนี้ลากหมุดบนแผนที่ไปวางตรงหอเองได้เลย ได้ผลเหมือนกัน`,'warn');
+    },
+    { enableHighAccuracy:true, timeout:GPS_WATCH_MS, maximumAge:0 }
+  );
+  // ครบเวลาแล้วก็เอาค่าที่ดีที่สุดเท่าที่ได้
+  gpsTimer = setTimeout(finishGps, GPS_WATCH_MS);
+});
+
+// ปิด modal ระหว่างกำลังหาตำแหน่งอยู่ ต้องหยุด watch ไม่งั้นมันวิ่งค้างกิน battery
+document.getElementById('closeEditModal')?.addEventListener('click', stopGpsWatch);
+
 ['fLat','fLng'].forEach(id=>{
-  document.getElementById(id)?.addEventListener('input', ()=> showLocationState());
+  document.getElementById(id)?.addEventListener('input', ()=>{
+    syncMapToInputs({ pan:false });
+    showLocationState();
+  });
 });
 
 // ---- ปุ่มในฟอร์ม: เพิ่มสิ่งอำนวยความสะดวกเอง ----

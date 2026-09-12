@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="stylesheet" href="style.css?v=26">
+<!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
 </head>
 <body>
 <header class="topbar">
@@ -129,19 +132,38 @@
     <!-- ================= ตำแหน่งหอ ================= -->
     <div class="form-field">
       <label>📍 ตำแหน่งหอพักบนแผนที่</label>
-      <div class="ef-row">
-        <input type="text" id="fMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
-        <button type="button" class="btn btn-outline btn-sm" id="btnParseMap">ใช้ลิงก์นี้</button>
+      <p class="form-hint" style="margin-top:0">
+        <strong>ลากหมุดสีแดงไปวางตรงหอของคุณ</strong> หรือแตะบนแผนที่ตรงจุดที่ต้องการ —
+        หมุดนี้คือจุดที่นักศึกษาจะกดนำทางมา ถ้าปักผิดเขาจะไปผิดที่
+      </p>
+
+      <!-- แผนที่ลากหมุด -->
+      <div class="loc-map-wrap">
+        <div id="locMap" class="loc-map"></div>
+        <div class="loc-map-fallback" id="locMapFallback">
+          กำลังโหลดแผนที่... ถ้าแผนที่ไม่ขึ้น ใช้วิธีวางลิงก์ Google Maps ด้านล่างแทนได้
+        </div>
+        <div class="loc-map-tools">
+          <button type="button" class="btn btn-sm btn-primary" id="btnHereLoc">📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="btnCrruLoc">🎓 ไปที่มหาวิทยาลัย</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="btnClearLoc">ล้างหมุด</button>
+        </div>
       </div>
-      <div class="form-hint">
-        เปิด Google Maps → ค้นหาหอของคุณ → คัดลอกลิงก์จากช่อง URL มาวาง
-        <button type="button" class="btn btn-sm btn-ghost" id="btnHereLoc">📱 ใช้ตำแหน่งที่ยืนอยู่ตอนนี้</button>
-      </div>
+
       <div class="loc-state" id="locState"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-        <div class="form-field" style="margin:0"><label>ละติจูด (lat)</label><input type="number" step="0.000001" id="fLat"></div>
-        <div class="form-field" style="margin:0"><label>ลองจิจูด (lng)</label><input type="number" step="0.000001" id="fLng"></div>
-      </div>
+
+      <details class="loc-adv">
+        <summary>วิธีอื่น: วางลิงก์ Google Maps หรือกรอกพิกัดเอง</summary>
+        <div class="ef-row" style="margin-top:8px">
+          <input type="text" id="fMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
+          <button type="button" class="btn btn-outline btn-sm" id="btnParseMap">ใช้ลิงก์นี้</button>
+        </div>
+        <div class="form-hint">เปิด Google Maps → ค้นหาหอของคุณ → คัดลอกลิงก์จากช่อง URL มาวาง</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+          <div class="form-field" style="margin:0"><label>ละติจูด (lat)</label><input type="number" step="0.000001" id="fLat"></div>
+          <div class="form-field" style="margin:0"><label>ลองจิจูด (lng)</label><input type="number" step="0.000001" id="fLng"></div>
+        </div>
+      </details>
     </div>
     <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
     <div class="form-field">
@@ -324,9 +346,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=25"></script>
-<script src="app.js?v=25"></script>
-<script src="admin.js?v=25"></script>
+<script src="db.js?v=26"></script>
+<script src="app.js?v=26"></script>
+<script src="admin.js?v=26"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

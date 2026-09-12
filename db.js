@@ -10,8 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
-
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -376,23 +375,42 @@ function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${
 // แผนที่ + เส้นทาง (ใช้ Google Maps embed แบบไม่ต้องใช้ API key)
 // หอที่ยังไม่มีพิกัด lat/lng จะค้นด้วย "ชื่อหอ + บ้านดู่ เชียงราย" แทน
 // ---------------------------------------------------------------------------
-const CRRU_ORIGIN = 'มหาวิทยาลัยราชภัฏเชียงราย';
+// จุดตั้งต้นของเส้นทาง = มหาวิทยาลัย ใช้ "พิกัด" ไม่ใช่ "ชื่อ"
+// เพราะถ้าส่งชื่อไป Google อาจหาไม่เจอแล้วไปหยิบ "ตำแหน่งของคุณ" (Your location) มาแทน
+const CRRU_ORIGIN = `${CRRU_CENTER.lat},${CRRU_CENTER.lng}`;
+
+// จุดหมาย = พิกัดหอเท่านั้น
+//
+// ⚠️ บั๊กเดิม: ถ้าหอยังไม่ได้ปักหมุด โค้ดเก่าจะส่งข้อความค้นหา
+//    เช่น "goooo หอพัก บ้านดู่ เชียงราย" ไปให้ Google
+//    ซึ่ง Google หาไม่เจอ → มันเลยเอา "Your location / ตำแหน่งของคุณ"
+//    ไปใส่เป็นปลายทางแทน แล้ววาดเส้นทางมั่ว ๆ ออกมา
+//    ตอนนี้เปลี่ยนเป็นคืน null ไปเลย แล้วให้หน้าเว็บขึ้นข้อความว่า "ยังไม่ได้ปักหมุด"
+//    ดีกว่าโชว์เส้นทางผิด ๆ ให้นักศึกษาขับรถตามไป
 function dormPlaceQuery(d){
-  if(d.lat && d.lng) return `${d.lat},${d.lng}`;
-  return `${d.name} หอพัก บ้านดู่ เชียงราย`;
+  if(!hasLocation(d)) return null;
+  return `${d.lat},${d.lng}`;
 }
-// แผนที่แสดงเส้นทางจากมหาวิทยาลัยไปหอพัก (ฝังในหน้าเว็บ)
+// แผนที่แสดงเส้นทางจากมหาวิทยาลัยไปหอพัก (ฝังในหน้าเว็บ) — null ถ้าหอยังไม่ปักหมุด
 function mapRouteEmbedUrl(d){
-  const dest = encodeURIComponent(dormPlaceQuery(d));
-  const from = encodeURIComponent(CRRU_ORIGIN);
-  return `https://maps.google.com/maps?saddr=${from}&daddr=${dest}&hl=th&output=embed`;
+  const q = dormPlaceQuery(d);
+  if(!q) return null;
+  return `https://maps.google.com/maps?saddr=${encodeURIComponent(CRRU_ORIGIN)}&daddr=${encodeURIComponent(q)}&hl=th&output=embed`;
 }
-// ลิงก์เปิดเส้นทางในแอป Google Maps (สำหรับกดนำทางจริงบนมือถือ)
+// ลิงก์เปิดเส้นทางในแอป Google Maps (สำหรับกดนำทางจริงบนมือถือ) — null ถ้าหอยังไม่ปักหมุด
 function mapDirectionsLink(d){
-  const dest = encodeURIComponent(dormPlaceQuery(d));
-  const from = encodeURIComponent(CRRU_ORIGIN);
-  return `https://www.google.com/maps/dir/?api=1&origin=${from}&destination=${dest}&travelmode=walking`;
+  const q = dormPlaceQuery(d);
+  if(!q) return null;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(CRRU_ORIGIN)}&destination=${encodeURIComponent(q)}&travelmode=walking`;
 }
+// ลิงก์เปิดหมุดหอบนแผนที่ (ไม่ใช่เส้นทาง) — null ถ้าหอยังไม่ปักหมุด
+function mapPinLink(d){
+  const q = dormPlaceQuery(d);
+  if(!q) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+// ข้อความมาตรฐานเวลาหอยังไม่ได้ปักหมุด (ใช้ให้เหมือนกันทุกที่)
+const NO_PIN_TEXT = 'เจ้าของหอยังไม่ได้ปักหมุดตำแหน่งหอ';
 // รูปสำรองเมื่อรูปต้นทางโหลดไม่ขึ้น
 const FALLBACK_IMG = 'https://images.pexels.com/photos/1034584/pexels-photo-1034584.jpeg?auto=compress&cs=tinysrgb&w=900';
 // รูปที่ระบบใส่ให้ตอนตั้งต้น (สต็อกจาก Pexels) ไม่ใช่รูปห้องจริงของหอ

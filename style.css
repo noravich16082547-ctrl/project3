@@ -129,9 +129,16 @@ button{ font-family: inherit; cursor:pointer; }
 .btn[disabled]{ opacity:.5; cursor:not-allowed; }
 
 /* range slider row */
-.range-row{ display:flex; align-items:center; gap:8px; }
-.range-row input[type=range]{ flex:1; accent-color: var(--gold-deep); }
+/* แถวเลือกช่วงราคา — ต้องยอมขึ้นบรรทัดใหม่ ไม่งั้นบนมือถือแถบเลื่อน 2 อัน
+   + ป้ายราคา + ปุ่มถูกใจ จะอัดอยู่บรรทัดเดียวจนล้นออกนอกจอไปทางขวา */
+.range-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.range-row input[type=range]{ flex:1 1 90px; min-width:90px; accent-color: var(--gold-deep); }
 .price-tag{ font-size:.82rem; color: var(--forest); font-weight:700; white-space:nowrap; }
+@media (max-width:640px){
+  /* จอเล็ก: ป้ายราคาอยู่บรรทัดของมันเอง แล้วปุ่มถูกใจเต็มความกว้าง อ่านง่ายกว่าอัดกัน */
+  .range-row .price-tag{ flex:1 0 100%; order:3; }
+  .range-row .wishlist-toggle{ flex:1 0 100%; order:4; justify-content:center; }
+}
 
 /* ---------- Listing ---------- */
 .section{ padding: 44px 0; }
@@ -984,6 +991,48 @@ footer{ margin-bottom: 0; }
 .loc-state.ok{ background:#E4F2E7; color:#1F6D3D; }
 .loc-state.warn{ background:#FDF1DC; color:#946A0E; }
 .loc-state a{ color:inherit; text-decoration:underline; margin-left:6px; }
+.loc-state{ line-height:1.55; }
+
+/* ---------- แผนที่ลากหมุดในฟอร์มแก้ไขหอ ---------- */
+.loc-map-wrap{ margin-top:8px; }
+.loc-map{
+  height:300px; width:100%; border-radius:var(--radius-sm);
+  border:1px solid var(--line); overflow:hidden; background:#EDEAE3;
+}
+.loc-map-fallback{
+  display:none; padding:16px; text-align:center; font-size:.85rem; color:var(--muted);
+  border:1px dashed var(--line); border-radius:var(--radius-sm); background:var(--sage-bg);
+}
+.loc-map-tools{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+/* หมุดวาดด้วย CSS ไม่ใช้ไฟล์รูปของ Leaflet (พาธรูป default พังเวลาโหลดจาก CDN) */
+.loc-pin{
+  display:flex !important; align-items:center; justify-content:center;
+  font-size:17px; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,.3);
+  background:#fff; border:2px solid #C0392B;
+}
+.loc-pin-crru{ border-color:#2563EB; font-size:15px; opacity:.9; }
+.loc-pin-dorm{ cursor:grab; }
+.loc-pin-dorm:active{ cursor:grabbing; }
+/* Leaflet วาดทับ modal ไม่ได้ — modal ของเราใช้ z-index สูง */
+.loc-map .leaflet-pane,
+.loc-map .leaflet-control{ z-index:1; }
+.loc-map .leaflet-control-attribution{ font-size:.65rem; }
+.loc-adv{ margin-top:12px; }
+.loc-adv > summary{
+  cursor:pointer; font-size:.85rem; color:var(--gold-deep);
+  padding:6px 0; list-style:revert;
+}
+
+/* ---------- หอที่ยังไม่ได้ปักหมุด — ฝั่งนักศึกษา ---------- */
+/* ไม่โชว์แผนที่มั่ว ๆ ดีกว่าพานักศึกษาไปผิดที่ */
+.map-nopin{
+  border:1px dashed var(--line); border-radius:var(--radius);
+  background:var(--sage-bg); padding:24px 20px; text-align:center;
+}
+.map-nopin .mn-ic{ font-size:2rem; margin-bottom:6px; }
+.map-nopin strong{ display:block; margin-bottom:6px; }
+.map-nopin p{ font-size:.88rem; color:var(--muted); margin:0; }
+.map-nopin .mn-note{ font-size:.78rem; margin-top:8px; opacity:.8; }
 .op-loc{ font-size:.86rem; margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line); }
 .op-loc .ok{ color:#1F6D3D; }
 .op-loc .warn{ color:#946A0E; }
@@ -1111,3 +1160,41 @@ footer{ margin-bottom: 0; }
 @media (max-width:640px){
   .rp-gallery{ grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
 }
+
+/* ===========================================================================
+   ข้อความยาวต้องขึ้นบรรทัดใหม่ ไม่ล้นออกนอกกรอบ
+   ---------------------------------------------------------------------------
+   ปัญหาที่เจอ: ข้อความที่ผู้ใช้พิมพ์เอง (ชื่อหอ / รายละเอียด / รีวิว / ชื่อร้าน)
+   ถ้าพิมพ์ยาวรวดเดียวโดยไม่เว้นวรรค เช่น "aaaaaaaaaaaaaaaaaa..." หรือวางลิงก์ยาว ๆ
+   เบราว์เซอร์จะไม่รู้ว่าจะตัดบรรทัดตรงไหน เลยดันกล่องกว้างออกไปทางขวาเรื่อย ๆ
+   จนล้นการ์ด/ล้นจอ
+
+   ทางแก้ 2 ชั้น:
+     1) overflow-wrap:anywhere  = ถ้าจำเป็นให้ตัดกลางคำได้เลย
+     2) min-width:0             = กล่องลูกใน flex/grid ปกติจะไม่ยอมหดเล็กกว่าข้อความ
+                                  ต้องสั่ง 0 มันถึงจะยอมหดแล้วตัดบรรทัด
+   =========================================================================== */
+.td-desc, .td-title h1, .td-addr,
+.rev-item p, .rev-top strong, .rev-empty p,
+.nb-name, .nb-note, .amenity span,
+.ra-chip, .ri-note, .rr-info h4,
+.op-desc, .op-name, .op-title h2,
+.card-title, .dorm-card h3,
+.room-note, .fp-room .fp-no,
+.map-nopin p, .chat-empty,
+.bk-note, .msg-text{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+
+/* กล่องลูกใน flex/grid ต้องยอมหดก่อน ข้อความถึงจะตัดบรรทัดได้จริง */
+.nb-item, .rev-item, .rev-top, .rr-info, .room-row,
+.td-titlerow, .td-title, .op-head, .amenity, .bk-row{
+  min-width:0;
+}
+.nb-item > *, .rev-top > *, .amenity > *{ min-width:0; }
+
+/* กันกรณีหลุดรอด: กล่องเนื้อหาหลักให้ตัดคำได้หมด
+   (ไม่ใช้ body{overflow-x:hidden} เพราะจะทำให้แถบเมนูด้านบนกับการ์ดราคา
+    ที่ใช้ position:sticky ค้างไม่ติดขอบจอ) */
+.td-main, .td-side, .op-card, .modal{ overflow-wrap:anywhere; }
