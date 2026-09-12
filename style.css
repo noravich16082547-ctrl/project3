@@ -442,10 +442,37 @@ footer{ margin-bottom: 0; }
 .td-gallery .g-cell{ position:relative; overflow:hidden; background: var(--sage-bg); }
 .td-gallery img{ width:100%; height:100%; object-fit:cover; cursor:pointer; transition: transform .25s ease; }
 .td-gallery img:hover{ transform: scale(1.04); }
+/* ป้าย "ดูทั้งหมด N รูป" — เดิมเป็น span ที่ตั้ง pointer-events:none ไว้
+   กดแล้วคลิกทะลุไปโดนรูปข้างล่าง เปิดได้แค่รูปเดียว ไม่ได้เปิดดูทั้งหมด
+   ตอนนี้เป็นปุ่มจริงที่กดได้ แล้วเปิดหน้าต่างเลื่อนดูรูปครบทุกใบ */
 .g-more{
   position:absolute; inset:0; background: rgba(20,30,22,.55); color:#fff;
   display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:600;
-  pointer-events:none; text-align:center; padding:6px;
+  text-align:center; padding:6px;
+  border:0; cursor:pointer; font-family:inherit; width:100%;
+  transition: background .15s ease;
+}
+.g-more:hover{ background: rgba(20,30,22,.72); }
+
+/* ---- ปุ่มเลื่อนรูปในหน้าต่างดูรูปใหญ่ ---- */
+.iv-nav{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:46px; height:46px; border-radius:50%; border:0; cursor:pointer;
+  background:rgba(0,0,0,.55); color:#fff; font-size:2rem; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  transition: background .15s ease;
+}
+.iv-nav:hover{ background:rgba(0,0,0,.8); }
+.iv-prev{ left:10px; }
+.iv-next{ right:10px; }
+.iv-count{
+  position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.6); color:#fff; font-size:.8rem; font-weight:600;
+  padding:4px 12px; border-radius:999px;
+}
+@media (max-width:640px){
+  .iv-nav{ width:38px; height:38px; font-size:1.6rem; }
+  .iv-prev{ left:4px; } .iv-next{ right:4px; }
 }
 
 /* ---- แถบจุดเด่นใต้แกลเลอรี ---- */
@@ -1153,7 +1180,7 @@ footer{ margin-bottom: 0; }
 
 /* หน้าต่างดูรูปใหญ่ต้องอยู่เหนือหน้าต่างรายละเอียดห้อง */
 #imgModal{ z-index:150; }
-#imgModal .modal{ max-width:min(92vw,1100px); background:transparent; padding:0; }
+#imgModal .modal{ max-width:min(92vw,1100px); background:transparent; padding:0; position:relative; }
 #imgModal .modal img{ width:auto; height:auto; max-width:100%; max-height:82vh; margin:0 auto; }
 #imgModal .modal-close{ color:#fff; font-size:1.6rem; }
 
@@ -1198,3 +1225,25 @@ footer{ margin-bottom: 0; }
    (ไม่ใช้ body{overflow-x:hidden} เพราะจะทำให้แถบเมนูด้านบนกับการ์ดราคา
     ที่ใช้ position:sticky ค้างไม่ติดขอบจอ) */
 .td-main, .td-side, .op-card, .modal{ overflow-wrap:anywhere; }
+
+/* ---------- หน้ารายงานการนัดพบปะ ---------- */
+.report-bar{
+  display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+  background:var(--sage-bg); border:1px solid var(--line);
+  border-radius:var(--radius); padding:14px 16px; margin:14px 0 18px;
+}
+.rp-field{ display:flex; flex-direction:column; gap:4px; }
+.rp-field label{ font-size:.8rem; font-weight:600; color:var(--ink-soft); }
+.rp-field input{
+  padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius-sm);
+  font-family:inherit; font-size:.9rem; background:#fff; min-width:150px;
+}
+.report-table th{ white-space:nowrap; }
+.report-table td{ vertical-align:top; }
+.rp-empty{ text-align:center; color:var(--muted); padding:34px 10px !important; font-size:.9rem; }
+@media (max-width:640px){
+  .report-bar{ gap:10px; }
+  .rp-field{ flex:1 1 46%; }
+  .rp-field input{ min-width:0; width:100%; }
+  .report-bar .btn{ flex:1 1 100%; }
+}

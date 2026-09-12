@@ -13,7 +13,7 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   location.href = 'login.html';
 });
 
-const DASH_SECTIONS = ['overview','listings','bookings','messages','dormreview','owners'];
+const DASH_SECTIONS = ['overview','listings','bookings','messages','report','dormreview','owners'];
 
 document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -25,6 +25,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
     if(btn.dataset.sec === 'dormreview'){ renderPendingDorms(); }
+    if(btn.dataset.sec === 'report'){ renderReport(); }
     if(btn.dataset.sec === 'overview'){ renderOwnerPage(); }
     // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
     if(btn.dataset.sec === 'bookings'){
@@ -205,8 +206,8 @@ async function renderOwnerPage(){
       ${hasFloorPlan(d) ? '' : `
       <section class="op-card">
         <h3>ห้องพักและราคา</h3>
-        ${(d.rooms && d.rooms.length)
-          ? `<div class="op-rooms">${d.rooms.map(r=>`
+        ${hasRoomTypes(d)
+          ? `<div class="op-rooms">${roomTypes(d).map(r=>`
               <div class="op-room">
                 <div>
                   <strong>${escapeHtml(r.label)}</strong>
@@ -403,7 +404,7 @@ async function renderOwnerPage(){
     b.addEventListener('click', async ()=>{
       const [dormId, code, deltaStr] = b.dataset.vac2.split('|');
       const delta = parseInt(deltaStr, 10);
-      const rooms = d.rooms.map(r => r.code !== code ? r
+      const rooms = (d.rooms||[]).map(r => r.code !== code ? r
         : { ...r, vacant: Math.max(0, Math.min(r.total, r.vacant + delta)) });
       try{
         await updateDorm(dormId, { ...d, rooms });
@@ -558,7 +559,7 @@ function bindPlanEditor(box, d){
       if(fi < 0) return;
       const row = p.floors[fi].rows.find(x=>x.id === rid);
       if(!row) return;
-      const firstType = (d.rooms && d.rooms[0]) ? d.rooms[0].code : '';
+      const firstType = (roomTypes(d)[0] || {}).code || '';
       row.cells.push({ k:'room', id:newCellId(), no: nextRoomNumber(d, fi),
         type: firstType, price: null, status:'vacant', note:'' });
       await savePlan(d, p, '');
@@ -752,7 +753,7 @@ function openRoomEditor(dorm, cellId){
 
   // ตัวเลือกประเภทห้องมาจากราคาที่เจ้าของหอตั้งไว้
   const sel = document.getElementById('rmType');
-  const types = (dorm.rooms || []);
+  const types = roomTypes(dorm);   // ตัด 'ราคาเริ่มต้น' ออก ไม่ใช่ประเภทห้อง
   sel.innerHTML = `<option value="">— ไม่ระบุประเภท —</option>` + types.map(r=>
     `<option value="${escapeHtml(r.code)}">${escapeHtml(r.label)} · ${fmtBaht(r.price)} บาท/เดือน</option>`).join('');
   sel.value = cell.type || '';
@@ -961,8 +962,12 @@ async function renderListings(){
       <td><strong>${escapeHtml(d.name)}</strong>
         ${isMine ? '' : '<br><small class="muted">หอของเจ้าของหอรายอื่น</small>'}</td>
       <td>${escapeHtml(d.hallType)}</td>
-      <td>${d.rooms.length? d.rooms.map(r=>`${escapeHtml(r.label)}: ${fmtBaht(r.price)}฿`).join('<br>') : '<span class="muted">ยังไม่ระบุ</span>'}</td>
-      <td>${d.rooms.length===0 ? '<span class="muted">ยังไม่ระบุ</span>' : ''}${d.rooms.map(r=>`
+      <td>${hasPrice(d)
+        ? (hasRoomTypes(d)
+            ? roomTypes(d).map(r=>`${escapeHtml(r.label)}: ${fmtBaht(r.price)}฿`).join('<br>')
+            : `เริ่มต้น ${fmtBaht(minPrice(d))}฿`)
+        : '<span class="muted">ยังไม่ระบุ</span>'}</td>
+      <td>${!hasRoomTypes(d) ? '<span class="muted">ดูจากผังห้อง</span>' : ''}${roomTypes(d).map(r=>`
         <div style="white-space:nowrap;margin:2px 0">
           ${escapeHtml(r.label)}: <strong>${r.vacant}</strong>/${r.total}
           ${canEdit ? `
@@ -1022,7 +1027,7 @@ async function renderListings(){
       const delta = parseInt(deltaStr, 10);
       const dorm = dorms.find(x=>x.id===dormId);
       if(!dorm) return;
-      const rooms = dorm.rooms.map(r=>{
+      const rooms = (dorm.rooms||[]).map(r=>{
         if(r.code !== code) return r;
         const next = Math.max(0, Math.min(r.total, r.vacant + delta));
         return { ...r, vacant: next };
@@ -1059,10 +1064,12 @@ function openViewDorm(d){
       <div><span class="k">Facebook:</span> <strong>${escapeHtml(d.facebook||'-')}</strong></div>
     </div>
     <h4 style="margin:14px 0 6px">ห้องพักและราคา</h4>
-    ${(d.rooms||[]).length
-      ? `<ul style="margin:0;padding-left:18px;font-size:.9rem">${d.rooms.map(r=>
+    ${hasRoomTypes(d)
+      ? `<ul style="margin:0;padding-left:18px;font-size:.9rem">${roomTypes(d).map(r=>
           `<li>${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน · ว่าง ${r.vacant}/${r.total}</li>`).join('')}</ul>`
-      : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>'}
+      : (hasPrice(d)
+          ? `<p style="font-size:.9rem">ราคาเริ่มต้น ${fmtBaht(minPrice(d))} บาท/เดือน${hasFloorPlan(d)?' · จำนวนห้องดูได้จากผังห้อง':''}</p>`
+          : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>')}
     <h4 style="margin:14px 0 6px">สิ่งอำนวยความสะดวก</h4>
     ${(d.facilities||[]).length
       ? `<div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>`
@@ -1155,12 +1162,10 @@ function openEdit(dorm){
   document.querySelectorAll('.fFacility').forEach(cb=> cb.checked = editFacilities.includes(cb.value));
   renderFacilityChips();
 
-  const fan = dorm && dorm.rooms.find(r=>r.code==='fan');
-  const air = dorm && dorm.rooms.find(r=>r.code==='air');
-  document.getElementById('fFanPrice').value = fan ? fan.price : '';
-  document.getElementById('fFanTotal').value = fan ? fan.total : '';
-  document.getElementById('fAirPrice').value = air ? air.price : '';
-  document.getElementById('fAirTotal').value = air ? air.total : '';
+  // ราคาเริ่มต้น — หอเก่าที่เคยกรอกแบบพัดลม/แอร์ไว้ ให้ดึงราคาที่ถูกที่สุดมาใส่ให้
+  // จะได้ไม่ต้องมานั่งกรอกใหม่ และราคาบนการ์ดไม่หายไป
+  const base = dorm ? minPrice(dorm) : null;
+  document.getElementById('fBasePrice').value = (base != null && base > 0) ? base : '';
 
   editImages = dorm ? (dorm.images||[]).slice() : [];
   renderEditPhotos();
@@ -1570,21 +1575,20 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   if(images.length===0 && document.getElementById('fVerified').checked){
     toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return;
   }
-  const rooms = [];
-  const fanPrice = +document.getElementById('fFanPrice').value, fanTotal = +document.getElementById('fFanTotal').value;
-  const airPrice = +document.getElementById('fAirPrice').value, airTotal = +document.getElementById('fAirTotal').value;
-  const existing = editingId ? myDorms.find(d=>d.id===editingId) : null;
-  if(fanPrice>0 && fanTotal>0){
-    const prevVacant = existing && existing.rooms.find(r=>r.code==='fan');
-    rooms.push({ code:'fan', label:'พัดลม', price:fanPrice, total:fanTotal, vacant: prevVacant ? Math.min(prevVacant.vacant, fanTotal) : fanTotal });
+  // ---- ราคาเริ่มต้น ----
+  // เก็บเป็นรายการเดียวใน rooms (code 'base') เพื่อให้ minPrice() ทำงานเหมือนเดิม
+  // ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล = ไม่ต้องรัน SQL
+  const baseRaw = document.getElementById('fBasePrice').value.trim();
+  const basePrice = baseRaw === '' ? 0 : +baseRaw;
+  if(baseRaw !== '' && (isNaN(basePrice) || basePrice < 0)){
+    toast('ราคาเริ่มต้นต้องเป็นตัวเลขที่ไม่ติดลบ','error'); return;
   }
-  if(airPrice>0 && airTotal>0){
-    const prevVacant = existing && existing.rooms.find(r=>r.code==='air');
-    rooms.push({ code:'air', label:'แอร์', price:airPrice, total:airTotal, vacant: prevVacant ? Math.min(prevVacant.vacant, airTotal) : airTotal });
-  }
-  // อนุญาตให้บันทึกได้แม้ยังไม่ใส่ห้อง (เจ้าของหอมากรอกทีหลังได้) แต่ถ้าจะติ๊ก "ยืนยันข้อมูล" ต้องมีห้องก่อน
+  const rooms = basePrice > 0
+    ? [{ code:'base', label:'ราคาเริ่มต้น', price: basePrice, total:0, vacant:0 }]
+    : [];
+  // ติ๊ก "ยืนยันข้อมูล" ต้องมีราคาก่อน ไม่งั้นการ์ดจะขึ้น "สอบถามกับหอโดยตรง" ทั้งที่บอกว่ายืนยันแล้ว
   if(rooms.length===0 && document.getElementById('fVerified').checked){
-    toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาและจำนวนห้องอย่างน้อย 1 ประเภทก่อน','error'); return;
+    toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาเริ่มต้นก่อน','error'); return;
   }
 
   const data = {
@@ -1793,6 +1797,128 @@ async function renderBookings(){
 // ---------------------------------------------------------------------------
 // หอพักที่ผู้ดูแลระบบสั่งซ่อนไว้ (ตอนนี้หอใหม่เผยแพร่ทันที ไม่ต้องรออนุมัติแล้ว)
 // ---------------------------------------------------------------------------
+// ===========================================================================
+// รายงานการนัดพบปะ
+//
+// แสดงเฉพาะรายการที่เจ้าของหอ "กดยืนยันรับนัดแล้ว" (status = confirmed)
+// คำขอที่ยังรอ หรือที่ยกเลิกไป จะไม่นับเป็นนัดหมายจริง จึงไม่เอามาลงรายงาน
+//
+// คอลัมน์:
+//   วันที่  = วันที่นักศึกษาเลือกไว้ว่าจะมาดูห้อง (ถ้าไม่ได้เลือก ใช้วันที่ส่งคำขอ)
+//   ห้อง   = เลขห้องจากผัง ถ้าไม่มีก็ใช้ชื่อประเภทห้อง
+//   ผู้นัด  = ชื่อนักศึกษา
+//   เวลา   = เวลาที่นักศึกษากดส่งคำขอ (ฟอร์มนัดยังไม่มีช่องให้เลือกเวลานัด)
+// ===========================================================================
+let reportRows = [];
+
+// วันที่ของรายการหนึ่ง ๆ ในรูปแบบ YYYY-MM-DD เอาไว้เทียบกับช่วงที่เลือก
+function reportDateKey(b){
+  if(b.visitDate) return String(b.visitDate).slice(0, 10);
+  const d = new Date(b.createdAt);
+  // ใช้เวลาท้องถิ่น ไม่ใช่ UTC ไม่งั้นนัดช่วงดึกจะเพี้ยนไปอีกวัน
+  const pad = (n)=> String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function reportDateText(b){
+  const key = reportDateKey(b);
+  try{
+    return new Date(key + 'T00:00:00').toLocaleDateString('th-TH',
+      { day:'numeric', month:'short', year:'numeric' });
+  }catch(e){ return key; }
+}
+function reportTimeText(b){
+  try{
+    return new Date(b.createdAt).toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }) + ' น.';
+  }catch(e){ return '-'; }
+}
+function reportRoomText(b){
+  if(b.roomNo) return 'ห้อง ' + b.roomNo;
+  return b.roomLabel || '-';
+}
+
+async function renderReport(){
+  const body = document.getElementById('reportTable');
+  if(!body) return;
+  body.innerHTML = '<tr><td colspan="4" class="rp-empty">กำลังโหลด...</td></tr>';
+  try{
+    const all = ME.role === 'admin' ? await getAllBookings() : await getBookingsForOwner(ME.uid);
+    reportRows = all.filter(b => b.status === 'confirmed');
+    applyReportFilter();
+  }catch(err){
+    console.error(err);
+    body.innerHTML = `<tr><td colspan="4" class="rp-empty">โหลดรายงานไม่สำเร็จ: ${escapeHtml(err.message||'')}</td></tr>`;
+  }
+}
+
+// กรองตามช่วงวันที่ที่เลือก แล้ววาดตารางใหม่
+function filteredReportRows(){
+  const from = (document.getElementById('rpFrom') || {}).value || '';
+  const to   = (document.getElementById('rpTo')   || {}).value || '';
+  return reportRows.filter(b=>{
+    const k = reportDateKey(b);
+    if(from && k < from) return false;
+    if(to   && k > to)   return false;
+    return true;
+  }).sort((a,b)=> reportDateKey(a) < reportDateKey(b) ? 1 : -1);   // วันล่าสุดอยู่บน
+}
+
+function applyReportFilter(){
+  const body = document.getElementById('reportTable');
+  const cnt  = document.getElementById('reportCount');
+  if(!body) return;
+  const rows = filteredReportRows();
+  const from = (document.getElementById('rpFrom')||{}).value;
+  const to   = (document.getElementById('rpTo')||{}).value;
+
+  if(cnt){
+    cnt.textContent = reportRows.length
+      ? `แสดง ${rows.length} จากทั้งหมด ${reportRows.length} รายการ` : '';
+  }
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="4" class="rp-empty">${
+      reportRows.length === 0
+        ? 'ยังไม่มีนัดที่ยืนยันแล้ว — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอจองห้อง รายการจะมาแสดงที่นี่'
+        : (from || to) ? 'ไม่มีนัดในช่วงวันที่ที่เลือก — ลองขยายช่วงวันที่ดู' : 'ไม่มีรายการ'
+    }</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(b=>`
+    <tr>
+      <td>${escapeHtml(reportDateText(b))}${b.visitDate ? '' : '<br><small class="muted">(วันที่ส่งคำขอ)</small>'}</td>
+      <td>${escapeHtml(reportRoomText(b))}</td>
+      <td>${escapeHtml(b.userName || '-')}${b.contactPhone ? `<br><small class="muted">${escapeHtml(b.contactPhone)}</small>` : ''}</td>
+      <td>${escapeHtml(reportTimeText(b))}</td>
+    </tr>`).join('');
+}
+
+// บันทึกรายงานเป็นไฟล์ CSV เอาไปเปิดใน Excel ต่อได้
+function downloadReportCsv(){
+  const rows = filteredReportRows();
+  if(!rows.length){ toast('ไม่มีรายการให้บันทึก','error'); return; }
+  const esc = (v)=> `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
+  const lines = [['วันที่','ห้อง','ผู้นัด','เบอร์ติดต่อ','เวลา'].map(esc).join(',')];
+  rows.forEach(b=> lines.push([
+    reportDateText(b), reportRoomText(b), b.userName || '', b.contactPhone || '', reportTimeText(b)
+  ].map(esc).join(',')));
+  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 ไม่งั้นภาษาไทยจะเป็นตัวต่างดาว
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `รายงานการนัดพบปะ-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+['rpFrom','rpTo'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('change', applyReportFilter);
+});
+document.getElementById('rpClear')?.addEventListener('click', ()=>{
+  const f = document.getElementById('rpFrom'), t = document.getElementById('rpTo');
+  if(f) f.value = ''; if(t) t.value = '';
+  applyReportFilter();
+});
+document.getElementById('rpCsv')?.addEventListener('click', downloadReportCsv);
+
 async function renderPendingDorms(){
   const box = document.getElementById('pendingDormList');
   if(!box) return;
@@ -1819,8 +1945,10 @@ async function renderPendingDorms(){
           ${d.phone ? `<div><span class="k">เบอร์หอ:</span> <strong>${escapeHtml(d.phone)}</strong></div>` : ''}
           ${d.contactEmail ? `<div><span class="k">อีเมล:</span> <strong>${escapeHtml(d.contactEmail)}</strong></div>` : ''}
           ${d.facebook ? `<div><span class="k">Facebook:</span> <strong>${escapeHtml(d.facebook)}</strong></div>` : ''}
-          <div><span class="k">ราคา:</span> <strong>${d.rooms.length
-            ? d.rooms.map(r=>escapeHtml(r.label)+' '+fmtBaht(r.price)+'฿').join(', ')
+          <div><span class="k">ราคา:</span> <strong>${hasPrice(d)
+            ? (hasRoomTypes(d)
+                ? roomTypes(d).map(r=>escapeHtml(r.label)+' '+fmtBaht(r.price)+'฿').join(', ')
+                : 'เริ่มต้น '+fmtBaht(minPrice(d))+'฿')
             : 'ยังไม่ระบุ'}</strong></div>
         </div>
         ${d.desc ? `<div class="bk-note">${escapeHtml(d.desc.slice(0,300))}</div>` : ''}
@@ -1939,29 +2067,8 @@ async function renderOwners(){
 ['editModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
 });
-// ปุ่ม "ส่งอีเมลทดสอบ" ในหน้าต่างแก้ไขหอพัก — เช็คว่าแจ้งเตือนถึงจริงไหม
-document.getElementById('btnTestMail')?.addEventListener('click', async ()=>{
-  if(!editingId){
-    toast('บันทึกหอพักก่อน แล้วค่อยกดทดสอบส่งอีเมล','error');
-    return;
-  }
-  const btn = document.getElementById('btnTestMail');
-  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
-  try{
-    const r = await sendTestNotifyEmail(editingId);
-    if(r && r.ok){
-      toast('ส่งอีเมลทดสอบไปที่ ' + (r.sentTo||'') + ' แล้ว — ลองเช็กกล่องขาเข้าและโฟลเดอร์สแปม','success');
-    }else{
-      toast('ส่งไม่สำเร็จ: ' + ((r && (r.reason || r.error)) || 'ไม่ทราบสาเหตุ'), 'error');
-      console.warn('รายละเอียด:', r);
-    }
-  }catch(err){
-    console.error(err);
-    toast('ส่งไม่สำเร็จ: ' + (err.message||''),'error');
-  }finally{
-    btn.disabled = false; btn.textContent = '✉️ ส่งอีเมลทดสอบ';
-  }
-});
+// เอาปุ่ม "ส่งอีเมลทดสอบ" ออกจากหน้าต่างแก้ไขหอพักแล้ว
+// (ฟังก์ชัน sendTestNotifyEmail ใน db.js ยังอยู่ เผื่อวันหลังอยากเอากลับมา)
 
 
 (async ()=>{

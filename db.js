@@ -10,8 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
-
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -348,17 +347,32 @@ function nearestGate(dorm){
   Object.keys(dorm.gates).forEach(g=>{ if(dorm.gates[g] < dorm.gates[best]) best = g; });
   return best;
 }
+// ---------------------------------------------------------------------------
+// "ราคาเริ่มต้น" เก็บซ่อนไว้ใน rooms เป็นรายการเดียว code = 'base'
+//
+// ทำแบบนี้เพื่อไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล (ไม่ต้องรัน SQL)
+// แต่มันไม่ใช่ "ประเภทห้อง" จริง ๆ — เป็นแค่ตัวเลขราคาที่เอาไปโชว์บนการ์ด
+// เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้จอง"
+// ต้องกรองตัวนี้ออกก่อนด้วย roomTypes() ไม่งั้นนักศึกษาจะเห็นห้องชื่อ "ราคาเริ่มต้น"
+// ---------------------------------------------------------------------------
+const BASE_PRICE_CODE = 'base';
+function isBasePriceRow(r){ return r && r.code === BASE_PRICE_CODE; }
+// ประเภทห้องจริง ๆ ของหอ (ตัดรายการราคาเริ่มต้นออก)
+function roomTypes(dorm){ return (dorm && dorm.rooms || []).filter(r => !isBasePriceRow(r)); }
+// หอนี้มีประเภทห้องให้เลือกไหม (หอที่กรอกแค่ราคาเริ่มต้น = ไม่มี)
+function hasRoomTypes(dorm){ return roomTypes(dorm).length > 0; }
+
 // จำนวนห้องว่างรวมของหอ
 // หอที่วาดผังห้องไว้แล้ว ให้นับจาก "ช่องห้องที่ยังว่าง" ในผัง เพราะเป็นข้อมูลที่จริงกว่า
 // (ตัวเลขที่กรอกมือในหน้าแก้ไขหอ จะถูกใช้เฉพาะหอที่ยังไม่ได้วาดผัง)
 function totalVacancy(dorm){
   if(hasFloorPlan(dorm)) return planSummary(dorm.floorPlan).vacant;
-  return (dorm.rooms||[]).reduce((s,r)=>s+(r.vacant||0),0);
+  return roomTypes(dorm).reduce((s,r)=>s+(r.vacant||0),0);
 }
 // จำนวนห้องทั้งหมดของหอ
 function totalRooms(dorm){
   if(hasFloorPlan(dorm)) return planSummary(dorm.floorPlan).total;
-  return (dorm.rooms||[]).reduce((s,r)=>s+(r.total||0),0);
+  return roomTypes(dorm).reduce((s,r)=>s+(r.total||0),0);
 }
 // ห้องแต่ละประเภท ว่างกี่ห้อง/ทั้งหมดกี่ห้อง (คืน {vacant,total} หรือ null ถ้าไม่รู้)
 function roomTypeCount(dorm, code){
@@ -366,13 +380,15 @@ function roomTypeCount(dorm, code){
     const m = planVacancyByType(dorm.floorPlan)[code];
     return m ? { vacant:m.vacant, total:m.total } : { vacant:0, total:0 };
   }
-  const r = (dorm.rooms||[]).find(x=>x.code===code);
+  const r = roomTypes(dorm).find(x=>x.code===code);
   return r ? { vacant:r.vacant, total:r.total } : null;
 }
-// คืน null เมื่อยังไม่มีข้อมูลราคา (หอที่เจ้าของยังไม่เข้ามากรอก) — อย่าคืนตัวเลขมั่ว
+// ราคาเริ่มต้นของหอ — คืน null เมื่อยังไม่มีข้อมูลราคา อย่าคืนตัวเลขมั่ว
+// (นับรวมรายการ 'base' ด้วย เพราะมันคือช่อง "ราคาเริ่มต้น" ที่เจ้าของหอกรอกมาตรง ๆ)
 function minPrice(dorm){
-  if(!dorm.rooms || dorm.rooms.length===0) return null;
-  return Math.min(...dorm.rooms.map(r=>r.price));
+  const prices = (dorm && dorm.rooms || []).map(r => Number(r.price)).filter(p => p > 0);
+  if(!prices.length) return null;
+  return Math.min(...prices);
 }
 function hasPrice(dorm){ return minPrice(dorm) !== null; }
 function hasGates(dorm){ return !!dorm.gates && dorm.gates.gate1 !== null && dorm.gates.gate1 !== undefined; }

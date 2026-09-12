@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -40,6 +40,7 @@
     <button class="side-link" data-sec="listings" id="listingsTabBtn" style="display:none">🏠 หอพักทั้งหมดในระบบ (ผู้ดูแลระบบ)</button>
     <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
+    <button class="side-link" data-sec="report">📊 รายงาน</button>
     <button class="side-link" data-sec="dormreview" id="dormReviewTabBtn" style="display:none">🛡️ หอพักที่ถูกซ่อน<span id="dormReviewBadge"></span></button>
     <button class="side-link" data-sec="owners" id="ownersTabBtn" style="display:none">👥 รายชื่อเจ้าของหอ (ผู้ดูแลระบบ)</button>
   </aside>
@@ -96,6 +97,31 @@
       <div class="section-head"><h2>ข้อความจากนักศึกษา</h2></div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">นักศึกษาที่สนใจหอของคุณจะส่งข้อความมาที่นี่ — ตอบกลับได้ในเว็บเลย</p>
       <div id="ownerThreads"><div class="chat-empty">กำลังโหลด...</div></div>
+    </div>
+
+    <!-- ================= รายงานการนัดพบปะ ================= -->
+    <div id="sec-report" style="display:none">
+      <div class="section-head">
+        <h2>รายงานการนัดพบปะ</h2>
+        <span class="count" id="reportCount"></span>
+      </div>
+      <p class="muted" style="font-size:.88rem;margin-top:-8px">
+        รายการนัดที่คุณ<strong>กดยืนยันรับนัดแล้ว</strong> — เลือกช่วงวันที่เพื่อดูเฉพาะช่วงที่ต้องการ
+      </p>
+
+      <div class="report-bar">
+        <div class="rp-field"><label for="rpFrom">วันที่</label><input type="date" id="rpFrom"></div>
+        <div class="rp-field"><label for="rpTo">ถึง</label><input type="date" id="rpTo"></div>
+        <button class="btn btn-sm btn-ghost" id="rpClear">ล้างช่วงวันที่</button>
+        <button class="btn btn-sm btn-outline" id="rpCsv">⬇️ บันทึกเป็นไฟล์ CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้นัด</th><th>เวลา</th></tr></thead>
+          <tbody id="reportTable"></tbody>
+        </table>
+      </div>
     </div>
 
     <div id="sec-dormreview" style="display:none">
@@ -187,13 +213,18 @@
         <div class="ef-chips" id="facilityChips"></div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-field"><label>ราคาห้องพัดลม (0 = ไม่มี)</label><input type="number" id="fFanPrice"></div>
-      <div class="form-field"><label>จำนวนห้องพัดลมทั้งหมด</label><input type="number" id="fFanTotal"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-field"><label>ราคาห้องแอร์ (0 = ไม่มี)</label><input type="number" id="fAirPrice"></div>
-      <div class="form-field"><label>จำนวนห้องแอร์ทั้งหมด</label><input type="number" id="fAirTotal"></div>
+    <!-- ================= ราคาเริ่มต้น =================
+         เดิมตรงนี้มี 4 ช่อง (ราคา+จำนวนห้อง ของพัดลมกับแอร์)
+         แต่จำนวนห้องกับห้องว่างตอนนี้ดูจาก "ผังห้องพัก" เป็นหลักแล้ว
+         และราคาของแต่ละห้องก็ตั้งได้ในผังห้องทีละห้อง
+         เลยเหลือช่องเดียวไว้โชว์เป็น "ราคาเริ่มต้น" บนการ์ดราคาฝั่งนักศึกษา -->
+    <div class="form-field">
+      <label>ราคาเริ่มต้น (บาท/เดือน)</label>
+      <input type="number" id="fBasePrice" min="0" step="50" placeholder="เช่น 2500">
+      <div class="form-hint">
+        ใส่ราคาห้องที่ถูกที่สุดของหอ — จะขึ้นเป็น "ราคาเริ่มต้น" ในหน้าหอฝั่งนักศึกษา<br>
+        เว้นว่างไว้ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
+      </div>
     </div>
     <!-- ================= รูปภาพหอพัก ================= -->
     <div class="form-field">
@@ -228,7 +259,6 @@
       <div class="form-hint">
         เมื่อมีนักศึกษากดจองห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
         เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
-        <button type="button" class="btn btn-sm btn-ghost" id="btnTestMail" style="margin-top:6px">✉️ ส่งอีเมลทดสอบ</button>
       </div>
     </div>
     <div class="form-field" id="verifiedWrap" style="display:none">
@@ -346,9 +376,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=26"></script>
-<script src="app.js?v=26"></script>
-<script src="admin.js?v=26"></script>
+<script src="db.js?v=27"></script>
+<script src="app.js?v=27"></script>
+<script src="admin.js?v=27"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

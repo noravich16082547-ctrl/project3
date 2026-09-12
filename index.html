@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -150,7 +150,14 @@
 </div>
 
 <div class="modal-backdrop" id="imgModal">
-  <div class="modal"><button class="modal-close" id="closeImgModal">✕</button><img id="modalImg" src="" alt=""></div>
+  <div class="modal">
+    <button class="modal-close" id="closeImgModal">✕</button>
+    <img id="modalImg" src="" alt="">
+    <!-- ปุ่มเลื่อนดูรูปถัดไป/ก่อนหน้า (ขึ้นเฉพาะตอนเปิดจากแกลเลอรีที่มีหลายรูป) -->
+    <button class="iv-nav iv-prev" id="ivPrev" aria-label="รูปก่อนหน้า">‹</button>
+    <button class="iv-nav iv-next" id="ivNext" aria-label="รูปถัดไป">›</button>
+    <div class="iv-count" id="ivCount"></div>
+  </div>
 </div>
 
 <!-- ============== โมดัลแชทกับเจ้าของหอ ============== -->
@@ -234,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=26"></script>
-<script src="app.js?v=26"></script>
+<script src="db.js?v=27"></script>
+<script src="app.js?v=27"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -319,7 +326,10 @@ function applyFilters(){
       if(hallType && d.hallType !== hallType) return false;
       if(kw && !d.name.toLowerCase().includes(kw)) return false;
       if(hasPrice(d)){
-        if(!d.rooms.some(r => r.price >= min && r.price <= max)) return false;
+        // เทียบด้วย "ราคาเริ่มต้น" ของหอ (ครอบคลุมทั้งหอที่กรอกราคาเริ่มต้น
+        // และหอเก่าที่ยังมีประเภทห้องพัดลม/แอร์อยู่)
+        const p = minPrice(d);
+        if(!(p >= min && p <= max)) return false;
       }else if(priceNarrowed) return false;
       return true;
     });
@@ -394,12 +404,12 @@ function galleryHtml(d){
       หอนี้ยังไม่ได้ส่งรูปห้องจริงเข้าระบบ กรุณาขอรูปจริงจากหอ หรือไปดูห้องด้วยตัวเองก่อนตัดสินใจ
     </div>` : ''}
   <div class="td-gallery ${stock?'is-stock':''}">
-    <div class="g-main"><img src="${imgs[0]}" alt="${escapeHtml(d.name)}" ${imgFallbackAttr()}></div>
+    <div class="g-main"><img src="${imgs[0]}" alt="${escapeHtml(d.name)}" ${imgFallbackAttr()} data-gimg="0"></div>
     <div class="g-side">
       ${side.map((src,i)=>`
         <div class="g-cell">
-          <img src="${src}" alt="ภาพหอพัก ${i+2}" ${imgFallbackAttr()}>
-          ${i===3 ? `<span class="g-more">🖼 ดูทั้งหมด ${imgs.length} รูป</span>` : ''}
+          <img src="${src}" alt="ภาพหอพัก ${i+2}" ${imgFallbackAttr()} data-gimg="${(i+1) % imgs.length}">
+          ${i===3 ? `<button type="button" class="g-more" data-gall="1">🖼 ดูทั้งหมด ${imgs.length} รูป</button>` : ''}
           ${(i===0 && stock) ? '<span class="g-stock-tag">ภาพประกอบ</span>' : ''}
         </div>`).join('')}
     </div>
@@ -478,10 +488,14 @@ function nearbyHtml(d){
 
 // แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บจองที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
 function roomRowsHtml(d){
-  if(!d.rooms || d.rooms.length === 0){
+  // 'ราคาเริ่มต้น' ไม่ใช่ประเภทห้อง จึงต้องกรองออกก่อน ไม่งั้นจะมีแถวห้องชื่อ "ราคาเริ่มต้น" โผล่มา
+  const types = roomTypes(d);
+  if(types.length === 0){
     return `<div class="td-room-empty">
-      <strong>ยังไม่มีข้อมูลประเภทห้องและราคาในระบบ</strong>
-      <p class="muted">หอนี้ยังไม่ได้กรอกราคาห้องเข้ามา — สอบถามราคาและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน</p>
+      <strong>${hasPrice(d) ? 'หอนี้ยังไม่ได้แยกประเภทห้องในระบบ' : 'ยังไม่มีข้อมูลประเภทห้องและราคาในระบบ'}</strong>
+      <p class="muted">${hasPrice(d)
+        ? 'ราคาเริ่มต้นอยู่ที่ ' + fmtBaht(minPrice(d)) + ' บาท/เดือน — สอบถามรายละเอียดห้องและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน'
+        : 'หอนี้ยังไม่ได้กรอกราคาห้องเข้ามา — สอบถามราคาและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน'}</p>
       ${canChat(d) ? `<div class="rr-actions" style="justify-content:center">
         <button class="btn btn-primary" data-book="">📌 ส่งคำขอจอง</button>
         <button class="btn btn-outline" data-chat="1">💬 ถามเจ้าของหอ</button>
@@ -489,7 +503,7 @@ function roomRowsHtml(d){
     </div>`;
   }
   const img = (d.images && d.images[1]) || (d.images && d.images[0]) || '';
-  return `<div class="td-rooms">${d.rooms.map(r=>`
+  return `<div class="td-rooms">${types.map(r=>`
     <div class="room-row">
       <div class="rr-img">${img?`<img src="${img}" alt="${escapeHtml(r.label)}" ${imgFallbackAttr()}>`:''}</div>
       <div class="rr-info">
@@ -597,14 +611,13 @@ function openDetail(id){
             <li>✓ เว็บไม่รับจองและไม่รับเงินแทนหอ</li>
           </ul>
 
+          <!-- เอาปุ่ม "นัดพบปะ" กับ "แชทกับเจ้าของหอ" ออกจากการ์ดราคาตามที่สั่ง
+               การนัดพบปะย้ายไปทำที่ผังห้อง (กดห้อง → นัดพบปะ) ซึ่งระบุห้องได้ชัดกว่า -->
           ${canChat(d)
-            ? `<button class="btn btn-primary btn-block pc-cta" data-book="">📌 นัดพบปะ</button>
-               <button class="btn btn-outline btn-block pc-cta2" data-chat="1">💬 แชทกับเจ้าของหอ</button>
-               <p class="form-hint" style="margin:-4px 0 12px">
-                 <strong>นัดพบปะ</strong> = ส่งคำขอนัดดูหออย่างเป็นทางการ เจ้าของหอได้รับแจ้งเตือนในระบบ + อีเมล<br>
-                 <strong>แชท</strong> = คุยสอบถามทั่วไปก่อน ยังไม่ผูกมัด
+            ? `<p class="form-hint" style="margin:0 0 12px">
+                 อยากนัดดูห้อง? เลื่อนลงไปที่<strong>ผังห้องพัก</strong> แล้วกดห้องที่สนใจได้เลย
                </p>`
-            : `<div class="pc-nochat">หอนี้ยังไม่มีเจ้าของหอลงทะเบียนในระบบ จึงยังจองหรือแชทในเว็บไม่ได้ — ใช้ช่องทางติดต่อด้านล่าง</div>`}
+            : `<div class="pc-nochat">หอนี้ยังไม่มีเจ้าของหอลงทะเบียนในระบบ จึงยังนัดหรือแชทในเว็บไม่ได้ — ใช้ช่องทางติดต่อด้านล่าง</div>`}
 
           <div class="pc-contact">${contactButtonsBlock(d)}</div>
           <p class="form-hint" style="margin-top:10px">ระวังการโอนเงินมัดจำก่อนเห็นห้องจริง</p>
@@ -635,12 +648,13 @@ function openDetail(id){
   document.querySelector('#detailModal .modal').scrollTop = 0;
   renderReviewBox(d);
 
-  // เปิดรูปใหญ่เมื่อกดที่รูปในแกลเลอรี
-  document.querySelectorAll('#detailContent .td-gallery img').forEach(img=>{
-    img.addEventListener('click', ()=>{
-      document.getElementById('modalImg').src = img.src;
-      document.getElementById('imgModal').classList.add('open');
-    });
+  // เปิดรูปใหญ่เมื่อกดที่รูปในแกลเลอรี — เลื่อนดูได้ครบทุกรูปของหอ
+  document.querySelectorAll('#detailContent .td-gallery img[data-gimg]').forEach(img=>{
+    img.addEventListener('click', ()=> openImgViewer(d.images||[], +img.dataset.gimg));
+  });
+  // ปุ่ม "ดูทั้งหมด N รูป" — เดิมเป็น <span> วางทับรูป คลิกแล้วไม่โดนรูป เลยกดไม่ได้
+  document.querySelectorAll('#detailContent [data-gall]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openImgViewer(d.images||[], 0); });
   });
 
   // ปุ่มแชททุกจุดในหน้านี้
@@ -830,6 +844,46 @@ async function renderReviewBox(d){
 
 document.getElementById('closeDetailModal').addEventListener('click', ()=> document.getElementById('detailModal').classList.remove('open'));
 document.getElementById('closeImgModal').addEventListener('click', ()=> document.getElementById('imgModal').classList.remove('open'));
+
+// ===========================================================================
+// หน้าต่างดูรูปใหญ่ — เลื่อนดูรูปถัดไป/ก่อนหน้าได้
+//
+// ของเดิมเปิดได้ทีละรูปเท่านั้น และปุ่ม "ดูทั้งหมด N รูป" เป็น <span> ที่วางทับรูปอยู่
+// พอกดโดน span คลิกไม่ทะลุไปถึง <img> เลยไม่มีอะไรเกิดขึ้น
+// แถมแกลเลอรีโชว์แค่ 5 ช่อง รูปที่ 6 เป็นต้นไปจึงไม่มีทางเปิดดูได้เลย
+// ===========================================================================
+let ivList = [], ivIndex = 0;
+
+function openImgViewer(list, index){
+  ivList = (list || []).filter(Boolean);
+  if(!ivList.length) return;
+  ivIndex = Math.max(0, Math.min(index || 0, ivList.length - 1));
+  renderImgViewer();
+  document.getElementById('imgModal').classList.add('open');
+}
+function renderImgViewer(){
+  const multi = ivList.length > 1;
+  document.getElementById('modalImg').src = ivList[ivIndex];
+  document.getElementById('ivPrev').style.display = multi ? 'flex' : 'none';
+  document.getElementById('ivNext').style.display = multi ? 'flex' : 'none';
+  const c = document.getElementById('ivCount');
+  c.textContent = multi ? `${ivIndex + 1} / ${ivList.length}` : '';
+  c.style.display = multi ? 'block' : 'none';
+}
+function stepImgViewer(step){
+  if(ivList.length < 2) return;
+  // วนกลับไปรูปแรก/รูปสุดท้าย จะได้ไม่ตันเวลาเลื่อนถึงปลาย
+  ivIndex = (ivIndex + step + ivList.length) % ivList.length;
+  renderImgViewer();
+}
+document.getElementById('ivPrev').addEventListener('click', (e)=>{ e.stopPropagation(); stepImgViewer(-1); });
+document.getElementById('ivNext').addEventListener('click', (e)=>{ e.stopPropagation(); stepImgViewer(1); });
+document.addEventListener('keydown', (e)=>{
+  if(!document.getElementById('imgModal').classList.contains('open')) return;
+  if(e.key === 'ArrowLeft')  stepImgViewer(-1);
+  if(e.key === 'ArrowRight') stepImgViewer(1);
+  if(e.key === 'Escape') document.getElementById('imgModal').classList.remove('open');
+});
 ['detailModal','imgModal','threadsModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
 });
@@ -898,12 +952,11 @@ function openRoomInfo(dorm, cellId){
   `;
   document.getElementById('roomInfoModal').classList.add('open');
 
-  // กดรูปในห้องเพื่อดูขนาดเต็ม (ใช้หน้าต่างดูรูปเดียวกับแกลเลอรีของหอ)
-  document.querySelectorAll('#roomInfoContent [data-roomphoto]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.getElementById('modalImg').src = btn.dataset.roomphoto;
-      document.getElementById('imgModal').classList.add('open');
-    });
+  // กดรูปในห้องเพื่อดูขนาดเต็ม (ใช้หน้าต่างดูรูปเดียวกับแกลเลอรีของหอ เลื่อนดูรูปห้องได้ครบ)
+  const roomPics = Array.from(document.querySelectorAll('#roomInfoContent [data-roomphoto]'))
+                        .map(b=>b.dataset.roomphoto);
+  document.querySelectorAll('#roomInfoContent [data-roomphoto]').forEach((btn, i)=>{
+    btn.addEventListener('click', ()=> openImgViewer(roomPics, i));
   });
 
   const bk = document.getElementById('riBook');
@@ -963,8 +1016,9 @@ async function openBooking(dorm, preselectCode, cellId){
   // เติมรายการห้องให้เลือก
   const sel = document.getElementById('bk-room');
   const selWrap = document.getElementById('bk-room-wrap');
-  if(dorm.rooms && dorm.rooms.length){
-    sel.innerHTML = dorm.rooms.map(r=>{
+  const bkTypes = roomTypes(dorm);
+  if(bkTypes.length){
+    sel.innerHTML = bkTypes.map(r=>{
       const code = r.code || r.label;
       const cnt = roomTypeCount(dorm, r.code);
       const vac = (dorm.verified || hasFloorPlan(dorm))
