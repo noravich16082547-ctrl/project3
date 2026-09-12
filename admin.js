@@ -1925,38 +1925,52 @@ document.getElementById('rpClear')?.addEventListener('click', ()=>{
 document.getElementById('rpCsv')?.addEventListener('click', downloadReportCsv);
 
 // ===========================================================================
-// สรุปการเช่า
+// สรุปการเช่า — สมุดบันทึกผู้เช่าที่เจ้าของหอกรอกเองทั้งหมด
 //
-// ใช้ข้อมูลชุดเดียวกับหน้ารายงาน (ใบจองที่ยืนยันแล้ว = ผู้เช่าจริง)
-// ต่างกันตรงกรองเป็น "รายเดือน" และมีช่องแนบรูปสัญญาเช่าให้เจ้าของหออัปจากเครื่อง
+// ตั้งใจไม่ดึงข้อมูลจากใบจองในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้จองผ่านเว็บ
+// (เดินมาที่หอเอง / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบจองอย่างเดียว
+// ตารางจะไม่ตรงกับความจริงของหอ
 //
-// รูปสัญญาเก็บในถัง dorm-contracts แบบ private (ดู fix-v28.sql)
-// เพราะในสัญญามีข้อมูลส่วนตัวของนักศึกษา ไม่ควรอยู่ในถังรูปสาธารณะ
+// วิธีใช้: กด "+ เพิ่มรายการเช่า" ได้แถวว่างมา แล้วพิมพ์ลงในช่องได้เลย
+// พิมพ์เสร็จคลิกออกจากช่อง (blur) ระบบค่อยบันทึก — ไม่ใช่บันทึกทุกตัวอักษร
 // ===========================================================================
 let rentalRows = [];
 let rentalUploadId = null;   // กำลังอัปสัญญาของรายการไหนอยู่
 
-function rentalMonthKey(b){ return reportDateKey(b).slice(0, 7); }   // YYYY-MM
+function rentalMonthKey(r){ return (r.rentDate || '').slice(0, 7); }   // YYYY-MM
+
+function rentalDateText(iso){
+  if(!iso) return '';
+  try{
+    return new Date(iso + 'T00:00:00').toLocaleDateString('th-TH',
+      { day:'numeric', month:'short', year:'numeric' });
+  }catch(e){ return iso; }
+}
 
 async function renderRental(){
   const body = document.getElementById('rentalTable');
   if(!body) return;
-  body.innerHTML = '<tr><td colspan="4" class="rp-empty">กำลังโหลด...</td></tr>';
+  body.innerHTML = '<tr><td colspan="5" class="rp-empty">กำลังโหลด...</td></tr>';
   try{
-    const all = ME.role === 'admin' ? await getAllBookings() : await getBookingsForOwner(ME.uid);
-    rentalRows = all.filter(b => b.status === 'confirmed');
+    rentalRows = await getRentals(ME.role === 'admin' ? null : ME.uid);
     applyRentalFilter();
   }catch(err){
     console.error(err);
-    body.innerHTML = `<tr><td colspan="4" class="rp-empty">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message||'')}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="rp-empty">${escapeHtml(err.message||'โหลดข้อมูลไม่สำเร็จ')}</td></tr>`;
   }
 }
 
 function filteredRentalRows(){
   const m = (document.getElementById('rtMonth') || {}).value || '';
   return rentalRows
-    .filter(b => !m || rentalMonthKey(b) === m)
-    .sort((a,b)=> reportDateKey(a) < reportDateKey(b) ? 1 : -1);
+    .filter(r => !m || rentalMonthKey(r) === m)
+    .sort((a,b)=>{
+      // รายการที่ยังไม่ได้ใส่วันที่ ให้ลอยขึ้นบนสุด จะได้เห็นว่ายังกรอกไม่เสร็จ
+      if(!a.rentDate && b.rentDate) return -1;
+      if(a.rentDate && !b.rentDate) return 1;
+      if(a.rentDate !== b.rentDate) return a.rentDate < b.rentDate ? 1 : -1;
+      return b.createdAt - a.createdAt;
+    });
 }
 
 function applyRentalFilter(){
@@ -1969,26 +1983,68 @@ function applyRentalFilter(){
   if(cnt) cnt.textContent = rentalRows.length ? `แสดง ${rows.length} จากทั้งหมด ${rentalRows.length} รายการ` : '';
 
   if(!rows.length){
-    body.innerHTML = `<tr><td colspan="4" class="rp-empty">${
+    body.innerHTML = `<tr><td colspan="5" class="rp-empty">${
       rentalRows.length === 0
-        ? 'ยังไม่มีผู้เช่า — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอจองห้อง รายการจะมาแสดงที่นี่'
-        : (m ? 'ไม่มีผู้เช่าในเดือนที่เลือก — ลองเลือกเดือนอื่น หรือกด "ดูทุกเดือน"' : 'ไม่มีรายการ')
+        ? 'ยังไม่มีรายการ — กดปุ่ม "+ เพิ่มรายการเช่า" ด้านบนเพื่อเริ่มบันทึกผู้เช่ารายแรก'
+        : (m ? 'ไม่มีรายการในเดือนที่เลือก — ลองเลือกเดือนอื่น หรือกด "ดูทุกเดือน"' : 'ไม่มีรายการ')
     }</td></tr>`;
     return;
   }
 
-  body.innerHTML = rows.map(b=>`
-    <tr>
-      <td>${escapeHtml(reportDateText(b))}</td>
-      <td>${escapeHtml(reportRoomText(b))}</td>
-      <td>${escapeHtml(b.userName || '-')}${b.contactPhone ? `<br><small class="muted">${escapeHtml(b.contactPhone)}</small>` : ''}</td>
-      <td class="rt-contract">${b.contractUrl
-        ? `<span class="rt-has">✓ แนบแล้ว</span>
-           <button class="btn btn-sm btn-ghost" data-rtview="${escapeHtml(b.id)}">ดูรูป</button>
-           <button class="btn btn-sm btn-ghost" data-rtdel="${escapeHtml(b.id)}">ลบ</button>`
-        : `<button class="btn btn-sm btn-outline" data-rtup="${escapeHtml(b.id)}">📷 อัปรูปสัญญา</button>`}
+  body.innerHTML = rows.map(r=>`
+    <tr data-rt="${escapeAttr(r.id)}" class="${r.rentDate||r.roomNo||r.tenantName ? '' : 'rt-blank'}">
+      <td><input type="date" class="rt-in rt-date" data-f="rentDate" value="${escapeAttr(r.rentDate)}"></td>
+      <td><input type="text" class="rt-in rt-room" data-f="roomNo" value="${escapeAttr(r.roomNo)}"
+                 placeholder="เช่น 302" maxlength="20"></td>
+      <td>
+        <input type="text" class="rt-in" data-f="tenantName" value="${escapeAttr(r.tenantName)}"
+               placeholder="ชื่อผู้เช่า" maxlength="80">
+        <input type="tel" class="rt-in rt-sub" data-f="tenantPhone" value="${escapeAttr(r.tenantPhone)}"
+               placeholder="เบอร์ติดต่อ (ไม่บังคับ)" maxlength="20">
       </td>
+      <td class="rt-contract">${r.contractUrl
+        ? `<span class="rt-has">✓ แนบแล้ว</span>
+           <button class="btn btn-sm btn-ghost" data-rtview="${escapeAttr(r.id)}">ดูรูป</button>
+           <button class="btn btn-sm btn-ghost" data-rtdelfile="${escapeAttr(r.id)}">ลบรูป</button>`
+        : `<button class="btn btn-sm btn-outline" data-rtup="${escapeAttr(r.id)}">📷 อัปรูปสัญญา</button>`}
+      </td>
+      <td><button class="btn btn-sm btn-ghost rt-x" data-rtdel="${escapeAttr(r.id)}" title="ลบรายการนี้">✕</button></td>
     </tr>`).join('');
+
+  bindRentalRowEvents(body);
+}
+
+function bindRentalRowEvents(body){
+  // ---- แก้ข้อความในช่อง แล้วบันทึกตอนคลิกออกจากช่อง ----
+  body.querySelectorAll('.rt-in').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const tr = inp.closest('tr');
+      const id = tr.dataset.rt;
+      const field = inp.dataset.f;
+      const row = rentalRows.find(x=>x.id === id);
+      if(!row) return;
+      const val = inp.value.trim();
+      if(row[field] === val) return;        // ไม่ได้เปลี่ยนอะไร ไม่ต้องยิง
+      const prev = row[field];
+      row[field] = val;
+      inp.classList.add('rt-saving');
+      try{
+        await updateRental(id, { [field]: val });
+        inp.classList.remove('rt-saving');
+        inp.classList.add('rt-saved');
+        setTimeout(()=> inp.classList.remove('rt-saved'), 1200);
+        // แก้วันที่แล้วอาจหลุดออกนอกเดือนที่กรองอยู่ ต้องวาดใหม่
+        if(field === 'rentDate' && (document.getElementById('rtMonth')||{}).value) applyRentalFilter();
+      }catch(err){
+        console.error(err);
+        row[field] = prev; inp.value = prev || '';
+        inp.classList.remove('rt-saving');
+        toast('บันทึกไม่สำเร็จ: ' + (err.message||''), 'error');
+      }
+    });
+    // กด Enter = เหมือนคลิกออกจากช่อง
+    inp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') inp.blur(); });
+  });
 
   // ---- อัปรูปสัญญาจากเครื่อง ----
   body.querySelectorAll('[data-rtup]').forEach(btn=>{
@@ -2000,7 +2056,7 @@ function applyRentalFilter(){
     });
   });
 
-  // ---- เปิดดูรูปสัญญา (ขอลิงก์ชั่วคราวทุกครั้ง) ----
+  // ---- เปิดดูรูปสัญญา (ขอลิงก์ชั่วคราวใหม่ทุกครั้ง) ----
   body.querySelectorAll('[data-rtview]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const row = rentalRows.find(x=>x.id === btn.dataset.rtview);
@@ -2017,16 +2073,16 @@ function applyRentalFilter(){
     });
   });
 
-  // ---- ลบรูปสัญญา ----
-  body.querySelectorAll('[data-rtdel]').forEach(btn=>{
+  // ---- ลบเฉพาะรูปสัญญา (เก็บรายการไว้) ----
+  body.querySelectorAll('[data-rtdelfile]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const row = rentalRows.find(x=>x.id === btn.dataset.rtdel);
+      const row = rentalRows.find(x=>x.id === btn.dataset.rtdelfile);
       if(!row) return;
-      if(!confirm('ลบรูปสัญญาของรายการนี้?')) return;
+      if(!confirm('ลบรูปสัญญาของรายการนี้? (รายการยังอยู่)')) return;
       btn.disabled = true;
       try{
         const old = row.contractUrl;
-        await saveBookingContract(row.id, null);
+        await updateRental(row.id, { contractUrl: '' });
         row.contractUrl = '';
         deleteContractImage(old);     // ลบไฟล์จริง ล้มเหลวก็ไม่เป็นไร
         applyRentalFilter();
@@ -2038,7 +2094,54 @@ function applyRentalFilter(){
       }
     });
   });
+
+  // ---- ลบทั้งรายการ ----
+  body.querySelectorAll('[data-rtdel]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = rentalRows.find(x=>x.id === btn.dataset.rtdel);
+      if(!row) return;
+      const who = row.tenantName || row.roomNo || 'รายการนี้';
+      if(!confirm(`ลบ "${who}" ออกจากสรุปการเช่า?\n\nลบแล้วกู้คืนไม่ได้`)) return;
+      btn.disabled = true;
+      try{
+        await deleteRental(row.id);
+        if(row.contractUrl) deleteContractImage(row.contractUrl);
+        rentalRows = rentalRows.filter(x=>x.id !== row.id);
+        applyRentalFilter();
+        toast('ลบรายการแล้ว','success');
+      }catch(err){
+        console.error(err);
+        toast('ลบไม่สำเร็จ: ' + (err.message||''), 'error');
+        btn.disabled = false;
+      }
+    });
+  });
 }
+
+// ---- ปุ่มเพิ่มรายการ ----
+document.getElementById('rtAdd')?.addEventListener('click', async ()=>{
+  const btn = document.getElementById('rtAdd');
+  btn.disabled = true;
+  try{
+    // ถ้ากรองเดือนอยู่ ให้แถวใหม่ตกอยู่ในเดือนนั้น จะได้ไม่หายไปจากตารางทันทีที่สร้าง
+    const m = (document.getElementById('rtMonth')||{}).value;
+    const today = new Date();
+    const pad = (n)=> String(n).padStart(2,'0');
+    const rentDate = m ? `${m}-01`
+                       : `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+    const dormId = (myDorms && myDorms[0]) ? myDorms[0].id : null;
+
+    const row = await createRental({ rentDate, dormId });
+    rentalRows.unshift(row);
+    applyRentalFilter();
+    // โฟกัสช่อง "ห้อง" ของแถวใหม่ให้เลย จะได้พิมพ์ต่อได้ทันที
+    const el = document.querySelector(`tr[data-rt="${row.id}"] .rt-room`);
+    if(el){ el.focus(); el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+  }catch(err){
+    console.error(err);
+    toast('เพิ่มรายการไม่สำเร็จ: ' + (err.message||''), 'error');
+  }finally{ btn.disabled = false; }
+});
 
 document.getElementById('rtFileInput')?.addEventListener('change', async (e)=>{
   const file = e.target.files && e.target.files[0];
@@ -2051,7 +2154,7 @@ document.getElementById('rtFileInput')?.addEventListener('change', async (e)=>{
   if(btn){ btn.disabled = true; btn.textContent = 'กำลังอัปโหลด...'; }
   try{
     const path = await uploadContractImage(file);
-    await saveBookingContract(id, path);
+    await updateRental(id, { contractUrl: path });
     if(row) row.contractUrl = path;
     applyRentalFilter();
     toast('แนบรูปสัญญาแล้ว','success');
@@ -2067,10 +2170,11 @@ function downloadRentalCsv(){
   if(!rows.length){ toast('ไม่มีรายการให้บันทึก','error'); return; }
   const esc = (v)=> `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
   const lines = [['วันที่','ห้อง','ผู้เช่า','เบอร์ติดต่อ','สัญญา'].map(esc).join(',')];
-  rows.forEach(b=> lines.push([
-    reportDateText(b), reportRoomText(b), b.userName || '', b.contactPhone || '',
-    b.contractUrl ? 'แนบแล้ว' : 'ยังไม่แนบ'
+  rows.forEach(r=> lines.push([
+    rentalDateText(r.rentDate), r.roomNo, r.tenantName, r.tenantPhone,
+    r.contractUrl ? 'แนบแล้ว' : 'ยังไม่แนบ'
   ].map(esc).join(',')));
+  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 ไม่งั้นภาษาไทยจะเป็นตัวต่างดาว
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -2086,7 +2190,6 @@ document.getElementById('rtClear')?.addEventListener('click', ()=>{
   applyRentalFilter();
 });
 document.getElementById('rtCsv')?.addEventListener('click', downloadRentalCsv);
-
 async function renderPendingDorms(){
   const box = document.getElementById('pendingDormList');
   if(!box) return;

@@ -1248,11 +1248,40 @@ footer{ margin-bottom: 0; }
   .report-bar .btn{ flex:1 1 100%; }
 }
 
-/* ---------- ตารางสรุปการเช่า: ช่องสัญญา ---------- */
+/* ---------- ตารางสรุปการเช่า (กรอกเองได้ทุกช่อง) ---------- */
 .rt-contract{ white-space:nowrap; }
 .rt-has{ color:var(--forest); font-weight:600; font-size:.85rem; margin-right:6px; }
 .rental-table td.rt-contract .btn{ margin-right:4px; }
+
+/* ช่องกรอกในตาราง — ทำให้ดูเหมือนข้อความธรรมดา จนกว่าจะเอาเมาส์ไปชี้/คลิก
+   จะได้อ่านตารางง่าย แต่ยังรู้ว่าแก้ได้ */
+.rt-in{
+  width:100%; min-width:90px; padding:6px 8px;
+  border:1px solid transparent; border-radius:var(--radius-sm);
+  background:transparent; font-family:inherit; font-size:.9rem; color:inherit;
+  transition: border-color .12s ease, background .12s ease;
+}
+.rt-in:hover{ border-color:var(--line); background:#fff; }
+.rt-in:focus{ border-color:var(--forest); background:#fff; outline:none; }
+.rt-in::placeholder{ color:var(--muted); opacity:.75; }
+.rt-sub{ font-size:.8rem; color:var(--ink-soft); margin-top:2px; }
+.rt-date{ min-width:135px; }
+.rt-room{ min-width:80px; }
+
+/* กระพริบสั้น ๆ บอกว่าบันทึกแล้ว */
+.rt-in.rt-saving{ border-color:var(--gold-deep); background:#fff; }
+.rt-in.rt-saved{ border-color:#1F6D3D; background:#E4F2E7; }
+
+/* แถวที่เพิ่งกดเพิ่มมา ยังไม่ได้กรอกอะไร */
+.rt-blank td{ background:#FCFAF4; }
+
+.rt-x{ color:var(--coral); padding:4px 10px; }
+.rt-x:hover{ background:#FDECEA; }
+.rental-table td{ vertical-align:middle; }
+
 @media (max-width:640px){
   .rt-contract{ white-space:normal; }
   .rental-table td.rt-contract .btn{ margin:2px 4px 2px 0; }
+  .rt-in{ min-width:0; }
+  .rt-date{ min-width:0; }
 }

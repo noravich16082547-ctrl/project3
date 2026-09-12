@@ -10,8 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
-
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -1128,15 +1127,85 @@ async function deleteContractImage(path){
   catch(err){ console.warn('ลบไฟล์สัญญาไม่สำเร็จ (ไม่เป็นไร):', err); }
 }
 
-// ผูก/ถอด รูปสัญญาเข้ากับรายการเช่า (ใบจองที่ยืนยันแล้ว)
-async function saveBookingContract(bookingId, contractPath){
+// ---------------------------------------------------------------------------
+// สรุปการเช่า — เจ้าของหอกรอกรายการเองทั้งหมด (ตาราง rentals)
+//
+// ไม่ได้ดึงมาจากใบจองในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้จองผ่านเว็บ
+// (เดินมาที่หอเลย / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบจองอย่างเดียว
+// ตารางจะไม่ตรงกับความจริงของหอ
+// ---------------------------------------------------------------------------
+const RENTAL_SETUP_MSG = 'ยังไม่มีตารางสรุปการเช่าในฐานข้อมูล — ไปรันไฟล์ fix-v29.sql ใน Supabase SQL Editor ก่อน';
+
+function mapRentalRow(r){
+  return {
+    id: r.id, dormId: r.dorm_id || '', ownerId: r.owner_id,
+    rentDate: r.rent_date || '',
+    roomNo: r.room_no || '', tenantName: r.tenant_name || '',
+    tenantPhone: r.tenant_phone || '', note: r.note || '',
+    contractUrl: r.contract_url || '',
+    createdAt: new Date(r.created_at).getTime()
+  };
+}
+
+async function getRentals(ownerId){
   requireSupabase();
-  const { error } = await sb.from('bookings')
-    .update({ contract_url: contractPath || null }).eq('id', bookingId);
+  let q = sb.from('rentals').select('*');
+  if(ownerId) q = q.eq('owner_id', ownerId);
+  const { data, error } = await q.order('rent_date', { ascending:false, nullsFirst:false })
+                                 .order('created_at', { ascending:false });
   if(error){
-    if(isMissingColumn(error, 'contract_url')){
-      throw new Error('ฐานข้อมูลยังไม่มีช่องเก็บสัญญา — ไปรันไฟล์ fix-v28.sql ใน Supabase SQL Editor ก่อน');
-    }
+    if(isMissingTable(error)) throw new Error(RENTAL_SETUP_MSG);
+    throw error;
+  }
+  return (data || []).map(mapRentalRow);
+}
+
+// เพิ่มแถวเปล่า ๆ ให้เจ้าของหอกรอกต่อในตารางได้เลย
+async function createRental(fields){
+  requireSupabase();
+  const user = await waitForSession();
+  if(!user) throw new Error('กรุณาเข้าสู่ระบบก่อน');
+  const row = {
+    owner_id: user.id,                       // trigger ฝั่ง DB บังคับทับให้อีกชั้นอยู่แล้ว
+    dorm_id: (fields && fields.dormId) || null,
+    rent_date: (fields && fields.rentDate) || null,
+    room_no: (fields && fields.roomNo) || null,
+    tenant_name: (fields && fields.tenantName) || null,
+    tenant_phone: (fields && fields.tenantPhone) || null,
+    note: (fields && fields.note) || null
+  };
+  const { data, error } = await sb.from('rentals').insert(row).select().single();
+  if(error){
+    if(isMissingTable(error)) throw new Error(RENTAL_SETUP_MSG);
+    throw error;
+  }
+  return mapRentalRow(data);
+}
+
+// แก้ทีละช่อง (บันทึกตอนคลิกออกจากช่อง ไม่ใช่ทุกตัวอักษรที่พิมพ์)
+const RENTAL_FIELD_MAP = {
+  rentDate:'rent_date', roomNo:'room_no', tenantName:'tenant_name',
+  tenantPhone:'tenant_phone', note:'note', contractUrl:'contract_url', dormId:'dorm_id'
+};
+async function updateRental(id, fields){
+  requireSupabase();
+  const patch = {};
+  Object.keys(fields || {}).forEach(k=>{
+    if(RENTAL_FIELD_MAP[k]) patch[RENTAL_FIELD_MAP[k]] = (fields[k] === '' ? null : fields[k]);
+  });
+  if(Object.keys(patch).length === 0) return;
+  const { error } = await sb.from('rentals').update(patch).eq('id', id);
+  if(error){
+    if(isMissingTable(error)) throw new Error(RENTAL_SETUP_MSG);
+    throw error;
+  }
+}
+
+async function deleteRental(id){
+  requireSupabase();
+  const { error } = await sb.from('rentals').delete().eq('id', id);
+  if(error){
+    if(isMissingTable(error)) throw new Error(RENTAL_SETUP_MSG);
     throw error;
   }
 }

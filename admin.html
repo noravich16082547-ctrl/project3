@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -132,18 +132,20 @@
         <span class="count" id="rentalCount"></span>
       </div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        ผู้เช่าที่คุณยืนยันรับแล้ว — แนบรูปสัญญาเช่าเก็บไว้ได้ในตารางนี้เลย
+        สมุดบันทึกผู้เช่าของคุณ — <strong>กรอกเองได้ทุกช่อง</strong>
+        พิมพ์เสร็จแล้วคลิกออกจากช่อง ระบบบันทึกให้เอง
       </p>
 
       <div class="report-bar">
         <div class="rp-field"><label for="rtMonth">เดือน</label><input type="month" id="rtMonth"></div>
         <button class="btn btn-sm btn-ghost" id="rtClear">ดูทุกเดือน</button>
+        <button class="btn btn-sm btn-primary" id="rtAdd">+ เพิ่มรายการเช่า</button>
         <button class="btn btn-sm btn-outline" id="rtCsv">⬇️ บันทึกเป็นไฟล์ CSV</button>
       </div>
 
       <div class="table-wrap">
         <table class="report-table rental-table">
-          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้เช่า</th><th>สัญญา</th></tr></thead>
+          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้เช่า</th><th>สัญญา</th><th></th></tr></thead>
           <tbody id="rentalTable"></tbody>
         </table>
       </div>
@@ -407,9 +409,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=28"></script>
-<script src="app.js?v=28"></script>
-<script src="admin.js?v=28"></script>
+<script src="db.js?v=29"></script>
+<script src="app.js?v=29"></script>
+<script src="admin.js?v=29"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
