@@ -1285,3 +1285,55 @@ footer{ margin-bottom: 0; }
   .rt-in{ min-width:0; }
   .rt-date{ min-width:0; }
 }
+
+/* ---------- ปุ่มแบบลิงก์ (ลืมรหัสผ่าน ฯลฯ) ---------- */
+.link-btn{
+  background:none; border:0; padding:4px 2px; cursor:pointer;
+  font-family:inherit; font-size:.88rem; font-weight:600;
+  color:var(--gold-deep); text-decoration:underline;
+}
+.link-btn:hover{ color:var(--forest); }
+
+/* กล่อง "ส่งลิงก์ไปแล้ว" ในหน้าลืมรหัสผ่าน */
+.fg-sent{
+  text-align:center; background:var(--sage-bg); border:1px solid var(--line);
+  border-radius:var(--radius); padding:22px 18px;
+}
+.fg-sent strong{ display:block; margin:4px 0 8px; font-size:1.05rem; }
+.fg-sent p{ font-size:.88rem; color:var(--ink-soft); margin:0 0 8px; }
+
+/* ---------- ช่องค้นหาสถานที่บนแผนที่ปักหมุด ---------- */
+.loc-search{ display:flex; gap:8px; margin:8px 0; }
+.loc-search input{
+  flex:1; min-width:0; padding:9px 12px;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  font-family:inherit; font-size:.9rem; background:#fff;
+}
+.loc-search input:focus{ outline:none; border-color:var(--forest); }
+.loc-search .btn{ white-space:nowrap; }
+
+.loc-results{
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:#fff; margin-bottom:8px; max-height:230px; overflow-y:auto;
+}
+.lr-msg{ padding:12px 14px; font-size:.86rem; color:var(--muted); }
+.lr-item{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  padding:10px 14px; border:0; border-bottom:1px solid var(--line);
+  background:none; font-family:inherit;
+}
+.lr-item:last-child{ border-bottom:0; }
+.lr-item:hover{ background:var(--sage-bg); }
+.lr-name{ display:block; font-weight:600; font-size:.92rem; color:var(--forest); }
+.lr-sub{
+  display:block; font-size:.78rem; color:var(--muted); margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.lr-dist{ display:block; font-size:.76rem; color:var(--gold-deep); margin-top:3px; font-weight:600; }
+
+#locDeviceHint{ line-height:1.55; }
+@media (max-width:640px){
+  .loc-search{ flex-wrap:wrap; }
+  .loc-search input{ flex:1 1 100%; }
+  .loc-search .btn{ flex:1 1 100%; }
+}

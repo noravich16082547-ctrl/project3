@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -288,6 +288,54 @@ function parseLatLng(text){
     }
   }
   return { error:'อ่านพิกัดจากลิงก์นี้ไม่ได้ — ลองคัดลอกลิงก์จากช่อง URL ของ Google Maps ตอนเปิดหน้าหอ' };
+}
+
+// ---------------------------------------------------------------------------
+// ค้นหาสถานที่บนแผนที่ (แปลงชื่อ -> พิกัด)
+//
+// ทำไมต้องมี: คอมพิวเตอร์หาตำแหน่งตัวเองไม่แม่น (เดาจาก Wi-Fi/เน็ต คลาดเป็นกิโล)
+// ปุ่ม "ใช้ตำแหน่งที่ฉันยืนอยู่" จึงใช้ได้ดีเฉพาะบนมือถือ
+// คนที่เปิดจากคอมต้องมีวิธีอื่นที่ไม่พึ่ง GPS — ก็คือพิมพ์ชื่อสถานที่ค้นหาเอา
+//
+// ใช้ Nominatim ของ OpenStreetMap: ฟรี ไม่ต้องใช้ API key
+// จำกัดผลลัพธ์ให้อยู่ในไทย และให้คะแนนแถวเชียงรายก่อน
+// ---------------------------------------------------------------------------
+const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
+// กรอบคร่าว ๆ รอบเชียงราย (ซ้าย,บน,ขวา,ล่าง) ใช้จัดอันดับ ไม่ได้ตัดผลลัพธ์นอกกรอบทิ้ง
+const GEOCODE_VIEWBOX = '99.0,20.5,100.6,18.5';
+
+async function searchPlace(query){
+  const q = String(query || '').trim();
+  if(q.length < 2) throw new Error('พิมพ์ชื่อสถานที่อย่างน้อย 2 ตัวอักษร');
+
+  const url = `${GEOCODE_URL}?format=jsonv2&limit=6&addressdetails=1`
+            + `&accept-language=th&countrycodes=th`
+            + `&viewbox=${GEOCODE_VIEWBOX}&bounded=0`
+            + `&q=${encodeURIComponent(q)}`;
+
+  let res;
+  try{
+    res = await fetch(url, { headers: { 'Accept':'application/json' } });
+  }catch(err){
+    // เน็ตมีปัญหา หรือบริการค้นหาโดนบล็อก — ไม่ใช่ความผิดผู้ใช้ บอกทางออกอื่นให้
+    throw new Error('ต่อบริการค้นหาแผนที่ไม่ได้ — ลากหมุดบนแผนที่เอง หรือวางลิงก์ Google Maps แทนได้');
+  }
+  if(!res.ok){
+    if(res.status === 429) throw new Error('ค้นหาถี่เกินไป — รอสักครู่แล้วลองใหม่');
+    throw new Error('ค้นหาไม่สำเร็จ (' + res.status + ') — ลากหมุดบนแผนที่เองแทนได้');
+  }
+
+  let rows = [];
+  try{ rows = await res.json(); }catch(e){ rows = []; }
+  if(!Array.isArray(rows)) rows = [];
+
+  return rows.map(r=>({
+    lat: Number(r.lat), lng: Number(r.lon),
+    name: r.display_name || r.name || '',
+    short: (r.name || (r.display_name || '').split(',')[0] || '').trim()
+  })).filter(p => !isNaN(p.lat) && !isNaN(p.lng))
+    // ที่ใกล้เชียงรายขึ้นก่อน คนกรอกมักหาหอแถวมอ
+    .sort((a,b)=> haversineKm(a, CRRU_CENTER) - haversineKm(b, CRRU_CENTER));
 }
 
 // ---------------------------------------------------------------------------
@@ -884,6 +932,83 @@ async function login(email, password){
   return await getProfile(data.user.id);
 }
 async function logout(){ if(sb) await sb.auth.signOut(); }
+
+// ---------------------------------------------------------------------------
+// ลืมรหัสผ่าน
+//
+// ขั้นตอน:
+//   1) ผู้ใช้กรอกอีเมล -> sendPasswordReset() ส่งลิงก์ไปที่อีเมล
+//   2) กดลิงก์ในอีเมล -> เด้งมาหน้า reset-password.html พร้อม token ใน URL
+//   3) ตั้งรหัสใหม่ -> updateMyPassword()
+//
+// ⚠️ ต้องตั้งค่าใน Supabase ก่อน (ดู README หัวข้อ v30):
+//    Authentication -> URL Configuration -> Redirect URLs
+//    ใส่ https://<โดเมนของคุณ>/reset-password.html
+//    ถ้าไม่ใส่ กดลิงก์ในอีเมลแล้วจะเด้งไปหน้าแรกแทน ตั้งรหัสใหม่ไม่ได้
+// ---------------------------------------------------------------------------
+
+// ที่อยู่หน้าตั้งรหัสใหม่ — คิดจาก URL ปัจจุบัน จะได้ใช้ได้ทั้งตอนทดสอบและตอนขึ้นจริง
+function passwordResetRedirect(){
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  return base + 'reset-password.html';
+}
+
+async function sendPasswordReset(email){
+  requireSupabase();
+  const mail = String(email || '').trim().toLowerCase();
+  if(!mail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){
+    throw new Error('กรุณากรอกอีเมลให้ถูกต้อง');
+  }
+  const { error } = await sb.auth.resetPasswordForEmail(mail, {
+    redirectTo: passwordResetRedirect()
+  });
+  // ตั้งใจไม่บอกว่า "ไม่พบอีเมลนี้" — ไม่งั้นคนอื่นเอาไปไล่เดาได้ว่าใครสมัครไว้บ้าง
+  // ฝั่ง Supabase เองก็ไม่ฟ้องอยู่แล้วถ้าอีเมลไม่มีในระบบ
+  if(error){
+    // Supabase จำกัดความถี่การขอลิงก์ แต่ข้อความที่ส่งกลับมามีหลายแบบ
+    // เช่น "For security purposes, you can only request this after 45 seconds."
+    // ซึ่งไม่มีคำว่า rate หรือ too many อยู่เลย ต้องดักให้ครบทุกแบบ
+    const msg = error.message || '';
+    const rateLimited = error.status === 429
+      || /rate limit|too many|security purposes|after \d+ seconds|try again/i.test(msg);
+    if(rateLimited){
+      const secs = (msg.match(/after (\d+) seconds/i) || [])[1];
+      throw new Error(secs
+        ? `ขอลิงก์ถี่เกินไป — รออีก ${secs} วินาทีแล้วลองใหม่`
+        : 'ขอลิงก์ถี่เกินไป — รอสัก 1 นาทีแล้วลองใหม่');
+    }
+    throw error;
+  }
+  return true;
+}
+
+// หน้า reset-password.html เรียกตอนกดบันทึกรหัสใหม่
+async function updateMyPassword(newPassword){
+  requireSupabase();
+  const pw = String(newPassword || '');
+  if(pw.length < 6) throw new Error('รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร');
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if(error){
+    if(/same as the old|should be different/i.test(error.message || '')){
+      throw new Error('รหัสใหม่ซ้ำกับรหัสเดิม — ตั้งรหัสอื่นที่ไม่เคยใช้');
+    }
+    if(/session|jwt|expired|invalid/i.test(error.message || '')){
+      throw new Error('ลิงก์หมดอายุหรือถูกใช้ไปแล้ว — กลับไปกด "ลืมรหัสผ่าน" เพื่อขอลิงก์ใหม่');
+    }
+    throw error;
+  }
+  return true;
+}
+
+// เช็กว่าตอนนี้เข้ามาด้วยลิงก์รีเซ็ตรหัสผ่านจริงไหม
+// supabase-js จะอ่าน token จาก URL แล้วสร้าง session ชั่วคราวให้เอง
+async function hasRecoverySession(){
+  if(!sb) return false;
+  try{
+    const { data } = await sb.auth.getSession();
+    return !!(data && data.session);
+  }catch(e){ return false; }
+}
 
 async function toggleWishlist(dormId){
   const user = await waitForSession();

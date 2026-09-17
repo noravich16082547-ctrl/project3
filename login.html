@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>เข้าสู่ระบบ / สมัครสมาชิก — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 <header class="topbar"><div class="container" id="site-nav">
@@ -33,6 +33,34 @@
         </div>
         <button class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
       </form>
+      <p style="text-align:center;margin:12px 0 0">
+        <button type="button" class="link-btn" id="btnForgot">ลืมรหัสผ่าน?</button>
+      </p>
+    </div>
+
+    <!-- ลืมรหัสผ่าน -->
+    <div id="pane-forgot" style="display:none">
+      <h2 style="margin-top:0">ลืมรหัสผ่าน</h2>
+      <p class="muted" style="margin-top:-8px">
+        กรอกอีเมลที่ใช้สมัครไว้ ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ไปให้
+      </p>
+      <form id="forgotForm">
+        <div class="form-field"><label>อีเมล</label>
+          <input type="email" id="fgEmail" required autocomplete="email">
+          <div class="form-error" id="fgErr"></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="fgSubmit">ส่งลิงก์ตั้งรหัสใหม่</button>
+      </form>
+      <div class="fg-sent" id="fgSent" style="display:none">
+        <div style="font-size:2rem">📧</div>
+        <strong>ส่งลิงก์ไปแล้ว</strong>
+        <p>ถ้าอีเมลนี้มีอยู่ในระบบ คุณจะได้รับลิงก์ตั้งรหัสใหม่ภายในไม่กี่นาที<br>
+        <strong>ไม่เจอในกล่องขาเข้า ลองดูในโฟลเดอร์สแปมด้วย</strong></p>
+        <p class="muted" style="font-size:.82rem">ลิงก์ใช้ได้ครั้งเดียวและมีอายุจำกัด — ถ้าหมดอายุ ขอลิงก์ใหม่ได้</p>
+      </div>
+      <p style="text-align:center;margin:14px 0 0">
+        <button type="button" class="link-btn" id="btnBackLogin">← กลับไปหน้าเข้าสู่ระบบ</button>
+      </p>
     </div>
 
     <!-- สมัครนักศึกษา -->
@@ -73,8 +101,8 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=29"></script>
-<script src="app.js?v=29"></script>
+<script src="db.js?v=30"></script>
+<script src="app.js?v=30"></script>
 <script>
 (async ()=>{
   await showSetupBannerIfNeeded();
@@ -87,12 +115,57 @@
   }
 })();
 
+// แท็บบนสุดมี 3 อัน แต่แผงมี 4 อัน (เพิ่ม "ลืมรหัสผ่าน" ที่ไม่มีแท็บของตัวเอง)
+const AUTH_PANES = ['login','student','owner','forgot'];
+function showPane(name){
+  AUTH_PANES.forEach(p=>{
+    const el = document.getElementById('pane-'+p);
+    if(el) el.style.display = (p===name) ? 'block' : 'none';
+  });
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.remove('active'); b.style.borderBottomColor='transparent'; b.style.color='var(--ink-soft)'; });
     btn.classList.add('active'); btn.style.borderBottomColor='var(--forest)'; btn.style.color='var(--forest)';
-    ['login','student','owner'].forEach(p=> document.getElementById('pane-'+p).style.display = (p===btn.dataset.tab)?'block':'none');
+    showPane(btn.dataset.tab);
   });
+});
+
+// ---- ลืมรหัสผ่าน ----
+document.getElementById('btnForgot').addEventListener('click', ()=>{
+  showPane('forgot');
+  // ถ้าพิมพ์อีเมลไว้แล้วในหน้า login ยกมาให้เลย ไม่ต้องพิมพ์ซ้ำ
+  const typed = document.getElementById('loginEmail').value.trim();
+  if(typed) document.getElementById('fgEmail').value = typed;
+  document.getElementById('fgEmail').focus();
+});
+document.getElementById('btnBackLogin').addEventListener('click', ()=>{
+  showPane('login');
+  document.getElementById('fgSent').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'block';
+  document.getElementById('fgErr').style.display = 'none';
+});
+
+document.getElementById('forgotForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const err = document.getElementById('fgErr');
+  const btn = document.getElementById('fgSubmit');
+  err.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  try{
+    await sendPasswordReset(document.getElementById('fgEmail').value);
+    // ขึ้นข้อความเดียวกันเสมอ ไม่ว่าอีเมลนั้นจะมีในระบบหรือไม่
+    // (ถ้าบอกว่า "ไม่พบอีเมลนี้" คนอื่นจะเอาไปไล่เดาได้ว่าใครสมัครไว้บ้าง)
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('fgSent').style.display = 'block';
+  }catch(ex){
+    console.error(ex);
+    err.textContent = ex.message || 'ส่งลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'ส่งลิงก์ตั้งรหัสใหม่';
+  }
 });
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{

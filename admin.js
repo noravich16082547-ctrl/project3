@@ -1230,6 +1230,7 @@ function openLocMap(){
     // สำคัญ: ต้องกางช่องกรอกสำรองให้เห็นด้วย
     // ไม่งั้นแผนที่ก็ไม่ขึ้น ช่องกรอกก็ยังพับอยู่ = เจ้าของหอปักหมุดไม่ได้เลย
     document.querySelector('.loc-adv')?.setAttribute('open', '');
+    renderLocDeviceHint();
     showLocationState();
     return;
   }
@@ -1276,6 +1277,13 @@ function openLocMap(){
     }catch(e){}
   }, 40);
 
+  // ล้างผลค้นหาของหอก่อนหน้า ไม่งั้นเปิดหออื่นมาแล้วยังเห็นผลเก่าค้างอยู่
+  const res = document.getElementById('locResults');
+  if(res){ res.style.display = 'none'; res.innerHTML = ''; }
+  const sq = document.getElementById('locSearch');
+  if(sq) sq.value = '';
+
+  renderLocDeviceHint();
   showLocationState();
 }
 
@@ -1394,6 +1402,96 @@ document.getElementById('fMapLink')?.addEventListener('paste', (e)=>{
   const text = (e.clipboardData || window.clipboardData).getData('text');
   setTimeout(()=> applyParsedLocation(text), 30);
 });
+// ---------------------------------------------------------------------------
+// ค้นหาสถานที่บนแผนที่
+//
+// นี่คือวิธีหลักสำหรับคนที่เปิดจากคอมพิวเตอร์ — คอมหาตำแหน่งตัวเองไม่แม่น
+// (เดาจาก Wi-Fi/เน็ต คลาดเป็นกิโลได้) ปุ่ม "ใช้ตำแหน่งที่ฉันยืนอยู่"
+// จึงเชื่อถือได้เฉพาะบนมือถือที่มี GPS จริง
+// ---------------------------------------------------------------------------
+
+// เครื่องนี้น่าจะเป็นมือถือไหม — ใช้ตัดสินว่าจะแนะนำวิธีไหนก่อน
+// ดูจาก "ไม่มีเมาส์" + "จอแคบ" แทนการเดาจากชื่อเบราว์เซอร์ ซึ่งปลอมกันได้ง่าย
+function looksLikeMobile(){
+  try{
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const touch  = navigator.maxTouchPoints > 0;
+    return !!(coarse && touch);
+  }catch(e){ return false; }
+}
+
+function renderLocDeviceHint(){
+  const el = document.getElementById('locDeviceHint');
+  if(!el) return;
+  el.innerHTML = looksLikeMobile()
+    ? `📱 เปิดจากมือถืออยู่ — ถ้าตอนนี้<strong>ยืนอยู่ที่หอ</strong> กดปุ่ม
+       "ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้" จะแม่นที่สุด`
+    : `💻 เปิดจากคอมพิวเตอร์อยู่ — คอมไม่มี GPS จริง มันเดาตำแหน่งจาก Wi-Fi/เน็ต
+       ซึ่ง<strong>คลาดเคลื่อนได้เป็นกิโลเมตร</strong><br>
+       แนะนำให้ <strong>ค้นหาชื่อสถานที่ด้านบน</strong> แล้วลากหมุดปรับให้ตรง
+       หรือเปิดหน้านี้จากมือถือตอนอยู่ที่หอ`;
+}
+
+let locSearchBusy = false;
+
+async function runLocSearch(){
+  const input = document.getElementById('locSearch');
+  const box   = document.getElementById('locResults');
+  const btn   = document.getElementById('btnLocSearch');
+  if(!input || !box || locSearchBusy) return;
+
+  const q = input.value.trim();
+  if(q.length < 2){
+    box.style.display = 'block';
+    box.innerHTML = '<div class="lr-msg">พิมพ์ชื่อสถานที่อย่างน้อย 2 ตัวอักษร</div>';
+    return;
+  }
+
+  locSearchBusy = true;
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังค้นหา...'; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="lr-msg">กำลังค้นหา...</div>';
+
+  try{
+    const list = await searchPlace(q);
+    if(!list.length){
+      box.innerHTML = `<div class="lr-msg">ไม่พบสถานที่ชื่อนี้ —
+        ลองพิมพ์ชื่อถนนหรือหมู่บ้านแทน หรือลากหมุดบนแผนที่เอง</div>`;
+      return;
+    }
+    box.innerHTML = list.map((p,i)=>{
+      const km = haversineKm(p, CRRU_CENTER);
+      return `<button type="button" class="lr-item" data-lr="${i}">
+        <span class="lr-name">${escapeHtml(p.short || p.name)}</span>
+        <span class="lr-sub">${escapeHtml(p.name)}</span>
+        <span class="lr-dist">ห่างมอ ${escapeHtml(distanceLabel(km))}</span>
+      </button>`;
+    }).join('');
+    box.querySelectorAll('[data-lr]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const p = list[+b.dataset.lr];
+        if(!p) return;
+        setLocation(p.lat, p.lng, { src:'search', pan:true });
+        box.style.display = 'none';
+        showLocationState(`✓ ย้ายหมุดไปที่ <strong>${escapeHtml(p.short || p.name)}</strong> แล้ว —
+          ซูมแผนที่เข้าไปดู แล้ว<strong>ลากหมุดปรับให้ตรงตัวอาคารหอ</strong>อีกที
+          ผลค้นหาอาจชี้กลางถนนหรือกลางหมู่บ้าน`, '');
+      });
+    });
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="lr-msg">${escapeHtml(err.message || 'ค้นหาไม่สำเร็จ')}</div>`;
+  }finally{
+    locSearchBusy = false;
+    if(btn){ btn.disabled = false; btn.textContent = '🔍 ค้นหา'; }
+  }
+}
+
+document.getElementById('btnLocSearch')?.addEventListener('click', runLocSearch);
+document.getElementById('locSearch')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); runLocSearch(); }
+});
+
 document.getElementById('btnCrruLoc')?.addEventListener('click', ()=>{
   if(LOCMAP.map) LOCMAP.map.setView([CRRU_CENTER.lat, CRRU_CENTER.lng], 15);
 });
@@ -1445,11 +1543,20 @@ function finishGps(){
   showAccuracyCircle(lat, lng, acc);
 
   if(acc && acc > GPS_OK_M){
+    // ตำแหน่งหยาบมาก — ซูมแผนที่ให้พอดีกับวงความแม่นยำ
+    // เจ้าของหอจะได้เห็นกับตาว่า "ที่เครื่องบอกมา" มันกว้างแค่ไหน ไม่ใช่เชื่อตัวเลขลอย ๆ
+    try{
+      if(LOCMAP.map && LOCMAP.acc) LOCMAP.map.fitBounds(LOCMAP.acc.getBounds(), { padding:[20,20] });
+    }catch(e){}
+    const onPc = !looksLikeMobile();
     showLocationState(`⚠️ ปักหมุดให้แล้ว แต่ตำแหน่งที่ได้<strong>ยังหยาบมาก (${accTxt})</strong> —
-      หอจริงอาจอยู่ห่างจากหมุดเป็นร้อยเมตร<br>
-      มักเกิดตอนเปิดจากคอมพิวเตอร์ (คอมเดาตำแหน่งจาก Wi-Fi/เน็ต ไม่ได้ใช้ GPS จริง)<br>
-      <strong>แนะนำ: ลากหมุดบนแผนที่ไปวางตรงหอเอง</strong> หรือเปิดหน้านี้จากมือถือตอนยืนอยู่ที่หอ
-      แล้วกดปุ่มนี้ใหม่`, 'warn');
+      หอจริงอาจอยู่ที่ไหนก็ได้ในวงกลมสีฟ้าบนแผนที่<br>
+      ${onPc
+        ? `สาเหตุคือ<strong>คอมพิวเตอร์ไม่มี GPS จริง</strong> มันเดาตำแหน่งจาก Wi-Fi/เน็ตเท่านั้น<br>
+           <strong>ทางที่ได้ผลกว่า:</strong> พิมพ์ชื่อหอหรือชื่อถนนใน<strong>ช่องค้นหาด้านบน</strong>
+           แล้วลากหมุดปรับให้ตรง — หรือเปิดหน้านี้จากมือถือตอนยืนอยู่ที่หอ`
+        : `ลองออกมาที่โล่ง ๆ นอกอาคารแล้วกดใหม่ หรือ<strong>ลากหมุดไปวางตรงหอเอง</strong>
+           — จะใช้ช่องค้นหาด้านบนก็ได้`}`, 'warn');
   }else if(acc && acc > GPS_GOOD_M){
     showLocationState(`✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว (ความแม่นยำ ${accTxt}) —
       ${locationSummary({lat,lng})}<br>
