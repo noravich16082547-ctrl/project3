@@ -237,7 +237,7 @@ async function renderOwnerPage(){
             ${NEARBY_CAT_ORDER.map(c=>`<option value="${c}">${NEARBY_CATS[c].icon} ${escapeHtml(NEARBY_CATS[c].label)}</option>`).join('')}
           </select>
           <input type="text" id="opNearName" placeholder="ชื่อร้าน เช่น 7-Eleven หน้าหอ">
-          <input type="text" id="opNearDist" placeholder="เดิน 2 นาที" style="max-width:130px">
+          <input type="text" id="opNearDist" placeholder="ระยะทาง" style="max-width:130px">
           <button type="button" class="btn btn-outline btn-sm" id="opNearAdd">+ เพิ่ม</button>
         </div>
         <div id="opNearList" style="margin-top:12px">

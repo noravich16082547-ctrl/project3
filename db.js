@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -66,7 +66,7 @@ try{
 const SITE_CONTACT = {
   name:  'ทีมงาน DormCRU',                     // ชื่อผู้ดูแลเว็บ
   phone: '',                                  // เช่น '081-234-5678'
-  email: 'darkwarior707@gmail.com',           // อีเมลผู้ดูแลเว็บ — แก้ตรงนี้ถ้าอยากใช้อีเมลอื่น
+  email: 'เมลผู้ดูแลเว็บ@gmail.com',           // อีเมลผู้ดูแลเว็บ — แก้ตรงนี้ถ้าอยากใช้อีเมลอื่น
   line:  '',                                  // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
   facebook: ''                                // ลิงก์เพจ เช่น 'https://facebook.com/dormcru'
 };
