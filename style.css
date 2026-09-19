@@ -1358,6 +1358,36 @@ footer{ margin-bottom: 0; }
 }
 .edit-panel .loc-map{ height:320px; }
 
+/* ---------- แก้ไขทีละการ์ดในหน้าหอพักของฉัน (v33) ----------
+   เจ้าของหอบอกว่าฟอร์มใหญ่เหมือน "เพิ่มหน้าใหม่ขึ้นมาอีกหน้า"
+   ตอนนี้แต่ละการ์ดมีปุ่ม "เพิ่มหรือแก้ไข" ของตัวเอง กดแล้วกางออกในการ์ดนั้นเลย */
+.opc-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap; margin-bottom:10px;
+}
+.opc-head h3{ margin:0; }
+.op-inline{
+  margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);
+}
+.op-inline-card{ border:2px solid var(--gold); }
+.op-inline .form-field:last-of-type{ margin-bottom:0; }
+.fac-pick{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;
+}
+.fac-opt{
+  display:flex; align-items:center; gap:8px; cursor:pointer;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:9px 11px; font-size:.86rem; background:var(--white);
+}
+.fac-opt:hover{ border-color:var(--gold); background:var(--cream); }
+.fac-opt input{ flex-shrink:0; }
+.fac-opt span{ overflow-wrap:anywhere; }
+/* แผนที่ย่อในการ์ด — เตี้ยกว่าในฟอร์มใหญ่ เพราะอยู่ในคอลัมน์แคบ */
+.near-pick .loc-map,
+#opLocMap{ height:260px; }
+.loc-pin-shop{ border-color:#2E9BD6; cursor:grab; }
+.loc-pin-shop:active{ cursor:grabbing; }
+
 /* ---------- ตัวเลขบนหัวเว็บ (แทนวงกลมเรดาร์เดิม) ---------- */
 .hero-stats{
   display:grid; grid-template-columns:1fr 1fr; gap:12px;

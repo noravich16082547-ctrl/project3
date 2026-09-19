@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=32">
+<link rel="stylesheet" href="style.css?v=33">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -38,7 +38,7 @@
     <div class="side-title">เมนูจัดการ</div>
     <button class="side-link active" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
     <button class="side-link" data-sec="listings" id="listingsTabBtn" style="display:none">🏠 หอพักทั้งหมดในระบบ (ผู้ดูแลระบบ)</button>
-    <button class="side-link" data-sec="bookings">📌 คำขอจองห้อง<span id="bookingBadge"></span></button>
+    <button class="side-link" data-sec="bookings">📌 คำขอนัดพบ<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="report">📊 รายงาน</button>
     <button class="side-link" data-sec="rental">📁 สรุปการเช่า</button>
@@ -170,15 +170,15 @@
       </div>
       <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
       <div class="form-field">
-        <label>📧 อีเมลรับแจ้งเตือนการจอง</label>
+        <label>📧 อีเมลรับแจ้งเตือนการนัดพบ</label>
         <input type="email" id="fContactEmail" placeholder="เช่น dorm.banfai@gmail.com">
         <div class="form-hint">
-          เมื่อมีนักศึกษากดจองห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
+          เมื่อมีนักศึกษากดนัดพบห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
           เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
         </div>
       </div>
       <div class="form-field" id="verifiedWrap" style="display:none">
-        <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการจองเต็มรูปแบบ<br>
+        <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการนัดพบเต็มรูปแบบ<br>
         <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
       </div>
       <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
@@ -218,11 +218,11 @@
 
     <div id="sec-bookings" style="display:none">
       <div class="section-head">
-        <h2>คำขอจองห้อง</h2>
+        <h2>คำขอนัดพบ</h2>
         <span class="count" id="bookingCount"></span>
       </div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        เมื่อนักศึกษากดปุ่ม "จองห้องนี้" ในหน้าหอของคุณ คำขอจะเด้งขึ้นที่นี่ทันที
+        เมื่อนักศึกษากดปุ่ม "นัดพบห้องนี้" ในหน้าหอของคุณ คำขอจะเด้งขึ้นที่นี่ทันที
         พร้อมส่งอีเมลแจ้งเตือนไปที่อีเมลที่คุณใช้สมัครสมาชิก
       </p>
       <div id="bookingList"><div class="chat-empty">กำลังโหลด...</div></div>
@@ -339,7 +339,7 @@
     <div class="form-field">
       <label>ประเภทห้อง</label>
       <select id="rmType"></select>
-      <div class="form-hint">ประเภทห้องมาจากราคาที่ตั้งไว้ในหน้า "แก้ไขข้อมูลหอ"</div>
+      <div class="form-hint">เลือกได้ว่าห้องนี้เป็นห้องแอร์หรือห้องพัดลม</div>
     </div>
 
     <div class="form-field">
@@ -422,9 +422,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=32"></script>
-<script src="app.js?v=32"></script>
-<script src="admin.js?v=32"></script>
+<script src="db.js?v=33"></script>
+<script src="app.js?v=33"></script>
+<script src="admin.js?v=33"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

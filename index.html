@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=32">
+<link rel="stylesheet" href="style.css?v=33">
 </head>
 <body>
 
@@ -22,7 +22,7 @@
   <div class="container">
     <div>
       <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
-      <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมอ แล้วแชทหรือจองกับหอได้โดยตรง</p>
+      <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมอ แล้วแชทหรือนัดพบกับหอได้โดยตรง</p>
     </div>
     <!-- เดิมตรงนี้เป็นวงกลมเรดาร์ตกแต่ง ซึ่งไม่ได้บอกอะไรจริง ๆ เลย
          เปลี่ยนเป็นตัวเลขจากข้อมูลในระบบจริง มีประโยชน์กว่าและดูสะอาดกว่า -->
@@ -179,13 +179,13 @@
   </div>
 </div>
 
-<!-- ============== โมดัลจองห้องพัก (แยกจากแชท) ============== -->
+<!-- ============== โมดัลนัดพบดูห้องพัก (แยกจากแชท) ============== -->
 <div class="modal-backdrop" id="bookingModal">
   <div class="modal" style="max-width:520px">
     <button class="modal-close" id="closeBookingModal">✕</button>
-    <h3 style="margin-top:0" id="bookingTitle">จองห้องพัก</h3>
+    <h3 style="margin-top:0" id="bookingTitle">นัดพบดูห้องพัก</h3>
     <p class="muted" style="font-size:.86rem;margin-top:-4px">
-      กดจองเพื่อ<strong>แจ้งความจำนงและนัดดูห้อง</strong> — เว็บไม่รับเงินมัดจำแทนหอ
+      กดนัดพบเพื่อ<strong>แจ้งความจำนงและนัดดูห้อง</strong> — เว็บไม่รับเงินมัดจำแทนหอ
       เจ้าของหอจะได้รับแจ้งเตือนในระบบและทางอีเมลทันที
     </p>
 
@@ -193,7 +193,7 @@
 
     <form id="bookingForm">
       <div class="form-field" id="bk-room-wrap">
-        <label>ห้องที่ต้องการจอง</label>
+        <label>ห้องที่ต้องการนัดพบ</label>
         <select id="bk-room"></select>
       </div>
       <div class="form-field">
@@ -210,7 +210,7 @@
         <textarea id="bk-note" rows="3" placeholder="เช่น อยากเข้าอยู่เทอม 1/2569 ขอดูห้องช่วงบ่ายครับ"></textarea>
       </div>
       <div class="form-error" id="bk-err"></div>
-      <button class="btn btn-primary btn-block" type="submit" id="bk-submit">📌 ส่งคำขอจอง</button>
+      <button class="btn btn-primary btn-block" type="submit" id="bk-submit">📌 ส่งคำขอนัดพบ</button>
       <p class="form-hint" style="margin-top:10px;text-align:center">
         ระวังการโอนเงินมัดจำก่อนเห็นห้องจริง — DormCRU ไม่ได้เป็นตัวกลางรับเงิน
       </p>
@@ -218,13 +218,13 @@
   </div>
 </div>
 
-<!-- ============== โมดัลการจองของฉัน (ฝั่งนักศึกษา) ============== -->
+<!-- ============== โมดัลการนัดพบของฉัน (ฝั่งนักศึกษา) ============== -->
 <div class="modal-backdrop" id="myBookingsModal">
   <div class="modal" style="max-width:560px">
     <button class="modal-close" id="closeMyBookingsModal">✕</button>
-    <h3 style="margin-top:0">การจองของฉัน</h3>
+    <h3 style="margin-top:0">การนัดพบของฉัน</h3>
     <p class="muted" style="font-size:.85rem;margin-top:-4px">
-      ติดตามสถานะคำขอจองที่คุณส่งไปหาหอพัก
+      ติดตามสถานะคำขอนัดพบที่คุณส่งไปหาหอพัก
     </p>
     <div id="myBookingsList"><div class="chat-empty">กำลังโหลด...</div></div>
   </div>
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=32"></script>
-<script src="app.js?v=32"></script>
+<script src="db.js?v=33"></script>
+<script src="app.js?v=33"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -450,7 +450,7 @@ function highlightsHtml(d){
     <div class="hl"><span class="hl-ic">${i.ic}</span><span>${escapeHtml(i.label)}</span></div>`).join('')}</div>`;
 }
 
-// บล็อกสถานะข้อมูล (ตำแหน่งเดียวกับคะแนนรีวิวในเว็บจองโรงแรม)
+// บล็อกสถานะข้อมูล (ตำแหน่งเดียวกับคะแนนรีวิวในเว็บหาที่พัก)
 // ไม่มีการปั้นคะแนนปลอม — ใช้ระยะทางจริงและสถานะการยืนยันข้อมูลจริง
 function statusBlockHtml(d){
   const km  = distanceToCrru(d);
@@ -501,7 +501,7 @@ function nearbyHtml(d){
     ${nearbyPlacesHtml(d.nearby, { dorm:d })}`;
 }
 
-// แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บจองที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
+// แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บหาที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
 function roomRowsHtml(d){
   // 'ราคาเริ่มต้น' ไม่ใช่ประเภทห้อง จึงต้องกรองออกก่อน ไม่งั้นจะมีแถวห้องชื่อ "ราคาเริ่มต้น" โผล่มา
   const types = roomTypes(d);
@@ -512,7 +512,7 @@ function roomRowsHtml(d){
         ? 'ราคาเริ่มต้นอยู่ที่ ' + fmtBaht(minPrice(d)) + ' บาท/เดือน — สอบถามรายละเอียดห้องและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน'
         : 'หอนี้ยังไม่ได้กรอกราคาห้องเข้ามา — สอบถามราคาและห้องว่างกับหอโดยตรงได้จากช่องทางติดต่อด้านบน'}</p>
       ${canChat(d) ? `<div class="rr-actions" style="justify-content:center">
-        <button class="btn btn-primary" data-book="">📌 ส่งคำขอจอง</button>
+        <button class="btn btn-primary" data-book="">📌 ส่งคำขอนัดพบ</button>
         <button class="btn btn-outline" data-chat="1">💬 ถามเจ้าของหอ</button>
       </div>` : ''}
     </div>`;
@@ -623,7 +623,7 @@ function openDetail(id){
           <ul class="pc-list">
             <li>✓ ติดต่อหอโดยตรง ไม่มีค่านายหน้า</li>
             <li>✓ ดูเส้นทางจากมอก่อนไปดูห้องจริง</li>
-            <li>✓ เว็บไม่รับจองและไม่รับเงินแทนหอ</li>
+            <li>✓ เว็บไม่ได้เป็นตัวกลางรับเงินแทนหอ</li>
           </ul>
 
           <!-- เอาปุ่ม "นัดพบปะ" กับ "แชทกับเจ้าของหอ" ออกจากการ์ดราคาตามที่สั่ง
@@ -647,7 +647,7 @@ function openDetail(id){
           return `หอนี้มี ${d.floorPlan.floors.length} ชั้น ทั้งหมด ${s.total} ห้อง · ` +
                  `<strong>ว่าง ${s.vacant} ห้อง</strong>` +
                  (s.booked ? ` · ไม่ว่าง ${s.booked} ห้อง` : ''); })()}
-        <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>กดจองได้เลย
+        <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>กดนัดพบได้เลย
       </p>
       <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid })}</div>
     ` : `
@@ -676,11 +676,11 @@ function openDetail(id){
   document.querySelectorAll('#detailContent [data-chat]').forEach(btn=>{
     btn.addEventListener('click', ()=> openChat(d));
   });
-  // ปุ่มจองทุกจุดในหน้านี้ (ค่าใน data-book คือรหัสห้องที่จะเลือกไว้ให้ล่วงหน้า)
+  // ปุ่มนัดพบทุกจุดในหน้านี้ (ค่าใน data-book คือรหัสห้องที่จะเลือกไว้ให้ล่วงหน้า)
   document.querySelectorAll('#detailContent [data-book]').forEach(btn=>{
     btn.addEventListener('click', ()=> openBooking(d, btn.dataset.book));
   });
-  // กดห้องในผังห้องพัก = เปิดรายละเอียดห้องนั้น (ห้องว่างจะมีปุ่มจองในหน้าต่างนั้นเลย)
+  // กดห้องในผังห้องพัก = เปิดรายละเอียดห้องนั้น (ห้องว่างจะมีปุ่มนัดพบในหน้าต่างนั้นเลย)
   document.querySelectorAll('#detailContent [data-roominfo]').forEach(btn=>{
     btn.addEventListener('click', ()=> openRoomInfo(d, btn.dataset.roominfo));
   });
@@ -904,14 +904,14 @@ document.addEventListener('keydown', (e)=>{
 });
 
 // ===========================================================================
-// ระบบจองห้องพัก (แยกจากระบบแชท)
-// กดจอง = บันทึกคำขอจองลงฐานข้อมูล -> เจ้าของหอเห็นในหน้าหลังบ้านทันที (เรียลไทม์)
+// ระบบนัดพบดูห้องพัก (แยกจากระบบแชท)
+// กดนัดพบ = บันทึกคำขอนัดพบลงฐานข้อมูล -> เจ้าของหอเห็นในหน้าหลังบ้านทันที (เรียลไทม์)
 //         + ยิงอีเมลแจ้งเจ้าของหอผ่าน /api/notify-booking
 // ===========================================================================
 let bookingDorm = null;
-let bookingCellId = null;   // ห้องเจาะจงในผังที่กำลังจะจอง (ถ้ากดมาจากผังห้องพัก)
+let bookingCellId = null;   // ห้องเจาะจงในผังที่กำลังจะนัดพบ (ถ้ากดมาจากผังห้องพัก)
 
-// วาดผังห้องในหน้ารายละเอียดใหม่ (ใช้หลังจองห้องเสร็จ ห้องจะได้เปลี่ยนสีทันที)
+// วาดผังห้องในหน้ารายละเอียดใหม่ (ใช้หลังนัดพบห้องเสร็จ ห้องจะได้เปลี่ยนสีทันที)
 function refreshPlanBox(dorm){
   const box = document.getElementById('planBox');
   if(!box || !hasFloorPlan(dorm)) return;
@@ -924,7 +924,7 @@ function refreshPlanBox(dorm){
 
 // ---------------------------------------------------------------------------
 // หน้าต่างรายละเอียดห้อง (ฝั่งนักศึกษา) — กดที่ช่องห้องในผังเพื่อดู
-// บอกว่าห้องนี้มีอะไรบ้าง ราคาเท่าไหร่ และจองได้เลยถ้าห้องว่าง
+// บอกว่าห้องนี้มีอะไรบ้าง ราคาเท่าไหร่ และนัดพบได้เลยถ้าห้องว่าง
 // ---------------------------------------------------------------------------
 function openRoomInfo(dorm, cellId){
   const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
@@ -940,7 +940,7 @@ function openRoomInfo(dorm, cellId){
 
   document.getElementById('roomInfoContent').innerHTML = `
     <h3 style="margin-top:0">ห้อง ${escapeHtml(cell.no || '')}
-      <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณจองไว้' : meta.label)}</span>
+      <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณนัดพบไว้' : meta.label)}</span>
     </h3>
     <p class="muted" style="font-size:.86rem;margin-top:-4px">
       ${escapeHtml(found.floor.name)} · ${escapeHtml(dorm.name)}${typeLabel ? ' · ห้อง' + escapeHtml(typeLabel) : ''}
@@ -958,11 +958,11 @@ function openRoomInfo(dorm, cellId){
     ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
 
     ${isVacant ? '' : `<div class="ri-note">${escapeHtml(
-        mine ? 'คุณส่งคำขอจองห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การจองของฉัน"'
+        mine ? 'คุณส่งคำขอนัดพบนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การนัดพบของฉัน"'
              : 'ห้องนี้ไม่ว่างแล้ว ลองดูห้องอื่นในผังที่เป็นสีเขียวได้เลย')}</div>`}
 
     <div class="ri-actions">
-      ${isVacant ? `<button class="btn btn-primary" id="riBook">📌 จอง</button>` : ''}
+      ${isVacant ? `<button class="btn btn-primary" id="riBook">📌 นัดพบ</button>` : ''}
       <button class="btn btn-outline ${isVacant?'':'btn-block'}" id="riChat">💬 สอบถามห้องนี้</button>
     </div>
   `;
@@ -999,29 +999,29 @@ document.getElementById('roomInfoModal')?.addEventListener('click', (e)=>{
 });
 
 async function openBooking(dorm, preselectCode, cellId){
-  const p = await requireLogin('กรุณาเข้าสู่ระบบก่อนจองห้องพัก');
+  const p = await requireLogin('กรุณาเข้าสู่ระบบก่อนนัดพบดูห้องพัก');
   if(!p) return;
-  if(!dorm.ownerId){ toast('หอนี้ยังไม่มีเจ้าของหอในระบบ จึงยังจองผ่านเว็บไม่ได้','error'); return; }
+  if(!dorm.ownerId){ toast('หอนี้ยังไม่มีเจ้าของหอในระบบ จึงยังนัดพบผ่านเว็บไม่ได้','error'); return; }
 
   const user = await waitForSession();
-  if(dorm.ownerId === user.id){ toast('นี่คือหอของคุณเอง จองห้องตัวเองไม่ได้นะ','error'); return; }
+  if(dorm.ownerId === user.id){ toast('นี่คือหอของคุณเอง นัดพบห้องตัวเองไม่ได้นะ','error'); return; }
 
   bookingDorm = dorm;
   bookingCellId = cellId || null;
 
-  // ถ้ากดมาจากผังห้องพัก = จองห้องนั้นเจาะจง เลือกประเภทห้องตามที่หอตั้งไว้ให้เลย
+  // ถ้ากดมาจากผังห้องพัก = นัดพบห้องนั้นเจาะจง เลือกประเภทห้องตามที่หอตั้งไว้ให้เลย
   const picked = cellId ? eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId) : null;
   document.getElementById('bookingTitle').textContent = picked
-    ? `จองห้อง ${picked.cell.no || ''} · ${dorm.name}`
-    : 'จองห้องพัก · ' + dorm.name;
+    ? `นัดพบห้อง ${picked.cell.no || ''} · ${dorm.name}`
+    : 'นัดพบดูห้องพัก · ' + dorm.name;
 
-  // แถบบอกว่ากำลังจองห้องไหน (เฉพาะตอนกดมาจากผัง)
+  // แถบบอกว่ากำลังนัดพบห้องไหน (เฉพาะตอนกดมาจากผัง)
   const pickBox = document.getElementById('bk-picked');
   if(picked){
     const tLabel = roomTypeLabel(picked.cell.type, dorm);
     const t = roomTypes(dorm).find(r=>r.code === picked.cell.type);
     const price = picked.cell.price || (t ? t.price : null);
-    pickBox.innerHTML = `🏠 กำลังจอง <strong>ห้อง ${escapeHtml(picked.cell.no||'')}</strong>
+    pickBox.innerHTML = `🏠 กำลังนัดพบ <strong>ห้อง ${escapeHtml(picked.cell.no||'')}</strong>
       · ${escapeHtml(picked.floor.name)}${tLabel?' · ห้อง'+escapeHtml(tLabel):''}
       ${price?` · ${fmtBaht(price)} บาท/เดือน`:''}
       <br><small>ห้องนี้จะถูกกันไว้ให้คุณทันที และขึ้นเป็นสีแดงในผัง จนกว่าหอจะยืนยันหรือคุณกดยกเลิก</small>`;
@@ -1047,7 +1047,7 @@ async function openBooking(dorm, preselectCode, cellId){
   }else{
     sel.innerHTML = '<option value="">ยังไม่ระบุประเภทห้อง (ให้เจ้าของหอแนะนำ)</option>';
   }
-  // จองห้องเจาะจงแล้ว ไม่ต้องให้เลือกประเภทซ้ำ
+  // นัดพบห้องเจาะจงแล้ว ไม่ต้องให้เลือกประเภทซ้ำ
   if(selWrap) selWrap.style.display = picked ? 'none' : 'block';
 
   // เติมเบอร์โทรจากโปรไฟล์ให้อัตโนมัติ ถ้ามี
@@ -1077,7 +1077,7 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     const code = document.getElementById('bk-room').value;
     const room = (bookingDorm.rooms||[]).find(r => (r.code||r.label) === code);
 
-    // จองห้องเจาะจงจากผัง -> ใส่เลขห้องลงในชื่อห้องด้วย เจ้าของหอจะได้รู้ทันทีว่าห้องไหน
+    // นัดพบห้องเจาะจงจากผัง -> ใส่เลขห้องลงในชื่อห้องด้วย เจ้าของหอจะได้รู้ทันทีว่าห้องไหน
     const picked = bookingCellId
       ? eachRoomCell(bookingDorm.floorPlan).find(x=>x.cell.id === bookingCellId) : null;
     // ชื่อห้องที่ส่งไปให้เจ้าของหอ ใช้ประเภทห้องที่ตั้งไว้ในผัง (แอร์/พัดลม) ถ้ามี
@@ -1101,15 +1101,15 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     document.getElementById('bookingModal').classList.remove('open');
     bookingCellId = null;
 
-    // ยิงอีเมลแจ้งเจ้าของหอ (ไม่บล็อกการจอง ถ้าเมลส่งไม่ออกก็ยังจองสำเร็จ)
+    // ยิงอีเมลแจ้งเจ้าของหอ (ไม่บล็อกการนัดพบ ถ้าเมลส่งไม่ออกก็ยังนัดพบสำเร็จ)
     const mail = await notifyOwnerByEmail(booking.id);
     if(mail && mail.ok){
-      toast('ส่งคำขอจองแล้ว — แจ้งเตือนเข้าอีเมลเจ้าของหอเรียบร้อย ติดตามสถานะได้ที่เมนู "การจองของฉัน"','success');
+      toast('ส่งคำขอนัดพบแล้ว — แจ้งเตือนเข้าอีเมลเจ้าของหอเรียบร้อย ติดตามสถานะได้ที่เมนู "การนัดพบของฉัน"','success');
     }else{
-      toast('ส่งคำขอจองแล้ว — ติดตามสถานะได้ที่เมนู "การจองของฉัน"','success');
+      toast('ส่งคำขอนัดพบแล้ว — ติดตามสถานะได้ที่เมนู "การนัดพบของฉัน"','success');
     }
 
-    // ดึงข้อมูลหอใหม่ แล้ววาดผังห้องใหม่ ห้องที่เพิ่งจองจะเปลี่ยนเป็นสีแดงทันที
+    // ดึงข้อมูลหอใหม่ แล้ววาดผังห้องใหม่ ห้องที่เพิ่งนัดพบจะเปลี่ยนเป็นสีแดงทันที
     try{
       const fresh = await getDormById(bookingDorm.id);
       if(fresh){
@@ -1120,27 +1120,27 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     }catch(e3){ console.error(e3); }
 
     // เปิดแชทต่อให้อัตโนมัติ พร้อมข้อความตั้งต้น จะได้คุยรายละเอียดกันต่อได้เลย
-    setTimeout(()=> openChat(bookingDorm, `สวัสดีครับ/ค่ะ ผม/ดิฉันเพิ่งส่งคำขอจอง "${booking.roomLabel}" ไว้ รบกวนยืนยันห้องด้วยครับ/ค่ะ`), 600);
+    setTimeout(()=> openChat(bookingDorm, `สวัสดีครับ/ค่ะ ผม/ดิฉันเพิ่งส่งคำขอนัดพบ "${booking.roomLabel}" ไว้ รบกวนยืนยันห้องด้วยครับ/ค่ะ`), 600);
   }catch(e2){
     console.error(e2);
-    err.textContent = 'จองไม่สำเร็จ: ' + (e2.message || 'เกิดข้อผิดพลาด');
+    err.textContent = 'นัดพบไม่สำเร็จ: ' + (e2.message || 'เกิดข้อผิดพลาด');
     err.style.display = 'block';
   }finally{
     btn.disabled = false;
-    btn.textContent = '📌 ส่งคำขอจอง';
+    btn.textContent = '📌 ส่งคำขอนัดพบ';
   }
 });
 document.getElementById('closeBookingModal').addEventListener('click', ()=> document.getElementById('bookingModal').classList.remove('open'));
 document.getElementById('bookingModal').addEventListener('click', e=>{ if(e.target.id==='bookingModal') e.currentTarget.classList.remove('open'); });
 
-// ---------- การจองของฉัน (ฝั่งนักศึกษา) ----------
+// ---------- การนัดพบของฉัน (ฝั่งนักศึกษา) ----------
 const BOOKING_STATUS_TEXT = {
   pending:   { label:'รอหอตอบกลับ', cls:'status-pending',
                hint:'หอพักได้รับคำขอแล้ว กำลังรอเจ้าของหอติดต่อกลับ — ถ้ารอนานลองทักในแชทได้' },
-  confirmed: { label:'หอรับจองแล้ว', cls:'status-confirmed',
-               hint:'เจ้าของหอยืนยันรับจองแล้ว นัดวันเข้าดูห้องและทำสัญญากับหอได้เลย — ถ้าเปลี่ยนใจ กดยกเลิกได้ ระบบจะคืนห้องว่างให้หอ' },
+  confirmed: { label:'หอรับนัดพบแล้ว', cls:'status-confirmed',
+               hint:'เจ้าของหอยืนยันรับนัดแล้ว นัดวันเข้าดูห้องและทำสัญญากับหอได้เลย — ถ้าเปลี่ยนใจ กดยกเลิกได้ ระบบจะคืนห้องว่างให้หอ' },
   cancelled: { label:'ยกเลิกแล้ว', cls:'status-cancelled',
-               hint:'คำขอนี้ถูกยกเลิก — จองห้องอื่นหรือสอบถามหอเพิ่มเติมได้' }
+               hint:'คำขอนี้ถูกยกเลิก — นัดพบห้องอื่นหรือสอบถามหอเพิ่มเติมได้' }
 };
 
 function fmtVisitDate(v){
@@ -1159,7 +1159,7 @@ async function openMyBookings(){
     const list = await getMyBookings(user.id);
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:30px 10px"><div class="emoji">📌</div>
-        <p>ยังไม่มีการจอง<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "จองห้องนี้" ได้เลย</small></p></div>`;
+        <p>ยังไม่มีการนัดพบ<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "นัดพบห้องนี้" ได้เลย</small></p></div>`;
       return;
     }
     box.innerHTML = list.map(b=>{
@@ -1182,7 +1182,7 @@ async function openMyBookings(){
           <button class="btn btn-sm btn-outline" data-bkopen="${b.dormId}">💬 คุยกับหอ</button>
           ${(b.status === 'pending' || b.status === 'confirmed')
             ? `<button class="btn btn-sm btn-ghost" data-bkcancel="${b.id}" data-bkstatus="${b.status}">
-                 ${b.status === 'confirmed' ? 'ยกเลิกการจอง' : 'ยกเลิกคำขอ'}
+                 ${b.status === 'confirmed' ? 'ยกเลิกการนัดพบ' : 'ยกเลิกคำขอ'}
                </button>` : ''}
         </div>
       </div>`;
@@ -1200,12 +1200,12 @@ async function openMyBookings(){
       btn.addEventListener('click', async ()=>{
         const wasConfirmed = btn.dataset.bkstatus === 'confirmed';
         const msg = wasConfirmed
-          ? 'ยกเลิกการจองนี้?\n\nหอได้ยืนยันรับจองไปแล้ว ระบบจะคืนห้องว่างให้หอ\nแนะนำให้แจ้งเจ้าของหอในแชทด้วย เพื่อไม่ให้เขาเก็บห้องไว้รอ'
-          : 'ยกเลิกคำขอจองนี้?';
+          ? 'ยกเลิกการนัดพบนี้?\n\nหอได้ยืนยันรับนัดไปแล้ว ระบบจะคืนห้องว่างให้หอ\nแนะนำให้แจ้งเจ้าของหอในแชทด้วย เพื่อไม่ให้เขาเก็บห้องไว้รอ'
+          : 'ยกเลิกคำขอนัดพบนี้?';
         if(!confirm(msg)) return;
         try{
           await cancelMyBooking(btn.dataset.bkcancel);
-          toast(wasConfirmed ? 'ยกเลิกการจองแล้ว — คืนห้องว่างให้หอเรียบร้อย' : 'ยกเลิกคำขอจองแล้ว','success');
+          toast(wasConfirmed ? 'ยกเลิกการนัดพบแล้ว — คืนห้องว่างให้หอเรียบร้อย' : 'ยกเลิกคำขอนัดพบแล้ว','success');
           openMyBookings();
         }catch(err){ console.error(err); toast('ยกเลิกไม่สำเร็จ: '+(err.message||''),'error'); }
       });

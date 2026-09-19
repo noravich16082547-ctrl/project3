@@ -39,7 +39,7 @@ async function renderNav(active){
     // (แต่ละหน้าไปผูก event ให้ปุ่ม #navMsgBtn เอง)
     html += `<button type="button" class="nav-msg" id="navMsgBtn">💬 ข้อความของฉัน<span id="navUnread"></span></button>`;
     if(profile.role === 'student'){
-      html += `<button type="button" class="nav-msg" id="navBookingBtn">📌 การจองของฉัน</button>`;
+      html += `<button type="button" class="nav-msg" id="navBookingBtn">📌 การนัดพบของฉัน</button>`;
     }
     if(profile.role === 'owner' || profile.role === 'admin'){
       html += `<a href="admin.html">หลังบ้านของฉัน</a>`;

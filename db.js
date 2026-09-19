@@ -10,8 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
-
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -432,7 +431,7 @@ function nearestGate(dorm){
 //
 // ทำแบบนี้เพื่อไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล (ไม่ต้องรัน SQL)
 // แต่มันไม่ใช่ "ประเภทห้อง" จริง ๆ — เป็นแค่ตัวเลขราคาที่เอาไปโชว์บนการ์ด
-// เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้จอง"
+// เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้นัดพบ"
 // ต้องกรองตัวนี้ออกก่อนด้วย roomTypes() ไม่งั้นนักศึกษาจะเห็นห้องชื่อ "ราคาเริ่มต้น"
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -584,19 +583,19 @@ function amenityGridHtml(codes){
 //
 // สถานะห้อง (status) — ตรงกับสีที่แสดงในเว็บ
 //   vacant   เทา      ว่าง
-//   pending  แดง      มีคนกดจองแล้ว รอเจ้าของหอยืนยัน
+//   pending  แดง      มีคนกดนัดพบแล้ว รอเจ้าของหอยืนยัน
 //   occupied น้ำเงิน  มีผู้เช่าอยู่แล้ว
 //   closed   เทาเข้ม  ปิดปรับปรุง ไม่ปล่อยเช่า
 // ---------------------------------------------------------------------------
 const ROOM_STATUS_META = {
   vacant: { label:'ว่าง',      short:'ว่าง',    cls:'st-vacant' },   // เขียว
-  booked: { label:'จองแล้ว',   short:'จองแล้ว', cls:'st-booked' }    // แดง
+  booked: { label:'นัดพบแล้ว',   short:'นัดพบแล้ว', cls:'st-booked' }    // แดง
 };
 const ROOM_STATUS_ORDER = ['vacant','booked'];
 const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด
 
 // สถานะเก่าจากเวอร์ชันก่อน (4 แบบ) ให้ยุบมาเหลือ 2 แบบ
-// ห้องที่เคยเป็น "มีผู้เช่าอยู่" หรือ "ปิดปรับปรุง" = ห้องที่จองไม่ได้ -> จองแล้ว
+// ห้องที่เคยเป็น "มีผู้เช่าอยู่" หรือ "ปิดปรับปรุง" = ห้องที่นัดพบไม่ได้ -> นัดพบแล้ว
 // ทำไว้ที่ฝั่งเว็บด้วย เผื่อยังไม่ได้รันไฟล์ fix-v21.sql จะได้ไม่แสดงห้องที่มีคนอยู่ว่าว่าง
 const LEGACY_ROOM_STATUS = { pending:'booked', occupied:'booked', closed:'booked' };
 
@@ -681,7 +680,7 @@ function planVacancyByType(plan){
   return map;
 }
 
-// รายการห้องว่างที่จองได้จริง (เรียงตามชั้น/เลขห้อง) — ใช้เติมตัวเลือกในฟอร์มจอง
+// รายการห้องว่างที่นัดพบได้จริง (เรียงตามชั้น/เลขห้อง) — ใช้เติมตัวเลือกในฟอร์มนัดพบ
 function vacantRoomCells(plan){
   const out = [];
   ((plan && plan.floors) || []).forEach(f=>{
@@ -698,8 +697,8 @@ function vacantRoomCells(plan){
 // วาดผังห้องพักเป็น HTML (ใช้ร่วมกันทั้งหน้าหลังบ้านและหน้าฝั่งนักศึกษา)
 //
 // opts.edit      true = โหมดแก้ไข (มีปุ่มเพิ่มห้อง/เพิ่มแถว/เพิ่มชั้น)
-// opts.bookable  true = กดห้องว่างเพื่อจองได้ (ฝั่งนักศึกษา)
-// opts.myUserId  ใช้ทำเครื่องหมายห้องที่ "คุณจองไว้เอง"
+// opts.bookable  true = กดห้องว่างเพื่อนัดพบได้ (ฝั่งนักศึกษา)
+// opts.myUserId  ใช้ทำเครื่องหมายห้องที่ "คุณนัดพบไว้เอง"
 // ---------------------------------------------------------------------------
 function floorPlanLegendHtml(){
   return `<div class="fp-legend">${ROOM_STATUS_ORDER.map(s=>{
@@ -731,7 +730,7 @@ function planCellHtml(cell, opts){
       ${o.bookable ? `data-roominfo="${escapeAttr(cell.id)}"` : ''}
       title="${escapeAttr(tip)}">
     <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
-    <span class="fp-st">${mine ? 'คุณจองไว้' : meta.short}</span>
+    <span class="fp-st">${mine ? 'คุณนัดพบไว้' : meta.short}</span>
     ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
     ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
     <!-- เอาป้ายไอคอนกล้องบนช่องห้องออกแล้ว (รกตา) — ดูรูปห้องได้ตอนกดเข้าไปในห้อง -->
@@ -767,7 +766,7 @@ function floorPlanHtml(plan, opts){
       ? `<div class="fp-empty">
            <strong>ยังไม่ได้ทำผังห้องพัก</strong>
            <p class="muted">วาดผังหอของคุณได้เลย — บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง
-           นักศึกษาจะเห็นว่าห้องไหนว่าง ห้องไหนมีคนจองแล้ว และกดจองห้องที่ต้องการได้โดยตรง</p>
+           นักศึกษาจะเห็นว่าห้องไหนว่าง ห้องไหนมีคนนัดพบแล้ว และกดนัดพบห้องที่ต้องการได้โดยตรง</p>
            <button type="button" class="btn btn-primary" data-addfloor="1">+ เพิ่มชั้นแรก</button>
          </div>`
       : '';
@@ -810,7 +809,7 @@ function statusPill(status){
   const map = {
     pending: ['status-pending','รอหอติดต่อกลับ/ยืนยันนัด'],
     confirmed: ['status-confirmed','ยืนยันแล้ว รอทำสัญญา'],
-    cancelled: ['status-cancelled','ยกเลิกการจอง']
+    cancelled: ['status-cancelled','ยกเลิกการนัดพบ']
   };
   const [cls,label] = map[status] || ['status-pending', status];
   return `<span class="status-pill ${cls}">${label}</span>`;
@@ -1200,11 +1199,11 @@ async function deleteDorm(id){
   requireSupabase();
   const { error } = await sb.from('dorms').delete().eq('id', id);
   if(error){
-    // ฐานข้อมูลกันไม่ให้ลบหอที่ยังมีใบจอง/ข้อความผูกอยู่
+    // ฐานข้อมูลกันไม่ให้ลบหอที่ยังมีใบนัดพบ/ข้อความผูกอยู่
     // ข้อความดิบที่ได้มาอ่านไม่รู้เรื่องเลยสำหรับคนใช้งาน ต้องแปลให้
     if(/foreign key|violates/i.test(error.message || '')){
       throw new Error(
-        'ลบไม่ได้เพราะหอนี้ยังมีใบจอง/ข้อความผูกอยู่ในฐานข้อมูล — ' +
+        'ลบไม่ได้เพราะหอนี้ยังมีใบนัดพบ/ข้อความผูกอยู่ในฐานข้อมูล — ' +
         'ต้องรันไฟล์ fix-v32.sql ใน Supabase SQL Editor ก่อน (รันครั้งเดียวพอ) แล้วลองลบใหม่'
       );
     }
@@ -1362,8 +1361,8 @@ async function deleteContractImage(path){
 // ---------------------------------------------------------------------------
 // สรุปการเช่า — เจ้าของหอกรอกรายการเองทั้งหมด (ตาราง rentals)
 //
-// ไม่ได้ดึงมาจากใบจองในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้จองผ่านเว็บ
-// (เดินมาที่หอเลย / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบจองอย่างเดียว
+// ไม่ได้ดึงมาจากใบนัดพบในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดพบผ่านเว็บ
+// (เดินมาที่หอเลย / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดพบอย่างเดียว
 // ตารางจะไม่ตรงกับความจริงของหอ
 // ---------------------------------------------------------------------------
 const RENTAL_SETUP_MSG = 'ยังไม่มีตารางสรุปการเช่าในฐานข้อมูล — ไปรันไฟล์ fix-v29.sql ใน Supabase SQL Editor ก่อน';
@@ -1632,10 +1631,10 @@ async function uploadSlip(uid, file){
   const { data } = sb.storage.from('slips').getPublicUrl(path);
   return data.publicUrl;
 }
-// สร้างคำขอจอง แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
+// สร้างคำขอนัดพบ แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
 async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, roomUid, user, profile }){
   requireSupabase();
-  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังจองผ่านเว็บไม่ได้');
+  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังนัดพบผ่านเว็บไม่ได้');
 
   // ขออีเมลเจ้าของหอจากฐานข้อมูล (ฟังก์ชันนี้คืนเฉพาะอีเมลของเจ้าของหอนั้นเท่านั้น)
   let ownerEmail = null;
@@ -1653,14 +1652,14 @@ async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, cont
   }).select().single();
   if(error) throw error;
 
-  // ถ้าเลือกห้องเจาะจงจากผังห้องพัก ให้จองช่องห้องนั้นไว้ด้วย (ห้องจะเปลี่ยนเป็นสีแดง)
-  // ทำหลังจากสร้างใบจองแล้ว เพราะฟังก์ชันฝั่งฐานข้อมูลต้องอ้างอิงเลขที่ใบจอง
+  // ถ้าเลือกห้องเจาะจงจากผังห้องพัก ให้นัดพบช่องห้องนั้นไว้ด้วย (ห้องจะเปลี่ยนเป็นสีแดง)
+  // ทำหลังจากสร้างใบนัดพบแล้ว เพราะฟังก์ชันฝั่งฐานข้อมูลต้องอ้างอิงเลขที่ใบนัดพบ
   if(roomUid){
     try{
       await reserveRoomUnit(data.id, roomUid);
     }catch(err){
-      // จองช่องห้องไม่สำเร็จ (เช่น มีคนตัดหน้าไปแล้ว) — ยกเลิกใบจองที่เพิ่งสร้าง
-      // ไม่งั้นนักศึกษาจะได้ใบจองที่ไม่ผูกกับห้องไหนเลย
+      // นัดพบช่องห้องไม่สำเร็จ (เช่น มีคนตัดหน้าไปแล้ว) — ยกเลิกใบนัดพบที่เพิ่งสร้าง
+      // ไม่งั้นนักศึกษาจะได้ใบนัดพบที่ไม่ผูกกับห้องไหนเลย
       try{ await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id); }catch(e){ console.error(e); }
       throw err;
     }
@@ -1668,13 +1667,13 @@ async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, cont
   return mapBookingRow(data);
 }
 
-// จองช่องห้องเจาะจงในผัง — ฝั่งฐานข้อมูลจะกันไม่ให้จองห้องที่ไม่ว่าง
+// นัดพบช่องห้องเจาะจงในผัง — ฝั่งฐานข้อมูลจะกันไม่ให้นัดพบห้องที่ไม่ว่าง
 async function reserveRoomUnit(bookingId, cellId){
   const { error } = await sb.rpc('book_room_unit', { p_booking_id: bookingId, p_cell_id: cellId });
   if(!error) return;
   if(isMissingFunction(error)){
     console.warn('ยังไม่มีฟังก์ชัน book_room_unit — ไปรันไฟล์ fix-v17.sql ใน Supabase');
-    return;   // ยังจองได้ตามปกติ แค่ผังห้องไม่เปลี่ยนสี
+    return;   // ยังนัดพบได้ตามปกติ แค่ผังห้องไม่เปลี่ยนสี
   }
   throw error;
 }
@@ -1682,7 +1681,7 @@ async function reserveRoomUnit(bookingId, cellId){
 // ---------------------------------------------------------------------------
 // แจ้งเตือนเจ้าของหอทางอีเมล — ยิงไปที่ Vercel Serverless Function /api/notify-booking
 // ถ้ายังไม่ได้ตั้งค่าอีเมล (หรือรันแบบเปิดไฟล์ตรง ๆ) จะคืน {ok:false} เฉย ๆ
-// ไม่ throw error เพราะการจองต้องสำเร็จอยู่ดี แม้เมลจะส่งไม่ออก
+// ไม่ throw error เพราะการนัดพบต้องสำเร็จอยู่ดี แม้เมลจะส่งไม่ออก
 // ---------------------------------------------------------------------------
 async function notifyOwnerByEmail(bookingId){
   try{
@@ -1738,7 +1737,7 @@ async function sendTestNotifyEmail(dormId, channel){
   }
 }
 
-// คำขอจองที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
+// คำขอนัดพบที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
 async function getUnreadBookingCount(ownerId){
   if(!sb || !ownerId) return 0;
   const { count, error } = await sb.from('bookings')
@@ -1748,14 +1747,14 @@ async function getUnreadBookingCount(ownerId){
   return count || 0;
 }
 
-// ทำเครื่องหมายว่าเจ้าของหอเปิดอ่านคำขอจองแล้ว
+// ทำเครื่องหมายว่าเจ้าของหอเปิดอ่านคำขอนัดพบแล้ว
 async function markBookingsRead(ownerId){
   if(!sb || !ownerId) return;
   await sb.from('bookings').update({ owner_read_at: new Date().toISOString() })
     .eq('owner_id', ownerId).is('owner_read_at', null);
 }
 
-// ติดตามคำขอจองใหม่แบบเรียลไทม์ (ฝั่งเจ้าของหอ)
+// ติดตามคำขอนัดพบใหม่แบบเรียลไทม์ (ฝั่งเจ้าของหอ)
 function watchBookings(ownerId, callback){
   if(!sb || !ownerId){ callback([]); return ()=>{}; }
   let active = true;
@@ -1794,7 +1793,7 @@ function isMissingFunction(error){
   return error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
 }
 
-// นักศึกษายกเลิกการจองของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
+// นักศึกษายกเลิกการนัดพบของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
 // (ถ้าหอยืนยันไปแล้ว ฝั่งฐานข้อมูลจะคืนจำนวนห้องว่างให้หออัตโนมัติ)
 async function cancelMyBooking(bookingId){
   requireSupabase();
@@ -1804,8 +1803,8 @@ async function cancelMyBooking(bookingId){
   if(!isMissingFunction(error)) throw error;
 
   // ---- วิธีสำรอง: ฐานข้อมูลยังไม่ได้รันไฟล์ fix-open-listing.sql ----
-  // การจองที่ "ยังรอหอตอบ" ยกเลิกด้วยวิธีนี้ได้ผลถูกต้อง เพราะยังไม่เคยหักห้องว่าง
-  // ส่วนการจองที่ "หอยืนยันแล้ว" ต้องใช้ฟังก์ชันเท่านั้น ไม่งั้นห้องว่างจะไม่ถูกคืน
+  // การนัดพบที่ "ยังรอหอตอบ" ยกเลิกด้วยวิธีนี้ได้ผลถูกต้อง เพราะยังไม่เคยหักห้องว่าง
+  // ส่วนการนัดพบที่ "หอยืนยันแล้ว" ต้องใช้ฟังก์ชันเท่านั้น ไม่งั้นห้องว่างจะไม่ถูกคืน
   console.warn('ยังไม่มีฟังก์ชัน cancel_my_booking ในฐานข้อมูล — ใช้วิธีสำรอง (ควรไปรันไฟล์ fix-open-listing.sql ใน Supabase)');
 
   const user = await waitForSession();
@@ -1820,7 +1819,7 @@ async function cancelMyBooking(bookingId){
     throw new Error(
       'ยกเลิกไม่สำเร็จ — ฐานข้อมูลยังไม่ได้อัปเดต\n' +
       'กรุณาเปิด Supabase → SQL Editor แล้วรันไฟล์ fix-open-listing.sql ก่อน ' +
-      '(การจองที่หอยืนยันแล้วต้องใช้ไฟล์นี้เพื่อคืนห้องว่างให้หอ)'
+      '(การนัดพบที่หอยืนยันแล้วต้องใช้ไฟล์นี้เพื่อคืนห้องว่างให้หอ)'
     );
   }
 }

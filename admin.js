@@ -28,7 +28,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
     if(btn.dataset.sec === 'report'){ renderReport(); }
     if(btn.dataset.sec === 'rental'){ renderRental(); }
     if(btn.dataset.sec === 'overview'){ renderOwnerPage(); }
-    // เปิดแท็บคำขอจอง = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
+    // เปิดแท็บคำขอนัดพบ = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
     if(btn.dataset.sec === 'bookings'){
       markBookingsRead(ME && ME.uid).then(refreshBookingBadge).catch(console.error);
     }
@@ -55,7 +55,7 @@ async function renderStats(){
 
 // ===========================================================================
 // หน้าหลักของเจ้าของหอ — "หน้าหอพักของฉัน"
-// จัดหน้าคล้ายหน้าโปรไฟล์ที่พักในเว็บจองโรงแรม (รูปปก + แกลเลอรี + ข้อมูลหอ)
+// จัดหน้าคล้ายหน้าโปรไฟล์ที่พักในเว็บหาที่พัก (รูปปก + แกลเลอรี + ข้อมูลหอ)
 // แต่ทุกส่วนแก้ไขได้จากหน้านี้เลย ไม่ต้องเข้าฟอร์มยาว ๆ
 // ===========================================================================
 
@@ -174,10 +174,39 @@ async function renderOwnerPage(){
         </div>
       </div>
       <div class="op-head-actions">
-        <button class="btn btn-primary btn-sm" id="opEdit">✏️ แก้ไขข้อมูลหอ</button>
+        <button class="btn btn-primary btn-sm" id="opEdit">✏️ เพิ่มหรือแก้ไข</button>
         <button class="btn btn-sm btn-reject" id="opDelete">🗑 ลบหอนี้</button>
       </div>
     </div>
+
+    <!-- ---------- ชื่อหอ / ประเภท / ราคาเริ่มต้น (แก้ในการ์ดนี้เลย) ---------- -->
+    <section class="op-card op-inline-card" id="opBasicEdit" style="display:none">
+      <div class="opc-head">
+        <h3>ข้อมูลพื้นฐานของหอ</h3>
+        <button type="button" class="btn btn-ghost btn-sm" data-closeinline="opBasicEdit">✕ ปิด</button>
+      </div>
+      <div class="form-field"><label>ชื่อหอพัก</label><input type="text" id="opfName" value="${escapeAttr(d.name||'')}"></div>
+      <div class="form-field"><label>ประเภทหอพัก</label>
+        <select id="opfHallType">
+          ${['หอหญิงล้วน','หอชายล้วน','หอรวม'].map(t=>
+            `<option value="${t}" ${d.hallType===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>ราคาเริ่มต้น (บาท/เดือน)</label>
+        <input type="number" id="opfBasePrice" min="0" step="50" placeholder="เช่น 2500"
+               value="${(minPrice(d)!=null && minPrice(d)>0) ? minPrice(d) : ''}">
+        <div class="form-hint">ราคาห้องที่ถูกที่สุดของหอ — เว้นว่างได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"</div>
+      </div>
+      <div class="form-field">
+        <label><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</label>
+        <div class="form-hint" style="margin-left:22px">ติ๊กเมื่อตรวจสอบราคา ห้องว่าง และช่องทางติดต่อแล้ว (ต้องมีรูปและราคาก่อน)</div>
+      </div>
+      <div class="op-actions">
+        <button class="btn btn-primary btn-sm" id="opBasicSave">บันทึก</button>
+        <button class="btn btn-ghost btn-sm" data-closeinline="opBasicEdit">ยกเลิก</button>
+      </div>
+    </section>
 
     <div class="op-grid">
       <!-- ---------- คำอธิบายหอพัก (แก้ในหน้านี้ได้เลย) ---------- -->
@@ -195,10 +224,33 @@ async function renderOwnerPage(){
 
       <!-- ---------- สิ่งอำนวยความสะดวก ---------- -->
       <section class="op-card">
-        <h3>สิ่งอำนวยความสะดวก</h3>
-        ${facs.length
-          ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
-          : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "แก้ไขข้อมูลหอ" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
+        <div class="opc-head">
+          <h3>สิ่งอำนวยความสะดวก</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="opFacToggle" title="เพิ่มหรือแก้ไข">＋ เพิ่มหรือแก้ไข</button>
+        </div>
+        <div id="opFacView">
+          ${facs.length
+            ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
+            : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "＋ เพิ่มหรือแก้ไข" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
+        </div>
+        <div class="op-inline" id="opFacEdit" style="display:none">
+          <div class="fac-pick">
+            ${Object.keys(FACILITY_META).map(code=>`
+              <label class="fac-opt">
+                <input type="checkbox" class="opFac" value="${code}" ${facs.includes(code)?'checked':''}>
+                <span>${FACILITY_META[code].icon} ${escapeHtml(FACILITY_META[code].label)}</span>
+              </label>`).join('')}
+          </div>
+          <div class="ef-row" style="margin-top:10px">
+            <input type="text" id="opFacOther" placeholder="อื่น ๆ เช่น ตู้กดน้ำดื่ม, ลิฟต์, เครื่องทำน้ำอุ่น">
+            <button type="button" class="btn btn-outline btn-sm" id="opFacAdd">+ เพิ่ม</button>
+          </div>
+          <div class="ef-chips" id="opFacChips"></div>
+          <div class="op-actions">
+            <button class="btn btn-primary btn-sm" id="opFacSave">บันทึก</button>
+            <button class="btn btn-ghost btn-sm" id="opFacCancel">ยกเลิก</button>
+          </div>
+        </div>
       </section>
 
       <!-- ---------- ห้องพักและราคา ----------
@@ -234,21 +286,36 @@ async function renderOwnerPage(){
         </p>
         ${hasLocation(d) ? '' : `<p class="form-hint" style="color:#946A0E">
           ⚠️ หอนี้ยังไม่ได้ปักหมุด — ระบบจึงคิดระยะทางให้ไม่ได้
-          กด "แก้ไขข้อมูลหอ" ปักหมุดหอก่อน แล้วค่อยมาเพิ่มร้านรอบ ๆ</p>`}
+          ปักหมุดหอในการ์ด "ช่องทางติดต่อ" ก่อน แล้วค่อยมาเพิ่มร้านรอบ ๆ</p>`}
         <div class="ef-row">
           <select id="opNearCat">
             ${NEARBY_CAT_ORDER.map(c=>`<option value="${c}">${NEARBY_CATS[c].icon} ${escapeHtml(NEARBY_CATS[c].label)}</option>`).join('')}
           </select>
           <input type="text" id="opNearName" placeholder="ชื่อร้าน เช่น 7-Eleven หน้าหอ">
-          <button type="button" class="btn btn-outline btn-sm" id="opNearFind">🔍 หาบนแผนที่</button>
+          <button type="button" class="btn btn-outline btn-sm" id="opNearPick">🗺️ เลือกตำแหน่งบนแผนที่</button>
           <button type="button" class="btn btn-outline btn-sm" id="opNearAdd">+ เพิ่มเอง</button>
         </div>
         <div class="form-hint">
-          กด <strong>"หาบนแผนที่"</strong> แล้วเลือกร้านจากรายการ —
-          ระบบจะคิดระยะทางจากหอให้เองเป็นกิโลเมตร (เหมือนระยะหอ–มหาวิทยาลัย)<br>
-          ถ้าหาไม่เจอ กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อร้านไว้ก่อนได้
+          พิมพ์ชื่อร้าน แล้วกด <strong>"เลือกตำแหน่งบนแผนที่"</strong>
+          แตะตรงตัวร้านบนแผนที่เหมือนตอนปักหมุดหอ —
+          ระบบจะคิดระยะจากหอให้เองเป็นกิโลเมตร (เหมือนระยะหอ–มหาวิทยาลัย)<br>
+          ไม่อยากปักหมุดก็กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อร้านไว้ก่อนได้
         </div>
-        <div class="loc-results" id="opNearResults" style="display:none;margin-top:8px"></div>
+
+        <!-- แผนที่เลือกร้าน — ทำงานเหมือนแผนที่ปักหมุดหอ -->
+        <div class="near-pick" id="opNearPickBox" style="display:none">
+          <div class="loc-map-wrap" style="margin-top:10px">
+            <div id="opNearMap" class="loc-map"></div>
+            <div class="loc-map-tools">
+              <button type="button" class="btn btn-sm btn-ghost" id="opNearHome">🏠 กลับไปที่หอ</button>
+            </div>
+          </div>
+          <div class="loc-state" id="opNearState"></div>
+          <div class="op-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="opNearSave" disabled>+ เพิ่มร้านนี้</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="opNearCancel">ยกเลิก</button>
+          </div>
+        </div>
         <div id="opNearList" style="margin-top:12px">
           ${hasNearby(d)
             ? nearbyPlacesHtml(d.nearby, { edit:true, dorm:d })
@@ -258,19 +325,67 @@ async function renderOwnerPage(){
 
       <!-- ---------- ช่องทางติดต่อ ---------- -->
       <section class="op-card">
-        <h3>ช่องทางติดต่อที่นักศึกษาเห็น</h3>
+        <div class="opc-head">
+          <h3>ช่องทางติดต่อที่นักศึกษาเห็น</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="opConToggle">✏️ เพิ่มหรือแก้ไข</button>
+        </div>
         <div class="op-loc" id="opLoc">
           ${hasLocation(d)
             ? `<span class="ok">📍 ปักหมุดแล้ว · ${escapeHtml(locationSummary(d))}</span>
                <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทางจากมอ</a>`
-            : `<span class="warn">📍 ยังไม่ได้ปักหมุดหอ — กด "แก้ไขข้อมูลหอ" แล้ววางลิงก์ Google Maps
+            : `<span class="warn">📍 ยังไม่ได้ปักหมุดหอ — กด "เพิ่มหรือแก้ไข" แล้วแตะตำแหน่งหอบนแผนที่
                นักศึกษาจะได้กดนำทางมาหอได้ และเว็บจะบอกได้ว่าหอห่างมอเท่าไหร่</span>`}
         </div>
-        <div class="op-contact">
-          <div><span class="k">เบอร์โทร</span> ${d.phone ? escapeHtml(d.phone) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
-          <div><span class="k">LINE</span> ${d.lineId ? escapeHtml(d.lineId) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
-          <div><span class="k">Facebook</span> ${d.facebook ? escapeHtml(d.facebook) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
-          <div><span class="k">อีเมลรับแจ้งเตือน</span> ${d.contactEmail ? escapeHtml(d.contactEmail) : '<span class="muted">ใช้อีเมลที่สมัครสมาชิก</span>'}</div>
+        <div id="opConView">
+          <div class="op-contact">
+            <div><span class="k">เบอร์โทร</span> ${d.phone ? escapeHtml(d.phone) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+            <div><span class="k">LINE</span> ${d.lineId ? escapeHtml(d.lineId) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+            <div><span class="k">Facebook</span> ${d.facebook ? escapeHtml(d.facebook) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
+            <div><span class="k">อีเมลรับแจ้งเตือน</span> ${d.contactEmail ? escapeHtml(d.contactEmail) : '<span class="muted">ใช้อีเมลที่สมัครสมาชิก</span>'}</div>
+          </div>
+        </div>
+
+        <div class="op-inline" id="opConEdit" style="display:none">
+          <div class="form-field"><label>เบอร์โทรหอพัก</label>
+            <input type="tel" id="opfPhone" placeholder="08x-xxx-xxxx" value="${escapeAttr(d.phone||'')}"></div>
+          <div class="form-field"><label>LINE ID หรือลิงก์ LINE</label>
+            <input type="text" id="opfLine" placeholder="@dormcru หรือ https://line.me/..." value="${escapeAttr(d.lineId||'')}"></div>
+          <div class="form-field"><label>ลิงก์เพจ Facebook</label>
+            <input type="text" id="opfFacebook" placeholder="https://facebook.com/..." value="${escapeAttr(d.facebook||'')}"></div>
+          <div class="form-field"><label>📧 อีเมลรับแจ้งเตือนการนัดพบ</label>
+            <input type="email" id="opfEmail" placeholder="เช่น dorm.banfai@gmail.com" value="${escapeAttr(d.contactEmail||'')}">
+            <div class="form-hint">เว้นว่างได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน</div>
+          </div>
+
+          <!-- ตำแหน่งหอบนแผนที่ — ใช้แผนที่เดียวกับตอนเลือกร้านรอบหอ -->
+          <div class="form-field">
+            <label>📍 ตำแหน่งหอพักบนแผนที่</label>
+            <p class="form-hint" style="margin-top:0">
+              <strong>แตะบนแผนที่ตรงหอของคุณ</strong> หรือลากหมุดไปวาง —
+              หมุดนี้คือจุดที่นักศึกษาจะกดนำทางมา
+            </p>
+            <div class="loc-map-wrap">
+              <div id="opLocMap" class="loc-map"></div>
+              <div class="loc-map-tools">
+                <button type="button" class="btn btn-sm btn-primary" id="opLocHere">📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="opLocCrru">🎓 ไปที่มหาวิทยาลัย</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="opLocClear">ล้างหมุด</button>
+              </div>
+            </div>
+            <div class="loc-state" id="opLocState"></div>
+            <details class="loc-adv">
+              <summary>วิธีอื่น: วางลิงก์ Google Maps</summary>
+              <div class="ef-row" style="margin-top:8px">
+                <input type="text" id="opfMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
+                <button type="button" class="btn btn-outline btn-sm" id="opLocLink">ใช้ลิงก์นี้</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="op-actions">
+            <button class="btn btn-primary btn-sm" id="opConSave">บันทึก</button>
+            <button class="btn btn-ghost btn-sm" id="opConCancel">ยกเลิก</button>
+          </div>
         </div>
       </section>
     </div>
@@ -282,14 +397,14 @@ async function renderOwnerPage(){
           <h3>ผังห้องพัก</h3>
           <p class="muted" style="font-size:.85rem;margin:0">
             บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง — นักศึกษาจะเห็นผังนี้ในหน้าหอของคุณ
-            และกดจองห้องที่ต้องการได้โดยตรง กดที่ช่องห้องเพื่อแก้เลขห้อง ราคา และสถานะ
+            และกดนัดพบห้องที่ต้องการได้โดยตรง กดที่ช่องห้องเพื่อแก้เลขห้อง ราคา และสถานะ
           </p>
         </div>
         ${(()=>{ const s = planSummary(d.floorPlan); return s.total ? `
           <div class="op-plan-sum">
             <span><strong>${s.total}</strong> ห้อง</span>
             <span class="st-vacant-txt">ว่าง <strong>${s.vacant}</strong></span>
-            <span class="st-booked-txt">จองแล้ว <strong>${s.booked}</strong></span>
+            <span class="st-booked-txt">นัดพบแล้ว <strong>${s.booked}</strong></span>
           </div>` : ''; })()}
       </div>
       <div id="opPlan">${floorPlanHtml(d.floorPlan, { edit:true })}</div>
@@ -335,14 +450,113 @@ async function renderOwnerPage(){
   const addDormBtn = document.getElementById('opAddDorm');
   if(addDormBtn) addDormBtn.addEventListener('click', ()=> openEdit(null));
 
+  // ---- แก้ไขข้อมูลพื้นฐาน (ชื่อ / ประเภท / ราคาเริ่มต้น) ในหน้านี้เลย ----
+  // เดิมปุ่มนี้กางฟอร์มใหญ่ #editPanel ออกมาทั้งแผง ซึ่งเจ้าของหอบอกว่าเหมือน
+  // "เพิ่มหน้าใหม่ขึ้นมาอีกหน้า" — ตอนนี้แก้ทีละการ์ดในหน้าหอของตัวเองได้เลย
+  // (#editPanel เหลือไว้ใช้ตอน "เพิ่มหอใหม่" และตอนผู้ดูแลระบบแก้หอของคนอื่นเท่านั้น)
   const editBtn = document.getElementById('opEdit');
-  if(editBtn) editBtn.addEventListener('click', ()=> openEdit(d));
+  const basicBox = document.getElementById('opBasicEdit');
+  const toggleInline = (box, on)=>{
+    if(!box) return;
+    const show = (on == null) ? (box.style.display === 'none') : !!on;
+    box.style.display = show ? 'block' : 'none';
+    if(show) setTimeout(()=> box.scrollIntoView({ behavior:'smooth', block:'center' }), 20);
+    return show;
+  };
+  if(editBtn) editBtn.addEventListener('click', ()=> toggleInline(basicBox));
+  box.querySelectorAll('[data-closeinline]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const t = document.getElementById(b.dataset.closeinline);
+      if(t) t.style.display = 'none';
+    });
+  });
+
+  const basicSave = document.getElementById('opBasicSave');
+  if(basicSave) basicSave.addEventListener('click', async ()=>{
+    const name = document.getElementById('opfName').value.trim();
+    if(!name){ toast('กรุณาใส่ชื่อหอพัก','error'); return; }
+    const raw = document.getElementById('opfBasePrice').value.trim();
+    const basePrice = raw === '' ? 0 : +raw;
+    if(raw !== '' && (isNaN(basePrice) || basePrice < 0)){
+      toast('ราคาเริ่มต้นต้องเป็นตัวเลขที่ไม่ติดลบ','error'); return;
+    }
+    // เก็บราคาเริ่มต้นเป็นรายการ 'base' เหมือนเดิม แต่ไม่ทับประเภทห้องเดิมที่หอเคยกรอกไว้
+    const others = roomTypes(d);
+    const rooms = basePrice > 0
+      ? [{ code:BASE_PRICE_CODE, label:'ราคาเริ่มต้น', price:basePrice, total:0, vacant:0 }, ...others]
+      : others;
+    const verified = document.getElementById('opfVerified').checked;
+    if(verified && !(d.images||[]).length){ toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return; }
+    if(verified && basePrice <= 0 && !others.length){ toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาเริ่มต้นก่อน','error'); return; }
+    basicSave.disabled = true;
+    try{
+      await updateDorm(d.id, { ...d, name, hallType: document.getElementById('opfHallType').value, rooms, verified });
+      toast('บันทึกข้อมูลหอแล้ว','success');
+      await renderOwnerPage(); renderStats(); renderListings();
+    }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||''),'error'); }
+    finally{ basicSave.disabled = false; }
+  });
+
+  // ---- สิ่งอำนวยความสะดวก: กด "＋ เพิ่มหรือแก้ไข" แล้วติ๊กในการ์ดนี้เลย ----
+  let facCustom = (d.facilities||[]).filter(isCustomFacility);
+  const facChips = ()=>{
+    const cbox = document.getElementById('opFacChips');
+    if(!cbox) return;
+    cbox.innerHTML = facCustom.map(c=>`
+      <span class="ef-chip">${escapeHtml(c)}
+        <button type="button" data-rmfac2="${escapeAttr(c)}" title="ลบ">✕</button>
+      </span>`).join('');
+    cbox.querySelectorAll('[data-rmfac2]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        facCustom = facCustom.filter(x => x !== b.dataset.rmfac2);
+        facChips();
+      });
+    });
+  };
+  facChips();
+  const facEditBox = document.getElementById('opFacEdit');
+  document.getElementById('opFacToggle')?.addEventListener('click', ()=>{
+    const on = toggleInline(facEditBox);
+    const view = document.getElementById('opFacView');
+    if(view) view.style.display = on ? 'none' : 'block';
+  });
+  const closeFacEdit = ()=>{
+    if(facEditBox) facEditBox.style.display = 'none';
+    const view = document.getElementById('opFacView');
+    if(view) view.style.display = 'block';
+  };
+  document.getElementById('opFacCancel')?.addEventListener('click', closeFacEdit);
+  const addFacCustom = ()=>{
+    const input = document.getElementById('opFacOther');
+    const text = (input.value||'').trim().slice(0,40);
+    if(!text) return;
+    if(FACILITY_META[text]){ toast('รายการนี้มีในช่องติ๊กด้านบนแล้ว','error'); input.value=''; return; }
+    if(facCustom.some(x => x.toLowerCase() === text.toLowerCase())){
+      toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return;
+    }
+    facCustom.push(text); input.value = ''; facChips();
+  };
+  document.getElementById('opFacAdd')?.addEventListener('click', addFacCustom);
+  document.getElementById('opFacOther')?.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); addFacCustom(); }
+  });
+  const facSave = document.getElementById('opFacSave');
+  if(facSave) facSave.addEventListener('click', async ()=>{
+    const checked = Array.from(document.querySelectorAll('.opFac:checked')).map(cb=>cb.value);
+    facSave.disabled = true;
+    try{
+      await updateDorm(d.id, { ...d, facilities: checked.concat(facCustom) });
+      toast('บันทึกสิ่งอำนวยความสะดวกแล้ว','success');
+      await renderOwnerPage(); renderStats(); renderListings();
+    }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||''),'error'); }
+    finally{ facSave.disabled = false; }
+  });
 
   // ลบหอของตัวเอง (ย้ายมาจากหน้า "จัดการห้องพัก" ที่ถูกเอาออกแล้ว)
   const delBtn = document.getElementById('opDelete');
   if(delBtn) delBtn.addEventListener('click', async ()=>{
     if(!confirm(`ลบหอ "${d.name}" ออกจากระบบ?\n\n` +
-                'ผังห้อง รูปภาพ รีวิว และประวัติการจองของหอนี้จะหายไปทั้งหมด\nลบแล้วกู้คืนไม่ได้')) return;
+                'ผังห้อง รูปภาพ รีวิว และประวัติการนัดพบของหอนี้จะหายไปทั้งหมด\nลบแล้วกู้คืนไม่ได้')) return;
     if(!confirm('ยืนยันอีกครั้ง — ลบหอนี้ถาวรใช่ไหม')) return;
     try{
       await deleteDorm(d.id);
@@ -427,7 +641,7 @@ async function renderOwnerPage(){
   bindPlanEditor(box, d);
 
   // รอบ ๆ หอมีอะไรบ้าง — เพิ่ม/ลบรายการ
-  // pin = {lat,lng} ถ้ามาจากการค้นหาบนแผนที่ (ระบบคิดระยะให้เอง)
+  // pin = {lat,lng} ถ้าเลือกตำแหน่งบนแผนที่ไว้ (ระบบคิดระยะให้เอง)
   const addNear = async (pin)=>{
     const name = document.getElementById('opNearName').value.trim();
     if(!name){ toast('กรุณาใส่ชื่อร้านหรือสถานที่','error'); return; }
@@ -441,66 +655,85 @@ async function renderOwnerPage(){
       lng: pin ? pin.lng : null
     });
     document.getElementById('opNearName').value = '';
-    const res = document.getElementById('opNearResults');
-    if(res){ res.style.display = 'none'; res.innerHTML = ''; }
     await saveNearby(d, list, pin ? 'เพิ่มแล้ว — ระบบคิดระยะทางให้เรียบร้อย' : 'เพิ่มแล้ว');
   };
   document.getElementById('opNearAdd')?.addEventListener('click', ()=> addNear(null));
 
-  // ---- หาร้านบนแผนที่แล้วเก็บพิกัดไว้ ----
-  const findNear = async ()=>{
-    const box = document.getElementById('opNearResults');
-    const btn = document.getElementById('opNearFind');
-    const q = document.getElementById('opNearName').value.trim();
-    if(!box) return;
-    if(q.length < 2){
-      box.style.display = 'block';
-      box.innerHTML = '<div class="lr-msg">พิมพ์ชื่อร้านอย่างน้อย 2 ตัวอักษรก่อน</div>';
-      return;
-    }
-    if(btn){ btn.disabled = true; btn.textContent = 'กำลังหา...'; }
-    box.style.display = 'block';
-    box.innerHTML = '<div class="lr-msg">กำลังค้นหา...</div>';
-    try{
-      const list = await searchPlace(q);
-      if(!list.length){
-        box.innerHTML = `<div class="lr-msg">ไม่พบร้านชื่อนี้บนแผนที่ —
-          กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อไว้ก่อนได้</div>`;
-        return;
-      }
-      // เรียงตามระยะห่างจาก "หอ" ไม่ใช่จากมอ เพราะกำลังหาร้านรอบหอ
-      const sorted = hasLocation(d)
-        ? list.slice().sort((a,b)=> haversineKm(a,d) - haversineKm(b,d))
-        : list;
-      box.innerHTML = sorted.map((p,i)=>{
-        const km = hasLocation(d) ? haversineKm(p, d) : null;
-        return `<button type="button" class="lr-item" data-np="${i}">
-          <span class="lr-name">${escapeHtml(p.short || p.name)}</span>
-          <span class="lr-sub">${escapeHtml(p.name)}</span>
-          ${km != null ? `<span class="lr-dist">ห่างจากหอ ${escapeHtml(distanceLabel(km))}</span>` : ''}
-        </button>`;
-      }).join('');
-      box.querySelectorAll('[data-np]').forEach(b=>{
-        b.addEventListener('click', ()=>{
-          const p = sorted[+b.dataset.np];
-          if(!p) return;
-          // ใช้ชื่อที่ค้นเจอ ถ้าเจ้าของหอยังไม่ได้พิมพ์ชื่อเอง
-          const nameBox = document.getElementById('opNearName');
-          if(p.short) nameBox.value = p.short.slice(0,60);
-          addNear({ lat:p.lat, lng:p.lng });
-        });
-      });
-    }catch(err){
-      console.error(err);
-      box.innerHTML = `<div class="lr-msg">${escapeHtml(err.message || 'ค้นหาไม่สำเร็จ')}</div>`;
-    }finally{
-      if(btn){ btn.disabled = false; btn.textContent = '🔍 หาบนแผนที่'; }
+  // ---- เลือกตำแหน่งร้านบนแผนที่ ----
+  //
+  // ของเดิมเป็นช่อง "หาบนแผนที่" ที่ส่งชื่อร้านไปค้นทั้งประเทศ
+  // พิมพ์ "7-Eleven" ทีนึงได้สาขาเพชรบูรณ์ห่าง 406 กม. ขึ้นมาให้เลือกด้วย ซึ่งไม่ช่วยอะไร
+  // ตอนนี้เปลี่ยนเป็น "แตะเลือกจุดบนแผนที่" แบบเดียวกับตอนปักหมุดหอ
+  // เพราะเจ้าของหอรู้อยู่แล้วว่าร้านอยู่ตรงไหน และเห็นกับตาว่าหมุดลงถูกที่
+  const nearPickBox = document.getElementById('opNearPickBox');
+  const nearSaveBtn = document.getElementById('opNearSave');
+  const dormPoint = hasLocation(d) ? { lat:d.lat, lng:d.lng } : null;
+  let nearPin = null;
+
+  const setNearState = (msg, kind)=>{
+    const el = document.getElementById('opNearState');
+    if(!el) return;
+    el.className = 'loc-state' + (kind ? ' ' + kind : '');
+    el.innerHTML = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  };
+
+  const onNearPick = (lat, lng)=>{
+    nearPin = { lat, lng };
+    if(nearSaveBtn) nearSaveBtn.disabled = false;
+    if(dormPoint){
+      const km = haversineKm(nearPin, dormPoint);
+      setNearState(`✓ เลือกจุดแล้ว — ห่างจากหอ <strong>${distanceLabel(km)}</strong>
+        · ลากหมุดปรับได้ แล้วกด "+ เพิ่มร้านนี้"`, km <= 2 ? 'ok' : 'warn');
+    }else{
+      setNearState('✓ เลือกจุดแล้ว — แต่หอยังไม่ได้ปักหมุด ระบบจึงยังคิดระยะให้ไม่ได้','warn');
     }
   };
-  document.getElementById('opNearFind')?.addEventListener('click', findNear);
+
+  const openNearPick = ()=>{
+    if(!nearPickBox) return;
+    nearPickBox.style.display = 'block';
+    nearPin = null;
+    if(nearSaveBtn) nearSaveBtn.disabled = true;
+    const ok = pickMap('opNearMap', {
+      center: dormPoint || CRRU_CENTER,
+      zoom: 17,
+      pinKind: 'shop',
+      ref: dormPoint,
+      onPick: onNearPick
+    });
+    if(!ok){
+      setNearState('⚠️ แผนที่โหลดไม่ขึ้น — กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อร้านไว้ก่อนได้','warn');
+      return;
+    }
+    setNearState(dormPoint
+      ? 'ซูมเข้าไปแล้ว<strong>แตะตรงตัวร้าน</strong> — บนแผนที่จะเห็นชื่อร้านอยู่แล้ว หมุด 🏠 คือหอของคุณ'
+      : 'แตะตรงตัวร้านบนแผนที่ (หอนี้ยังไม่ได้ปักหมุด ระบบจึงยังคิดระยะให้ไม่ได้)');
+    setTimeout(()=> nearPickBox.scrollIntoView({ behavior:'smooth', block:'center' }), 40);
+  };
+  const closeNearPick = ()=>{
+    if(nearPickBox) nearPickBox.style.display = 'none';
+    nearPin = null;
+  };
+  document.getElementById('opNearPick')?.addEventListener('click', ()=>{
+    if(nearPickBox && nearPickBox.style.display === 'block') closeNearPick();
+    else openNearPick();
+  });
+  document.getElementById('opNearCancel')?.addEventListener('click', closeNearPick);
+  document.getElementById('opNearHome')?.addEventListener('click', ()=>{
+    const S = PICK_MAPS['opNearMap'];
+    if(S && S.map) S.map.setView([(dormPoint||CRRU_CENTER).lat, (dormPoint||CRRU_CENTER).lng], 17);
+  });
+  if(nearSaveBtn) nearSaveBtn.addEventListener('click', async ()=>{
+    if(!nearPin){ toast('แตะบนแผนที่เพื่อเลือกตำแหน่งร้านก่อน','error'); return; }
+    if(!document.getElementById('opNearName').value.trim()){
+      toast('กรุณาใส่ชื่อร้านในช่องด้านบนก่อน','error'); return;
+    }
+    await addNear(nearPin);
+  });
   document.getElementById('opNearName')?.addEventListener('keydown', (e)=>{
-    // Enter = ค้นหาบนแผนที่ (วิธีที่แนะนำ) ไม่ใช่เพิ่มเองทันที
-    if(e.key === 'Enter'){ e.preventDefault(); findNear(); }
+    // Enter = เปิดแผนที่ให้เลือกจุด (วิธีที่แนะนำ) ไม่ใช่เพิ่มเองทันที
+    if(e.key === 'Enter'){ e.preventDefault(); openNearPick(); }
   });
   box.querySelectorAll('[data-rmnear]').forEach(b=>{
     b.addEventListener('click', async ()=>{
@@ -508,6 +741,96 @@ async function renderOwnerPage(){
       const list = (d.nearby || []).filter((_,idx)=> idx !== i);
       await saveNearby(d, list, 'ลบแล้ว');
     });
+  });
+
+  // ---- ช่องทางติดต่อ + ตำแหน่งหอ: แก้ในการ์ดนี้เลย ----
+  const conEditBox = document.getElementById('opConEdit');
+  let conPin = dormPoint ? { ...dormPoint } : null;
+
+  const setConState = (msg, kind)=>{
+    const el = document.getElementById('opLocState');
+    if(!el) return;
+    el.className = 'loc-state' + (kind ? ' ' + kind : '');
+    el.innerHTML = msg || (conPin
+      ? `📍 ปักหมุดแล้ว — <strong>${locationSummary(conPin)}</strong>
+         <a href="https://www.google.com/maps?q=${conPin.lat},${conPin.lng}" target="_blank" rel="noopener">เปิดหมุดนี้ใน Google Maps เพื่อตรวจสอบ</a>`
+      : 'ยังไม่ได้ปักหมุด — แตะบนแผนที่ตรงหอของคุณ');
+    el.style.display = 'block';
+  };
+  const setConPin = (lat, lng, opts)=>{
+    conPin = (lat == null) ? null : { lat:+(+lat).toFixed(6), lng:+(+lng).toFixed(6) };
+    setPick('opLocMap', conPin ? conPin.lat : null, conPin ? conPin.lng : null);
+    if(conPin && opts && opts.pan){
+      const S = PICK_MAPS['opLocMap'];
+      if(S && S.map) S.map.setView([conPin.lat, conPin.lng], Math.max(S.map.getZoom(), 17));
+    }
+    setConState((opts && opts.msg) || '', (opts && opts.kind) || '');
+  };
+
+  const openConEdit = ()=>{
+    const on = toggleInline(conEditBox);
+    const view = document.getElementById('opConView');
+    if(view) view.style.display = on ? 'none' : 'block';
+    if(!on) return;
+    const ok = pickMap('opLocMap', {
+      center: conPin || CRRU_CENTER,
+      zoom: conPin ? 17 : 15,
+      pinKind: 'dorm',
+      ref: CRRU_CENTER,
+      refKind: 'crru',
+      refLabel: 'มหาวิทยาลัยราชภัฏเชียงราย',
+      pin: conPin,
+      onPick: (lat,lng)=>{ conPin = {lat,lng}; setConState('', 'ok'); }
+    });
+    if(!ok) setConState('⚠️ แผนที่โหลดไม่ขึ้น — ใช้ช่อง "วางลิงก์ Google Maps" ด้านล่างแทนได้','warn');
+    else setConState('');
+  };
+  document.getElementById('opConToggle')?.addEventListener('click', openConEdit);
+  const closeConEdit = ()=>{
+    if(conEditBox) conEditBox.style.display = 'none';
+    const view = document.getElementById('opConView');
+    if(view) view.style.display = 'block';
+    stopOwnerGps();
+  };
+  document.getElementById('opConCancel')?.addEventListener('click', closeConEdit);
+
+  document.getElementById('opLocCrru')?.addEventListener('click', ()=>{
+    const S = PICK_MAPS['opLocMap'];
+    if(S && S.map) S.map.setView([CRRU_CENTER.lat, CRRU_CENTER.lng], 16);
+  });
+  document.getElementById('opLocClear')?.addEventListener('click', ()=>{
+    setConPin(null, null, { msg:'ล้างหมุดแล้ว — แตะบนแผนที่เพื่อปักใหม่' });
+  });
+  document.getElementById('opLocLink')?.addEventListener('click', ()=>{
+    const text = document.getElementById('opfMapLink').value.trim();
+    const p = parseLatLng(text);
+    if(!p){ setConState('กรุณาวางลิงก์ Google Maps ของหอก่อน','warn'); return; }
+    if(p.error){ setConState('⚠️ ' + p.error,'warn'); return; }
+    setConPin(p.lat, p.lng, { pan:true, msg:'✓ ใช้ตำแหน่งจากลิงก์แล้ว — ตรวจดูว่าหมุดตรงหอไหม ถ้าไม่ตรงลากปรับได้', kind:'ok' });
+  });
+  document.getElementById('opLocHere')?.addEventListener('click', ()=>{
+    ownerGpsPick((lat,lng,acc,msg,kind)=> setConPin(lat, lng, { pan:true, msg, kind }),
+                 (msg,kind)=> setConState(msg, kind));
+  });
+
+  const conSave = document.getElementById('opConSave');
+  if(conSave) conSave.addEventListener('click', async ()=>{
+    conSave.disabled = true;
+    try{
+      await updateDorm(d.id, {
+        ...d,
+        phone:        document.getElementById('opfPhone').value.trim(),
+        lineId:       document.getElementById('opfLine').value.trim(),
+        facebook:     document.getElementById('opfFacebook').value.trim(),
+        contactEmail: document.getElementById('opfEmail').value.trim(),
+        lat: conPin ? conPin.lat : null,
+        lng: conPin ? conPin.lng : null
+      });
+      stopOwnerGps();
+      toast('บันทึกช่องทางติดต่อแล้ว','success');
+      await renderOwnerPage(); renderStats(); renderListings();
+    }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||''),'error'); }
+    finally{ conSave.disabled = false; }
   });
 
   // ผู้ดูแลระบบลบรีวิวที่ไม่เหมาะสม
@@ -851,11 +1174,11 @@ function updateRoomStatusHint(status, cell){
   if(!el) return;
   if(status === 'booked'){
     el.innerHTML = (cell && cell.bookingId)
-      ? 'ห้องนี้มีนักศึกษากดจองไว้ รอคุณกด <strong>"ยืนยันรับจอง"</strong> ในเมนู "คำขอจองห้อง"'
+      ? 'ห้องนี้มีนักศึกษากดนัดพบไว้ รอคุณกด <strong>"ยืนยันรับนัด"</strong> ในเมนู "คำขอนัดพบ"'
       : 'ห้องไม่ว่าง — ใช้กับห้องที่มีคนอยู่แล้ว หรือห้องที่ยังไม่ปล่อยเช่า เช่น กำลังซ่อม ' +
-        'นักศึกษาจะเห็นเป็นสีแดงและกดจองไม่ได้';
+        'นักศึกษาจะเห็นเป็นสีแดงและกดนัดพบไม่ได้';
   }else{
-    el.textContent = 'ห้องว่างพร้อมให้เช่า นักศึกษากดจองห้องนี้ได้จากผังในหน้าหอของคุณ';
+    el.textContent = 'ห้องว่างพร้อมให้เช่า นักศึกษากดนัดพบห้องนี้ได้จากผังในหน้าหอของคุณ';
   }
 }
 
@@ -882,11 +1205,11 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.amen  = editRoomAmen.slice(0,20);
   target.cell.photos = editRoomPhotos.slice(0, MAX_ROOM_PHOTOS);
 
-  // เปลี่ยนสถานะจาก "มีคนจองแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบจองเดิม
+  // เปลี่ยนสถานะจาก "มีคนนัดพบแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบนัดพบเดิม
   if(newStatus !== target.cell.status){
     if(target.cell.status === 'booked' && target.cell.bookingId){
-      if(!confirm('ห้องนี้มีนักศึกษากดจองไว้อยู่\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอจองนั้น\n' +
-                  '(คำขอจองยังอยู่ในเมนู "คำขอจองห้อง" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
+      if(!confirm('ห้องนี้มีนักศึกษากดนัดพบไว้อยู่\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอนัดพบนั้น\n' +
+                  '(คำขอนัดพบยังอยู่ในเมนู "คำขอนัดพบ" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
     }
     target.cell.status = newStatus;
     if(newStatus === 'vacant'){ target.cell.bookingId = null; target.cell.userId = null; }
@@ -901,7 +1224,7 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   const { dorm, cellId } = planRoomCtx;
   const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
   if(found && found.cell.status === 'booked' && found.cell.bookingId){
-    if(!confirm('ห้องนี้มีคนกดจองไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
+    if(!confirm('ห้องนี้มีคนกดนัดพบไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
   }else if(!confirm('ลบห้องนี้ออกจากผัง?')) return;
 
   const p = normalizeFloorPlan(dorm.floorPlan);
@@ -1300,12 +1623,167 @@ const LOCMAP = { map:null, marker:null, acc:null, failed:false };
 // สร้าง marker แบบวาดด้วย CSS ไม่ใช้ไฟล์รูปของ Leaflet
 // (ไฟล์รูป default ของ Leaflet อ้างพาธแบบ relative ซึ่งพังเมื่อโหลดจาก CDN)
 function locPinIcon(kind){
+  const face = kind === 'dorm' ? '🏠' : (kind === 'shop' ? '📍' : '🎓');
   return L.divIcon({
     className: 'loc-pin loc-pin-' + kind,
-    html: kind === 'dorm' ? '<span>🏠</span>' : '<span>🎓</span>',
+    html: `<span>${face}</span>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17]
   });
+}
+
+// ---------------------------------------------------------------------------
+// แผนที่เลือกจุดแบบย่อ — ใช้ในการ์ดต่าง ๆ ของ "หน้าหอพักของฉัน"
+//
+// ทำงานเหมือนแผนที่ปักหมุดหอทุกอย่าง (แตะเพื่อวางหมุด ลากหมุดปรับได้)
+// แต่ไม่ผูกกับช่อง lat/lng ในฟอร์มใหญ่ จึงเอาไปใช้ซ้ำได้หลายที่:
+//   - เลือกตำแหน่งร้านรอบหอ  (การ์ด "รอบ ๆ หอมีอะไรบ้าง")
+//   - ปักหมุดหอ              (การ์ด "ช่องทางติดต่อ")
+//
+// หน้าหอถูกวาดใหม่ทั้งก้อนทุกครั้งที่บันทึก กล่อง <div> เดิมจึงหลุดออกจาก DOM
+// ถ้าเอา map ตัวเก่ามาใช้ต่อจะได้แผนที่เปล่า ๆ — จึงเช็ค S.box ทุกครั้ง
+// แล้วสร้างใหม่เมื่อกล่องไม่ใช่ตัวเดิม
+// ---------------------------------------------------------------------------
+const PICK_MAPS = {};
+
+function pickMap(elId, opts){
+  const o = opts || {};
+  const box = document.getElementById(elId);
+  if(!box || typeof L === 'undefined') return null;
+
+  let S = PICK_MAPS[elId];
+  if(S && S.box !== box){ try{ S.map.remove(); }catch(e){} S = null; }
+  if(!S){
+    const map = L.map(box, { zoomControl:true })
+      .setView([o.center.lat, o.center.lng], o.zoom || 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(map);
+    S = PICK_MAPS[elId] = { box, map, marker:null, ref:null, value:null };
+    map.on('click', (e)=>{
+      setPick(elId, e.latlng.lat, e.latlng.lng);
+      if(S.onPick && S.value) S.onPick(S.value.lat, S.value.lng);
+    });
+  }
+  S.onPick  = o.onPick;
+  S.pinKind = o.pinKind || 'shop';
+
+  // หมุดอ้างอิง (หอ หรือ มหาวิทยาลัย) ไว้ให้ดูว่าจุดที่เลือกอยู่ห่างแค่ไหน — แตะไม่ได้
+  if(S.ref){ try{ S.map.removeLayer(S.ref); }catch(e){} S.ref = null; }
+  if(o.ref){
+    S.ref = L.marker([o.ref.lat, o.ref.lng], {
+      icon: locPinIcon(o.refKind || 'dorm'), interactive:false, keyboard:false
+    }).addTo(S.map);
+  }
+
+  setPick(elId, o.pin ? o.pin.lat : null, o.pin ? o.pin.lng : null);
+  // Leaflet วัดขนาดกล่องตอนที่การ์ดยังซ่อนอยู่ไม่ได้ ต้องรอให้กางออกก่อน
+  setTimeout(()=>{
+    try{
+      S.map.invalidateSize();
+      const at = o.pin || o.center;
+      S.map.setView([at.lat, at.lng], o.zoom || 17);
+    }catch(e){}
+  }, 60);
+  return S;
+}
+
+// วาง/ย้าย/ลบหมุดที่เลือกไว้บนแผนที่ย่อ (ไม่เรียก onPick เพื่อไม่ให้วนลูป)
+function setPick(elId, lat, lng){
+  const S = PICK_MAPS[elId];
+  if(!S) return null;
+  if(lat == null || lng == null || isNaN(lat) || isNaN(lng)){
+    if(S.marker){ try{ S.map.removeLayer(S.marker); }catch(e){} S.marker = null; }
+    S.value = null;
+    return null;
+  }
+  S.value = { lat:+(+lat).toFixed(6), lng:+(+lng).toFixed(6) };
+  if(!S.marker){
+    S.marker = L.marker([S.value.lat, S.value.lng], {
+      icon: locPinIcon(S.pinKind), draggable:true
+    }).addTo(S.map);
+    S.marker.on('dragend', ()=>{
+      const ll = S.marker.getLatLng();
+      S.value = { lat:+ll.lat.toFixed(6), lng:+ll.lng.toFixed(6) };
+      if(S.onPick) S.onPick(S.value.lat, S.value.lng);
+    });
+  }else{
+    S.marker.setLatLng([S.value.lat, S.value.lng]);
+  }
+  return S.value;
+}
+
+// ---------------------------------------------------------------------------
+// "ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้" สำหรับแผนที่ย่อในการ์ด
+// ใช้หลักเดียวกับในฟอร์มใหญ่: ขอตำแหน่งสด (maximumAge:0) เฝ้าหลายครั้ง
+// เก็บค่าที่แม่นที่สุด แล้วบอกความแม่นยำตรง ๆ ไม่เงียบ ๆ รับค่าหยาบมาใช้
+// ---------------------------------------------------------------------------
+let ownerGpsWatch = null, ownerGpsTimer = null, ownerGpsBest = null;
+
+function stopOwnerGps(){
+  if(ownerGpsWatch != null){ try{ navigator.geolocation.clearWatch(ownerGpsWatch); }catch(e){} }
+  ownerGpsWatch = null;
+  if(ownerGpsTimer){ clearTimeout(ownerGpsTimer); ownerGpsTimer = null; }
+  const btn = document.getElementById('opLocHere');
+  if(btn){ btn.disabled = false; btn.textContent = '📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้'; }
+}
+
+function ownerGpsPick(onOk, onMsg){
+  if(!navigator.geolocation){ onMsg('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง — แตะบนแผนที่เองได้เลย','warn'); return; }
+  if(window.isSecureContext === false){
+    onMsg('⚠️ เบราว์เซอร์ยอมให้หาตำแหน่งเฉพาะเว็บที่เป็น https เท่านั้น — แตะบนแผนที่แทนได้','warn'); return;
+  }
+  stopOwnerGps();
+  ownerGpsBest = null;
+  const btn = document.getElementById('opLocHere');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ กำลังหาตำแหน่ง...'; }
+  onMsg('กำลังหาตำแหน่ง... รอสัก 2-3 วินาที ระบบกำลังรอให้สัญญาณแม่นขึ้น','');
+
+  const done = ()=>{
+    stopOwnerGps();
+    if(!ownerGpsBest){
+      onMsg('⚠️ หาตำแหน่งไม่สำเร็จ — แตะบนแผนที่เอง หรือวางลิงก์ Google Maps แทนได้','warn');
+      return;
+    }
+    const { lat, lng, acc } = ownerGpsBest;
+    const accTxt = acc ? `±${Math.round(acc)} ม.` : 'ไม่ทราบความแม่นยำ';
+    if(lat < 18.5 || lat > 20.5 || lng < 99.0 || lng > 100.6){
+      onMsg(`⚠️ ตำแหน่งที่เครื่องบอกมา (${lat.toFixed(4)}, ${lng.toFixed(4)}) อยู่นอกพื้นที่เชียงราย
+        จึงยังไม่ปักหมุดให้ — ปุ่มนี้ต้องกดตอนที่<strong>ยืนอยู่ที่หอจริง ๆ</strong>`, 'warn');
+      return;
+    }
+    if(acc && acc > GPS_OK_M){
+      onOk(lat, lng, acc,
+        `⚠️ ปักหมุดให้แล้ว แต่ตำแหน่งที่ได้<strong>ยังหยาบมาก (${accTxt})</strong> —
+         ${looksLikeMobile()
+           ? 'ลองออกมาที่โล่ง ๆ แล้วกดใหม่ หรือลากหมุดไปวางตรงหอเอง'
+           : '<strong>คอมพิวเตอร์ไม่มี GPS จริง</strong> มันเดาจาก Wi-Fi/เน็ตเท่านั้น — ลากหมุดไปวางตรงหอเองจะตรงกว่า'}`,
+        'warn');
+    }else{
+      onOk(lat, lng, acc, `✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว (ความแม่นยำ ${accTxt}) — ${locationSummary({lat,lng})}`, 'ok');
+    }
+  };
+
+  ownerGpsWatch = navigator.geolocation.watchPosition(
+    (pos)=>{
+      const acc = pos.coords.accuracy;
+      if(!ownerGpsBest || (acc && acc < ownerGpsBest.acc)){
+        ownerGpsBest = { lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6), acc };
+      }
+      if(ownerGpsBest.acc && ownerGpsBest.acc <= GPS_GOOD_M){ done(); return; }
+      onMsg(`กำลังหาตำแหน่ง... ตอนนี้ได้ความแม่นยำ ±${Math.round(ownerGpsBest.acc||0)} ม. (กำลังรอให้แม่นขึ้น)`, '');
+    },
+    (err)=>{
+      stopOwnerGps();
+      let m = 'หาตำแหน่งไม่สำเร็จ';
+      if(err && err.code === 1) m = 'คุณยังไม่ได้อนุญาตให้เว็บนี้เข้าถึงตำแหน่ง — กดไอคอนรูปกุญแจ/หมุดข้างช่อง URL แล้วเปิดสิทธิ์ "ตำแหน่ง" ให้เว็บนี้ก่อน';
+      else if(err && err.code === 2) m = 'เครื่องหาตำแหน่งไม่เจอ (อาจอยู่ในอาคารหรือปิด GPS อยู่)';
+      else if(err && err.code === 3) m = 'หาตำแหน่งนานเกินไป';
+      onMsg(`⚠️ ${m} — ระหว่างนี้แตะบนแผนที่ตรงหอเองได้เลย ได้ผลเหมือนกัน`,'warn');
+    },
+    { enableHighAccuracy:true, timeout:GPS_WATCH_MS, maximumAge:0 }
+  );
+  ownerGpsTimer = setTimeout(done, GPS_WATCH_MS);
 }
 
 function openLocMap(){
@@ -1323,7 +1801,8 @@ function openLocMap(){
     }
     // สำคัญ: ต้องกางช่องกรอกสำรองให้เห็นด้วย
     // ไม่งั้นแผนที่ก็ไม่ขึ้น ช่องกรอกก็ยังพับอยู่ = เจ้าของหอปักหมุดไม่ได้เลย
-    document.querySelector('.loc-adv')?.setAttribute('open', '');
+    // ต้องระบุ #editPanel ด้วย เพราะตอนนี้การ์ด "ช่องทางติดต่อ" ก็มี .loc-adv ของตัวเอง
+    document.querySelector('#editPanel .loc-adv')?.setAttribute('open', '');
     renderLocDeviceHint();
     showLocationState();
     return;
@@ -1910,7 +2389,7 @@ async function renderOwnerThreads(){
 }
 
 // ---------------------------------------------------------------------------
-// คำขอจองห้อง (ฝั่งเจ้าของหอ)
+// คำขอนัดพบ (ฝั่งเจ้าของหอ)
 // ---------------------------------------------------------------------------
 function fmtBookingDate(s){
   if(!s) return '';
@@ -1944,7 +2423,7 @@ function bookingItemHtml(b){
     <div class="bk-actions">
       <button class="btn btn-sm btn-outline" data-bkchat="${b.dormId}|${b.userId}|${escapeHtml(b.userName||'')}">💬 ตอบในแชท</button>
       ${b.status === 'pending' ? `
-        <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับจอง</button>
+        <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับนัด</button>
         <button class="btn btn-sm btn-reject" data-bkno="${b.id}">✕ ปฏิเสธ</button>` : ''}
       <span class="bk-mailstate">${b.notifiedAt ? '✉️ ส่งอีเมลแจ้งแล้ว' : '✉️ ยังไม่ได้ส่งอีเมล'}</span>
     </div>
@@ -1962,27 +2441,27 @@ async function renderBookings(){
 
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">📌</div>
-        <p>ยังไม่มีคำขอจอง<br><small class="muted">เมื่อนักศึกษากดปุ่ม "จองห้องนี้" ในหน้าหอของคุณ คำขอจะมาแสดงที่นี่ทันที</small></p></div>`;
+        <p>ยังไม่มีคำขอนัดพบ<br><small class="muted">เมื่อนักศึกษากดปุ่ม "นัดพบห้องนี้" ในหน้าหอของคุณ คำขอจะมาแสดงที่นี่ทันที</small></p></div>`;
       return;
     }
     box.innerHTML = list.map(bookingItemHtml).join('');
 
     box.querySelectorAll('[data-bkok]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('ยืนยันรับจองห้องนี้?\n\nระบบจะตัดจำนวนห้องว่างลง 1 ห้องอัตโนมัติ')) return;
+        if(!confirm('ยืนยันรับนัดห้องนี้?\n\nระบบจะตัดจำนวนห้องว่างลง 1 ห้องอัตโนมัติ')) return;
         try{
           await updateBookingStatus(btn.dataset.bkok, 'confirmed');
-          toast('ยืนยันรับจองแล้ว','success');
+          toast('ยืนยันรับนัดแล้ว','success');
           renderBookings(); renderStats(); renderListings();
         }catch(err){ console.error(err); toast('ยืนยันไม่สำเร็จ: '+(err.message||''),'error'); }
       });
     });
     box.querySelectorAll('[data-bkno]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('ปฏิเสธคำขอจองนี้?')) return;
+        if(!confirm('ปฏิเสธคำขอนัดพบนี้?')) return;
         try{
           await updateBookingStatus(btn.dataset.bkno, 'cancelled');
-          toast('ปฏิเสธคำขอจองแล้ว','success');
+          toast('ปฏิเสธคำขอนัดพบแล้ว','success');
           renderBookings();
         }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
       });
@@ -1995,7 +2474,7 @@ async function renderBookings(){
     });
   }catch(err){
     console.error(err);
-    box.innerHTML = `<div class="chat-empty">โหลดคำขอจองไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+    box.innerHTML = `<div class="chat-empty">โหลดคำขอนัดพบไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
   }
 }
 
@@ -2082,7 +2561,7 @@ function applyReportFilter(){
   if(!rows.length){
     body.innerHTML = `<tr><td colspan="4" class="rp-empty">${
       reportRows.length === 0
-        ? 'ยังไม่มีนัดที่ยืนยันแล้ว — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอจองห้อง รายการจะมาแสดงที่นี่'
+        ? 'ยังไม่มีนัดที่ยืนยันแล้ว — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอนัดพบ รายการจะมาแสดงที่นี่'
         : (from || to) ? 'ไม่มีนัดในช่วงวันที่ที่เลือก — ลองขยายช่วงวันที่ดู' : 'ไม่มีรายการ'
     }</td></tr>`;
     return;
@@ -2127,8 +2606,8 @@ document.getElementById('rpCsv')?.addEventListener('click', downloadReportCsv);
 // ===========================================================================
 // สรุปการเช่า — สมุดบันทึกผู้เช่าที่เจ้าของหอกรอกเองทั้งหมด
 //
-// ตั้งใจไม่ดึงข้อมูลจากใบจองในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้จองผ่านเว็บ
-// (เดินมาที่หอเอง / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบจองอย่างเดียว
+// ตั้งใจไม่ดึงข้อมูลจากใบนัดพบในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดพบผ่านเว็บ
+// (เดินมาที่หอเอง / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดพบอย่างเดียว
 // ตารางจะไม่ตรงกับความจริงของหอ
 //
 // วิธีใช้: กด "+ เพิ่มรายการเช่า" ได้แถวว่างมา แล้วพิมพ์ลงในช่องได้เลย
@@ -2591,12 +3070,12 @@ async function renderOwners(){
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
 
-    // คำขอจอง — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
+    // คำขอนัดพบ — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
     await renderBookings(); refreshBookingBadge();
     let lastBookingCount = null;
     watchBookings(ME.uid, (list)=>{
       if(lastBookingCount !== null && list.length > lastBookingCount){
-        toast('🔔 มีคำขอจองห้องใหม่เข้ามา!','success');
+        toast('🔔 มีคำขอนัดพบใหม่เข้ามา!','success');
       }
       lastBookingCount = list.length;
       renderBookings(); refreshBookingBadge();
