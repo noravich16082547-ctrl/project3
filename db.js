@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -206,6 +206,11 @@ function escapeAttr(s){
 //    มอจริงอยู่เลขที่ 80 หมู่ 9 ต.บ้านดู่ อ.เมือง จ.เชียงราย 57100
 //    ตรวจสอบจาก 2 แหล่ง: Longdo Map (19.98082, 99.85114) และ uniRank (19.98038, 99.85029)
 // ---------------------------------------------------------------------------
+//
+// 🔒 v34: นี่คือ "หมุดมอ" จุดเดียวของทั้งเว็บ — ใช้คิดระยะ "ห่างมอ ... ม." ทุกที่
+//    และเป็นจุดกึ่งกลางเริ่มต้นของแผนที่ปักหมุดทุกอัน
+//    ทุกหอที่มีอยู่และหอที่เพิ่มใหม่ในอนาคตใช้ค่านี้ร่วมกันเสมอ ไม่มีใครตั้งเองได้
+//    ถ้าจะย้ายหมุดมอ ให้แก้ตัวเลข 2 ตัวตรงนี้ที่เดียว แล้วทั้งเว็บเปลี่ยนตามทันที
 const CRRU_CENTER = { lat: 19.9808, lng: 99.8511 };   // มหาวิทยาลัยราชภัฏเชียงราย (ต.บ้านดู่)
 
 // ระยะเส้นตรงระหว่าง 2 จุดบนโลก (สูตร haversine) หน่วยกิโลเมตร
@@ -400,6 +405,15 @@ function nearbyDistanceText(place, dorm){
   return place && place.dist ? place.dist : '';
 }
 
+// ลิงก์เปิดตำแหน่งร้านบน Google Maps — ใส่ชื่อร้านกำกับหมุดด้วยรูปแบบ q=lat,lng(ชื่อ)
+// คืน null ถ้าร้านนี้ยังไม่ได้ปักหมุด (ไม่มีพิกัด = เปิดแผนที่ไม่ได้)
+function nearbyPinLink(place){
+  if(!place || place.lat == null || place.lng == null) return null;
+  const label = String(place.name || '').replace(/[()]/g, ' ').trim();
+  return `https://www.google.com/maps?q=${place.lat},${place.lng}` +
+         (label ? `(${encodeURIComponent(label)})` : '');
+}
+
 // วาดรายการร้านรอบหอ (ใช้ทั้งฝั่งนักศึกษาและหลังบ้าน)
 // opts.dorm = หอที่เป็นจุดตั้งต้น ใช้คิดระยะจากพิกัด (ไม่ส่งมาก็ใช้ข้อความที่พิมพ์ไว้)
 function nearbyPlacesHtml(list, opts){
@@ -410,9 +424,16 @@ function nearbyPlacesHtml(list, opts){
     const m = nearbyCatMeta(p.cat);
     const dist = nearbyDistanceText(p, o.dorm);
     const pinned = p.lat != null && p.lng != null;
+    // ร้านที่ปักหมุดไว้ = กดชื่อร้านแล้วเปิดดูตำแหน่งจริงบน Google Maps ได้ (v34)
+    // ร้านเก่าที่ไม่มีพิกัด ยังเป็นข้อความธรรมดาเหมือนเดิม
+    const nameHtml = pinned
+      ? `<a class="np-name np-go" href="${nearbyPinLink(p)}" target="_blank" rel="noopener"
+            title="เปิดดูตำแหน่ง ${escapeAttr(p.name)} บน Google Maps"
+            >${escapeAttr(p.name)} <span class="np-go-ic">🗺</span></a>`
+      : `<span class="np-name">${escapeAttr(p.name)}</span>`;
     return `<div class="np-item">
       <span class="np-ic" title="${escapeAttr(m.label)}">${m.icon}</span>
-      <span class="np-name">${escapeAttr(p.name)}</span>
+      ${nameHtml}
       ${dist ? `<span class="np-dist${pinned?' np-pinned':''}"
                      title="${pinned?'คิดจากพิกัดบนแผนที่':'ระยะที่เจ้าของหอพิมพ์เอง'}">${escapeAttr(dist)}</span>` : ''}
       ${o.edit ? `<button type="button" class="np-x" data-rmnear="${i}" title="ลบรายการนี้">✕</button>` : ''}
@@ -458,6 +479,48 @@ function roomTypeLabel(code, dorm){
 
 const BASE_PRICE_CODE = 'base';
 function isBasePriceRow(r){ return r && r.code === BASE_PRICE_CODE; }
+// ---------------------------------------------------------------------------
+// ราคาห้องพัดลม / ห้องแอร์ (v34)
+//
+// v27 เคยยุบเหลือช่องเดียวชื่อ "ราคาเริ่มต้น" (เก็บเป็นแถว code 'base')
+// แต่ของจริงหอคิดราคาไม่เท่ากันระหว่างห้องพัดลมกับห้องแอร์
+// จึงกลับมาเป็น 2 ช่อง แต่เก็บ "เฉพาะราคา" ไม่ต้องกรอกจำนวนห้อง
+// (จำนวนห้อง/ห้องว่างดูจากผังห้องพักเป็นหลักอยู่แล้ว)
+//
+// แถว 'base' ของข้อมูลเก่ายังอ่านได้ปกติ — พอเจ้าของหอกดบันทึกครั้งแรก
+// ระบบจะย้ายราคานั้นมาเป็นราคาห้องพัดลมให้เอง ไม่มีราคาไหนหาย
+// ---------------------------------------------------------------------------
+function roomPrice(dorm, code){
+  const r = (dorm && dorm.rooms || []).find(x => x.code === code);
+  return (r && Number(r.price) > 0) ? Number(r.price) : null;
+}
+// ราคาที่ควรเติมลงช่อง "ห้องพัดลม" — หอเก่าที่มีแต่ราคาเริ่มต้น ให้ยกมาใส่ช่องนี้
+function fanPriceValue(dorm){
+  const fan = roomPrice(dorm, 'fan');
+  if(fan != null) return fan;
+  if(roomPrice(dorm, 'air') != null) return null;   // มีแต่ห้องแอร์ ก็ปล่อยว่าง
+  return roomPrice(dorm, BASE_PRICE_CODE);
+}
+function airPriceValue(dorm){ return roomPrice(dorm, 'air'); }
+// สร้างรายการ rooms จากราคา 2 ช่อง โดยคงจำนวนห้อง/ห้องว่างเดิมไว้
+function buildPriceRooms(dorm, fanPrice, airPrice){
+  const prev = (dorm && dorm.rooms) || [];
+  const old = (code)=> prev.find(r => r.code === code) || {};
+  const out = [];
+  [['fan', fanPrice], ['air', airPrice]].forEach(([code, price])=>{
+    if(!(price > 0)) return;
+    const o = old(code);
+    out.push({
+      code,
+      label: ROOM_TYPE_META[code].label,
+      price: price,
+      total:  o.total  || 0,
+      vacant: o.vacant || 0
+    });
+  });
+  return out;
+}
+
 // ประเภทห้องจริง ๆ ของหอ (ตัดรายการราคาเริ่มต้นออก)
 function roomTypes(dorm){ return (dorm && dorm.rooms || []).filter(r => !isBasePriceRow(r)); }
 // หอนี้มีประเภทห้องให้เลือกไหม (หอที่กรอกแค่ราคาเริ่มต้น = ไม่มี)
@@ -492,8 +555,30 @@ function minPrice(dorm){
   return Math.min(...prices);
 }
 function hasPrice(dorm){ return minPrice(dorm) !== null; }
+// ราคาสูงสุดของหอ — ใช้คู่กับ minPrice() เพื่อโชว์เป็นช่วงราคา เช่น "2,600 - 4,000"
+function maxPrice(dorm){
+  const prices = (dorm && dorm.rooms || []).map(r => Number(r.price)).filter(p => p > 0);
+  if(!prices.length) return null;
+  return Math.max(...prices);
+}
+// ข้อความราคาแบบช่วง (v34) — หอที่กรอกทั้งราคาพัดลมและราคาแอร์จะได้ "2,600 - 4,000"
+// หอที่กรอกราคาเดียว (หรือสองห้องราคาเท่ากัน) ยังได้เลขตัวเดียวเหมือนเดิม
+function priceRangeText(dorm){
+  const lo = minPrice(dorm), hi = maxPrice(dorm);
+  if(lo == null) return null;
+  return (hi != null && hi > lo) ? `${fmtBaht(lo)} - ${fmtBaht(hi)}` : fmtBaht(lo);
+}
+// หอนี้มีราคาหลายระดับไหม (ใช้เลือกคำว่า "ราคาเริ่มต้น" หรือ "ช่วงราคา")
+function hasPriceRange(dorm){
+  const lo = minPrice(dorm), hi = maxPrice(dorm);
+  return lo != null && hi != null && hi > lo;
+}
 function hasGates(dorm){ return !!dorm.gates && dorm.gates.gate1 !== null && dorm.gates.gate1 !== undefined; }
-function priceLabel(dorm){ return hasPrice(dorm) ? fmtBaht(minPrice(dorm)) + ' <small>บาท/เดือน เริ่มต้น</small>' : '<small class="muted">สอบถามราคากับหอโดยตรง</small>'; }
+function priceLabel(dorm){
+  if(!hasPrice(dorm)) return '<small class="muted">สอบถามราคากับหอโดยตรง</small>';
+  return priceRangeText(dorm) +
+    (hasPriceRange(dorm) ? ' <small>บาท/เดือน</small>' : ' <small>บาท/เดือน เริ่มต้น</small>');
+}
 function fmtBaht(n){ return Number(n).toLocaleString('th-TH'); }
 function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`; }
 
@@ -510,7 +595,18 @@ function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${
 // ที่ปลอดภัยเพราะมอเป็นสถานที่ที่ Google รู้จักอยู่แล้ว —
 // เว็บทางการของมอเอง (crru.ac.th/maps) ก็ฝังแผนที่ด้วยคำค้นคำนี้ตรง ๆ
 // ต่างจาก "ชื่อหอพัก" ที่ Google ไม่รู้จัก ซึ่งเป็นต้นเหตุของบั๊ก Your location
-const CRRU_ORIGIN = 'มหาวิทยาลัยราชภัฏเชียงราย';
+// ---------------------------------------------------------------------------
+// 🔒 ล็อกหมุดมหาวิทยาลัยไว้ที่ "สำนักส่งเสริมวิชาการและงานทะเบียน" (v34)
+//
+// เดิมส่งแค่ชื่อ "มหาวิทยาลัยราชภัฏเชียงราย" ไปให้ Google
+// ซึ่ง Google เลือกจุดในมอให้เองและอาจเปลี่ยนได้เรื่อย ๆ
+// ตอนนี้ระบุชื่ออาคารเจาะจง ทุกหอและหอที่เพิ่มใหม่จึงใช้จุดเดียวกันเสมอ
+//
+// ⚠️ แก้ที่เดียวตรงนี้ที่เดียว ทั้งเว็บเปลี่ยนตามหมด
+//    (ใช้ "ชื่อสถานที่" ไม่ใช่พิกัด เพื่อให้ช่องต้นทางใน Google Maps
+//     ขึ้นเป็นชื่อที่คนอ่านรู้เรื่อง ไม่ใช่ตัวเลขพิกัด)
+// ---------------------------------------------------------------------------
+const CRRU_ORIGIN = 'สำนักส่งเสริมวิชาการและงานทะเบียน มหาวิทยาลัยราชภัฏเชียงราย';
 
 // จุดหมาย = พิกัดหอเท่านั้น
 //

@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
 
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=33"></script>
-<script src="app.js?v=33"></script>
+<script src="db.js?v=34"></script>
+<script src="app.js?v=34"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -531,8 +531,10 @@ function roomRowsHtml(d){
       <div class="rr-book">
         ${(()=>{
           // หอที่วาดผังห้องแล้ว ใช้จำนวนห้องว่างจากผัง (ตรงกับความจริงมากกว่าตัวเลขที่กรอกมือ)
-          const known = d.verified || hasFloorPlan(d);
           const cnt = roomTypeCount(d, r.code) || { vacant:r.vacant, total:r.total };
+          // v34: หอที่กรอกแค่ "ราคาพัดลม/ราคาแอร์" ยังไม่มีจำนวนห้อง (total = 0)
+          // ต้องขึ้นว่า "สอบถามห้องว่าง" ไม่ใช่ "เต็มแล้ว" ซึ่งเป็นข้อมูลผิด
+          const known = (d.verified || hasFloorPlan(d)) && (cnt.total || 0) > 0;
           return `<div class="rr-status ${known ? (cnt.vacant>0?'ok':'full') : 'ask'}">
             ${known ? (cnt.vacant>0 ? `ว่าง ${cnt.vacant} ห้อง` : 'เต็มแล้ว') : 'สอบถามห้องว่าง'}
           </div>`;
@@ -612,9 +614,9 @@ function openDetail(id){
 
       <aside class="td-side">
         <div class="td-price-card">
-          <div class="pc-head">${hasPrice(d) ? 'ราคาเริ่มต้น' : 'ราคา'}</div>
+          <div class="pc-head">${!hasPrice(d) ? 'ราคา' : (hasPriceRange(d) ? 'ช่วงราคา' : 'ราคาเริ่มต้น')}</div>
           <div class="pc-amount">${hasPrice(d)
-            ? fmtBaht(minPrice(d))+' <span class="cur">บาท<small>/เดือน</small></span>'
+            ? priceRangeText(d)+' <span class="cur">บาท<small>/เดือน</small></span>'
             : '<span class="pc-ask">สอบถามกับหอโดยตรง</span>'}</div>
           ${d.verified
             ? `<div class="pc-note ok">✓ ราคาและห้องว่างยืนยันโดยเจ้าของหอ</div>`
@@ -1038,8 +1040,9 @@ async function openBooking(dorm, preselectCode, cellId){
     sel.innerHTML = bkTypes.map(r=>{
       const code = r.code || r.label;
       const cnt = roomTypeCount(dorm, r.code);
-      const vac = (dorm.verified || hasFloorPlan(dorm))
-        ? ((cnt && cnt.vacant > 0) ? ` · ว่าง ${cnt.vacant} ห้อง` : ' · เต็มแล้ว') : '';
+      // v34: หอที่กรอกแค่ราคา (ยังไม่มีจำนวนห้อง) ต้องไม่ขึ้นว่า "เต็มแล้ว"
+      const known = (dorm.verified || hasFloorPlan(dorm)) && cnt && (cnt.total || 0) > 0;
+      const vac = known ? (cnt.vacant > 0 ? ` · ว่าง ${cnt.vacant} ห้อง` : ' · เต็มแล้ว') : '';
       return `<option value="${escapeHtml(code)}">${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน${vac}</option>`;
     }).join('');
     if(picked && picked.cell.type) sel.value = picked.cell.type;

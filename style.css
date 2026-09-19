@@ -224,6 +224,10 @@ button{ font-family: inherit; cursor:pointer; }
   width:100%; padding: 11px 13px; border-radius: var(--radius-sm); border:1px solid var(--line); font-family:inherit; font-size:.95rem; background: var(--sage-bg);
 }
 .form-field textarea{ resize: vertical; min-height: 80px; }
+/* ช่องติ๊กต้องไม่โดนกฎ width:100% ด้านบน ไม่งั้นมันจะลอยไปอยู่คนละบรรทัดกับข้อความ */
+.form-field input[type="checkbox"], .form-field input[type="radio"]{
+  width:auto; padding:0; margin-right:6px; vertical-align:middle; background:transparent;
+}
 .form-hint{ font-size:.78rem; color: var(--ink-soft); margin-top:4px; }
 .form-error{ font-size:.8rem; color: var(--coral); margin-top:4px; display:none; }
 
@@ -990,6 +994,11 @@ footer{ margin-bottom: 0; }
 .np-ic{ font-size:1.1rem; flex-shrink:0; }
 .np-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .np-dist{ font-size:.78rem; color:var(--ink-soft); white-space:nowrap; }
+/* ร้านที่ปักหมุดไว้ = กดชื่อร้านเปิดดูตำแหน่งจริงบน Google Maps ได้ (v34) */
+.np-go{ color:inherit; text-decoration:none; }
+.np-go:hover{ color:var(--gold-deep); text-decoration:underline; }
+.np-go-ic{ font-size:.72rem; opacity:.55; }
+.np-go:hover .np-go-ic{ opacity:1; }
 .np-x{
   border:none; background:rgba(31,58,46,.1); color:var(--forest); border-radius:50%;
   width:20px; height:20px; font-size:.68rem; line-height:1; flex-shrink:0;
@@ -1385,6 +1394,16 @@ footer{ margin-bottom: 0; }
 /* แผนที่ย่อในการ์ด — เตี้ยกว่าในฟอร์มใหญ่ เพราะอยู่ในคอลัมน์แคบ */
 .near-pick .loc-map,
 #opLocMap{ height:260px; }
+/* ช่องราคา 2 ช่อง: ห้องพัดลม / ห้องแอร์ (v34) */
+.price-two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pt-box{
+  display:flex; flex-direction:column; gap:6px;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:10px 12px; background:var(--white);
+}
+.pt-box > span{ font-size:.84rem; color:var(--ink-soft); font-weight:600; }
+.pt-box input{ width:100%; }
+@media (max-width:520px){ .price-two{ grid-template-columns:1fr; } }
 .loc-pin-shop{ border-color:#2E9BD6; cursor:grab; }
 .loc-pin-shop:active{ cursor:grabbing; }
 

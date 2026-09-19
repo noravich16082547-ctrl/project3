@@ -15,6 +15,10 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
 
 const DASH_SECTIONS = ['overview','listings','bookings','messages','report','rental','dormreview','owners'];
 
+// เมนูที่ "บัญชีผู้ดูแลระบบ" ไม่ต้องเห็น — เป็นงานของเจ้าของหอทั้งหมด (v34)
+const ADMIN_HIDDEN_SECTIONS = ['overview','bookings','messages','report','rental','dormreview'];
+function isAdminAccount(){ return !!(ME && ME.role === 'admin'); }
+
 document.querySelectorAll('.side-link').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.side-link').forEach(b=>b.classList.remove('active'));
@@ -193,10 +197,24 @@ async function renderOwnerPage(){
         </select>
       </div>
       <div class="form-field">
-        <label>ราคาเริ่มต้น (บาท/เดือน)</label>
-        <input type="number" id="opfBasePrice" min="0" step="50" placeholder="เช่น 2500"
-               value="${(minPrice(d)!=null && minPrice(d)>0) ? minPrice(d) : ''}">
-        <div class="form-hint">ราคาห้องที่ถูกที่สุดของหอ — เว้นว่างได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"</div>
+        <label>ราคาห้องพัก (บาท/เดือน)</label>
+        <div class="price-two">
+          <label class="pt-box">
+            <span>🌀 ห้องพัดลม</span>
+            <input type="number" id="opfPriceFan" min="0" step="50" placeholder="เช่น 2600"
+                   value="${fanPriceValue(d) || ''}">
+          </label>
+          <label class="pt-box">
+            <span>❄️ ห้องแอร์</span>
+            <input type="number" id="opfPriceAir" min="0" step="50" placeholder="เช่น 4000"
+                   value="${airPriceValue(d) || ''}">
+          </label>
+        </div>
+        <div class="form-hint">
+          กรอกเฉพาะแบบที่หอมี — หอที่มีทั้งสองแบบ การ์ดฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา
+          เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
+          เว้นว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"
+        </div>
       </div>
       <div class="form-field">
         <label><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</label>
@@ -263,17 +281,21 @@ async function renderOwnerPage(){
           ? `<div class="op-rooms">${roomTypes(d).map(r=>`
               <div class="op-room">
                 <div>
-                  <strong>${escapeHtml(r.label)}</strong>
-                  <div class="muted" style="font-size:.82rem">ทั้งหมด ${r.total} ห้อง</div>
+                  <strong>${ROOM_TYPE_META[r.code] ? ROOM_TYPE_META[r.code].icon + ' ' : ''}${escapeHtml(r.label)}</strong>
+                  <div class="muted" style="font-size:.82rem">${r.total > 0
+                    ? `ทั้งหมด ${r.total} ห้อง`
+                    : 'จำนวนห้องดูจากผังห้องพักด้านล่าง'}</div>
                 </div>
                 <div class="op-room-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
+                ${r.total > 0 ? `
                 <div class="op-room-vac">
                   <button class="btn btn-sm btn-ghost" data-vac2="${d.id}|${escapeHtml(r.code)}|-1" title="ลดห้องว่าง">−</button>
                   <span class="op-vac-num">${r.vacant}</span>
                   <button class="btn btn-sm btn-ghost" data-vac2="${d.id}|${escapeHtml(r.code)}|1" title="เพิ่มห้องว่าง">+</button>
                   <small class="muted">ห้องว่าง</small>
-                </div>
-              </div>`).join('')}</div>`
+                </div>` : ''}
+              </div>`).join('')}</div>
+             <p class="form-hint">แก้ราคาได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า</p>`
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"</p>`}
       </section>`}
 
@@ -475,19 +497,21 @@ async function renderOwnerPage(){
   if(basicSave) basicSave.addEventListener('click', async ()=>{
     const name = document.getElementById('opfName').value.trim();
     if(!name){ toast('กรุณาใส่ชื่อหอพัก','error'); return; }
-    const raw = document.getElementById('opfBasePrice').value.trim();
-    const basePrice = raw === '' ? 0 : +raw;
-    if(raw !== '' && (isNaN(basePrice) || basePrice < 0)){
-      toast('ราคาเริ่มต้นต้องเป็นตัวเลขที่ไม่ติดลบ','error'); return;
-    }
-    // เก็บราคาเริ่มต้นเป็นรายการ 'base' เหมือนเดิม แต่ไม่ทับประเภทห้องเดิมที่หอเคยกรอกไว้
-    const others = roomTypes(d);
-    const rooms = basePrice > 0
-      ? [{ code:BASE_PRICE_CODE, label:'ราคาเริ่มต้น', price:basePrice, total:0, vacant:0 }, ...others]
-      : others;
+    const readPrice = (id, name)=>{
+      const raw = document.getElementById(id).value.trim();
+      if(raw === '') return 0;
+      const n = +raw;
+      if(isNaN(n) || n < 0){ toast(`ราคา${name}ต้องเป็นตัวเลขที่ไม่ติดลบ`,'error'); return null; }
+      return n;
+    };
+    const fanPrice = readPrice('opfPriceFan', 'ห้องพัดลม');
+    const airPrice = readPrice('opfPriceAir', 'ห้องแอร์');
+    if(fanPrice === null || airPrice === null) return;
+    // เก็บเป็นรายการห้องพัดลม/ห้องแอร์ คงจำนวนห้อง-ห้องว่างเดิมไว้ให้
+    const rooms = buildPriceRooms(d, fanPrice, airPrice);
     const verified = document.getElementById('opfVerified').checked;
     if(verified && !(d.images||[]).length){ toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return; }
-    if(verified && basePrice <= 0 && !others.length){ toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาเริ่มต้นก่อน','error'); return; }
+    if(verified && !rooms.length){ toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาห้องพัดลมหรือห้องแอร์ก่อน','error'); return; }
     basicSave.disabled = true;
     try{
       await updateDorm(d.id, { ...d, name, hallType: document.getElementById('opfHallType').value, rooms, verified });
@@ -1334,21 +1358,15 @@ async function renderListings(){
   // หน้ารวมหอมีให้เฉพาะผู้ดูแลระบบแล้ว เจ้าของหอไม่ต้องโหลดตารางนี้เลย
   if(!ME || ME.role !== 'admin') return;
   const hint = document.getElementById('listingHint');
-  if(hint){
-    hint.innerHTML = (ME && ME.role === 'owner' && myDorms.length === 0)
-      ? `<div class="setup-banner show" style="margin-bottom:14px">
-           📝 ยังไม่มีหอพักในบัญชีของคุณ — กด <strong>"+ เพิ่มหอพักใหม่"</strong>
-           เพื่อกรอกข้อมูลหอของคุณ หอจะแสดงให้นักศึกษาเห็นทันทีหลังบันทึก
-         </div>`
-      : '';
-  }
+  if(hint) hint.innerHTML = '';
   await loadVisibleDorms();
   const dorms = myDorms;
   document.getElementById('listingTable').innerHTML = dorms.map(d=>{
     // ผู้ดูแลระบบ "ดู" และ "ลบ" หอของคนอื่นได้ แต่แก้ไขข้อมูลไม่ได้
     // (ฝั่งฐานข้อมูลก็ปิดไว้อีกชั้นในไฟล์ fix-v15.sql — ปุ่มนี้แค่ไม่หลอกให้กด)
+    // v34: บัญชีผู้ดูแลระบบแก้ข้อมูลหอไม่ได้เลย แม้แต่หอที่ผูกกับบัญชีตัวเอง
     const isMine = d.ownerId === ME.uid;
-    const canEdit = isMine;
+    const canEdit = isMine && !isAdminAccount();
     return `
     <tr>
       <td><strong>${escapeHtml(d.name)}</strong>
@@ -1361,8 +1379,10 @@ async function renderListings(){
         : '<span class="muted">ยังไม่ระบุ</span>'}</td>
       <td>${!hasRoomTypes(d) ? '<span class="muted">ดูจากผังห้อง</span>' : ''}${roomTypes(d).map(r=>`
         <div style="white-space:nowrap;margin:2px 0">
-          ${escapeHtml(r.label)}: <strong>${r.vacant}</strong>/${r.total}
-          ${canEdit ? `
+          ${escapeHtml(r.label)}: ${r.total > 0
+            ? `<strong>${r.vacant}</strong>/${r.total}`
+            : '<span class="muted">ดูจากผังห้อง</span>'}
+          ${canEdit && r.total > 0 ? `
           <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${escapeHtml(r.code)}|-1" title="ลดห้องว่าง (ปิดห้อง)" style="padding:2px 8px">−</button>
           <button class="btn btn-sm btn-ghost" data-vac="${d.id}|${escapeHtml(r.code)}|1" title="เพิ่มห้องว่าง (เปิดห้อง)" style="padding:2px 8px">+</button>` : ''}
         </div>`).join('')}</td>
@@ -1381,7 +1401,7 @@ async function renderListings(){
         <button class="btn btn-sm btn-reject" data-del="${d.id}" style="margin-top:6px">ลบ</button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ยังไม่มีหอพัก กด "+ เพิ่มหอพักใหม่" เพื่อเริ่มต้น</td></tr>`;
+  }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">ยังไม่มีหอพักในระบบ</td></tr>`;
 
   document.querySelectorAll('[data-edit]').forEach(btn=>{
     btn.addEventListener('click', ()=> openEdit(dorms.find(d=>d.id===btn.dataset.edit)));
@@ -1554,10 +1574,10 @@ function openEdit(dorm){
   document.querySelectorAll('.fFacility').forEach(cb=> cb.checked = editFacilities.includes(cb.value));
   renderFacilityChips();
 
-  // ราคาเริ่มต้น — หอเก่าที่เคยกรอกแบบพัดลม/แอร์ไว้ ให้ดึงราคาที่ถูกที่สุดมาใส่ให้
-  // จะได้ไม่ต้องมานั่งกรอกใหม่ และราคาบนการ์ดไม่หายไป
-  const base = dorm ? minPrice(dorm) : null;
-  document.getElementById('fBasePrice').value = (base != null && base > 0) ? base : '';
+  // ราคาห้องพัดลม/ห้องแอร์ — หอเก่าที่เคยกรอก "ราคาเริ่มต้น" ไว้
+  // ให้ยกราคานั้นมาใส่ช่องห้องพัดลมให้ จะได้ไม่ต้องกรอกใหม่และราคาไม่หาย
+  document.getElementById('fPriceFan').value = dorm ? (fanPriceValue(dorm) || '') : '';
+  document.getElementById('fPriceAir').value = dorm ? (airPriceValue(dorm) || '') : '';
 
   editImages = dorm ? (dorm.images||[]).slice() : [];
   renderEditPhotos();
@@ -1604,7 +1624,9 @@ function closeEditPanel(){
   if(panel) panel.style.display = 'none';
   stopGpsWatch();
 }
-document.getElementById('btnAddDorm').addEventListener('click', ()=> openEdit(null));
+// หมายเหตุ: ปุ่ม "+ เพิ่มหอพักใหม่" ในหน้ารวมหอถูกเอาออกแล้ว (v34)
+// เพราะหน้านั้นเป็นของผู้ดูแลระบบ ซึ่งเพิ่มหอไม่ได้ — เจ้าของหอเพิ่มหอจากปุ่มในหน้าหอพักของฉันแทน
+document.getElementById('btnAddDorm')?.addEventListener('click', ()=> openEdit(null));
 document.getElementById('closeEditModal').addEventListener('click', closeEditPanel);
 
 // ---------------------------------------------------------------------------
@@ -2259,20 +2281,23 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   if(images.length===0 && document.getElementById('fVerified').checked){
     toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return;
   }
-  // ---- ราคาเริ่มต้น ----
-  // เก็บเป็นรายการเดียวใน rooms (code 'base') เพื่อให้ minPrice() ทำงานเหมือนเดิม
-  // ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล = ไม่ต้องรัน SQL
-  const baseRaw = document.getElementById('fBasePrice').value.trim();
-  const basePrice = baseRaw === '' ? 0 : +baseRaw;
-  if(baseRaw !== '' && (isNaN(basePrice) || basePrice < 0)){
-    toast('ราคาเริ่มต้นต้องเป็นตัวเลขที่ไม่ติดลบ','error'); return;
-  }
-  const rooms = basePrice > 0
-    ? [{ code:'base', label:'ราคาเริ่มต้น', price: basePrice, total:0, vacant:0 }]
-    : [];
+  // ---- ราคาห้องพัดลม / ห้องแอร์ (v34) ----
+  // เก็บเป็น 2 รายการใน rooms (code 'fan' / 'air') ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล
+  const readEditPrice = (id, name)=>{
+    const raw = document.getElementById(id).value.trim();
+    if(raw === '') return 0;
+    const n = +raw;
+    if(isNaN(n) || n < 0){ toast(`ราคา${name}ต้องเป็นตัวเลขที่ไม่ติดลบ`,'error'); return null; }
+    return n;
+  };
+  const fanPrice = readEditPrice('fPriceFan', 'ห้องพัดลม');
+  const airPrice = readEditPrice('fPriceAir', 'ห้องแอร์');
+  if(fanPrice === null || airPrice === null) return;
+  const editing = editingId ? myDorms.find(x=>x.id===editingId) : null;
+  const rooms = buildPriceRooms(editing, fanPrice, airPrice);
   // ติ๊ก "ยืนยันข้อมูล" ต้องมีราคาก่อน ไม่งั้นการ์ดจะขึ้น "สอบถามกับหอโดยตรง" ทั้งที่บอกว่ายืนยันแล้ว
   if(rooms.length===0 && document.getElementById('fVerified').checked){
-    toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาเริ่มต้นก่อน','error'); return;
+    toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาห้องพัดลมหรือห้องแอร์ก่อน','error'); return;
   }
 
   const data = {
@@ -3054,10 +3079,30 @@ async function renderOwners(){
     }
   }
   if(profile.role==='admin'){
-    // เจ้าของหอใช้หน้า "หน้าหอพักของฉัน" หน้าเดียวจบ — หน้ารวมหอเหลือไว้ให้ผู้ดูแลระบบตรวจสอบ
+    // ---------------------------------------------------------------------
+    // บัญชีผู้ดูแลระบบ = ดูแลระบบอย่างเดียว (v34)
+    //
+    // เหลือเมนูแค่ 2 อัน: "หอพักทั้งหมดในระบบ" กับ "รายชื่อเจ้าของหอ"
+    // เมนูฝั่งเจ้าของหอ (หน้าหอพักของฉัน / คำขอนัดพบ / ข้อความ / รายงาน /
+    // สรุปการเช่า / หอพักที่ถูกซ่อน) ถูกเอาออกทั้งหมด เพราะเป็นงานของเจ้าของหอ
+    // ไม่ใช่ของผู้ดูแลระบบ — และผู้ดูแลระบบเพิ่มหอ/แก้ไขหอไม่ได้อยู่แล้ว
+    //
+    // การเผยแพร่/ซ่อนหอที่เคยอยู่ในแท็บ "หอพักที่ถูกซ่อน" ยังทำได้เหมือนเดิม
+    // จากปุ่ม "เผยแพร่ / ซ่อน" ในตารางหน้า "หอพักทั้งหมดในระบบ"
+    // ---------------------------------------------------------------------
     document.getElementById('listingsTabBtn').style.display='flex';
     document.getElementById('ownersTabBtn').style.display='flex';
-    document.getElementById('dormReviewTabBtn').style.display='flex';
+    ADMIN_HIDDEN_SECTIONS.forEach(sec=>{
+      const btn = document.querySelector(`.side-link[data-sec="${sec}"]`);
+      if(btn){ btn.style.display = 'none'; btn.classList.remove('active'); }
+      const el = document.getElementById('sec-'+sec);
+      if(el) el.style.display = 'none';
+    });
+    // เปิดหน้า "หอพักทั้งหมดในระบบ" เป็นหน้าแรกแทน "หน้าหอพักของฉัน" ที่ถูกเอาออก
+    const first = document.getElementById('listingsTabBtn');
+    if(first) first.classList.add('active');
+    const listSec = document.getElementById('sec-listings');
+    if(listSec) listSec.style.display = 'block';
   }
 
   // (เอา QR โค้ดออกจากหน้าหลังบ้านแล้ว — QR ของเว็บยังมีอยู่ในหน้าฝั่งนักศึกษา)
@@ -3065,7 +3110,16 @@ async function renderOwners(){
   try{
     if(isSuspended) return;   // บัญชีถูกระงับ ไม่ต้องโหลดอะไรต่อ
     await renderStats();
-    if(profile.role === 'admin') await renderListings();
+
+    // ---- บัญชีผู้ดูแลระบบ: โหลดเฉพาะของที่ใช้ดูแลระบบ ----
+    if(profile.role === 'admin'){
+      const ov = document.getElementById('adminOverview');
+      if(ov) ov.style.display = 'block';
+      await renderListings();
+      await renderOwners();
+      return;   // ไม่โหลดของฝั่งเจ้าของหอเลย (หน้าหอ/คำขอนัดพบ/แชท)
+    }
+
     await renderOwnerPage();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
@@ -3096,10 +3150,5 @@ async function renderOwners(){
     document.getElementById('chatModal').addEventListener('click',(e)=>{
       if(e.target.id==='chatModal') e.currentTarget.classList.remove('open');
     }); await renderOwnerThreads();
-    if(profile.role==='admin'){
-      await renderOwners();
-      await renderPendingDorms();
-      setInterval(renderPendingDorms, 60000);
-    }
   }catch(err){ console.error(err); toast('โหลดข้อมูลบางส่วนไม่สำเร็จ','error'); }
 })();
