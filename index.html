@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -21,24 +21,24 @@
 <section class="hero">
   <div class="container">
     <div>
-      <span class="eyebrow">🎓 สำหรับน้องปี 1 มร.ชร.</span>
       <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
       <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมอ แล้วแชทหรือจองกับหอได้โดยตรง</p>
     </div>
-    <div class="walk-rings" aria-hidden="true">
-      <svg viewBox="0 0 340 340">
-        <circle cx="170" cy="170" r="150" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
-        <circle cx="170" cy="170" r="105" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1"/>
-        <circle cx="170" cy="170" r="60" fill="none" stroke="rgba(232,163,61,.5)" stroke-width="1.5" stroke-dasharray="4 5"/>
-        <text x="170" y="120" text-anchor="middle" class="gate-label" fill="rgba(255,255,255,.5)">1 กม.</text>
-        <text x="170" y="75" text-anchor="middle" class="gate-label" fill="rgba(255,255,255,.4)">1.5 กม.</text>
-        <circle cx="170" cy="170" r="7" fill="#E8A33D"/>
-        <text x="170" y="196" text-anchor="middle" class="gate-label" font-weight="600">ประตูมอ</text>
-        <circle cx="205" cy="120" r="5" fill="#fff"/>
-        <circle cx="120" cy="140" r="5" fill="#fff"/>
-        <circle cx="230" cy="205" r="5" fill="#fff"/>
-        <circle cx="110" cy="220" r="5" fill="#fff"/>
-      </svg>
+    <!-- เดิมตรงนี้เป็นวงกลมเรดาร์ตกแต่ง ซึ่งไม่ได้บอกอะไรจริง ๆ เลย
+         เปลี่ยนเป็นตัวเลขจากข้อมูลในระบบจริง มีประโยชน์กว่าและดูสะอาดกว่า -->
+    <div class="hero-stats" id="heroStats">
+      <div class="hs-card">
+        <div class="hs-num" id="hsDorms">–</div>
+        <div class="hs-label">หอพักในระบบ</div>
+      </div>
+      <div class="hs-card">
+        <div class="hs-num" id="hsVacant">–</div>
+        <div class="hs-label">ห้องว่างตอนนี้</div>
+      </div>
+      <div class="hs-card hs-wide">
+        <div class="hs-num" id="hsNear">–</div>
+        <div class="hs-label">หออยู่ในรัศมี 1 กม. จากมหาวิทยาลัย</div>
+      </div>
     </div>
   </div>
 </section>
@@ -121,7 +121,7 @@
   <div class="container">
     <div class="flex-between" style="flex-wrap:wrap;gap:8px">
       <span>© 2026 DormCRU — โปรเจคหอพักนักศึกษา มหาวิทยาลัยราชภัฏเชียงราย</span>
-      <span>ทำด้วย 💚 เพื่อน้องปี 1</span>
+      <span>สร้างโดยนักศึกษา เพื่อนักศึกษา</span>
     </div>
     <div style="margin-top:8px;font-size:.82rem;opacity:.85">
       ข้อมูลหอพัก ราคา และห้องว่างทั้งหมดมาจากเจ้าของหอที่ลงข้อมูลเองในระบบ
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=30"></script>
-<script src="app.js?v=30"></script>
+<script src="db.js?v=32"></script>
+<script src="app.js?v=32"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -284,9 +284,24 @@ function cardRatingHtml(dormId){
   return `<span class="card-rating" title="${r.count} รีวิว">★ ${r.avg} <small>(${r.count})</small></span>`;
 }
 
+// ตัวเลขบนหัวเว็บ — คิดจากหอทั้งหมดในระบบ ไม่ใช่เฉพาะที่กรองอยู่
+// (ถ้าใช้ผลกรอง ตัวเลขจะกระโดดไปมาทุกครั้งที่ขยับแถบราคา งงกว่าเดิม)
+function renderHeroStats(){
+  const box = document.getElementById('heroStats');
+  if(!box) return;
+  const list = allDorms || [];
+  const vacant = list.reduce((s,d)=> s + (totalVacancy(d) || 0), 0);
+  const near = list.filter(d=>{
+    const km = distanceToCrru(d);
+    return km != null && km <= 1;
+  }).length;
+  document.getElementById('hsDorms').textContent  = list.length;
+  document.getElementById('hsVacant').textContent = vacant || '–';
+  document.getElementById('hsNear').textContent   = near;
+}
+
 function dormCardHtml(d){
   const vac = totalVacancy(d);
-  const wished = myProfile && (myProfile.wishlist||[]).includes(d.id);
   const km = distanceToCrru(d);
   return `
   <div class="card-dorm">
@@ -295,9 +310,8 @@ function dormCardHtml(d){
       <span class="badge-type">${d.hallType}</span>
       <span class="badge-vacancy ${(!d.verified||vac===0)?'full':''}">${!d.verified?'สอบถามห้องว่าง':(vac===0?'เต็ม':'ว่าง '+vac+' ห้อง')}</span>
       ${hasOnlyStockPhotos(d)?'<span class="badge-stock" title="หอนี้ยังไม่ได้ส่งรูปห้องจริงเข้ามา">🖼 ภาพประกอบ</span>':''}
-      ${hasContact(d)?'<span class="badge-type" style="top:auto;bottom:10px;left:10px;background:rgba(31,58,46,.85)">📞 ติดต่อได้</span>':''}
+      ${hasContact(d)?'<span class="badge-type" style="top:auto;bottom:10px;left:10px;background:rgba(14,58,92,.85)">📞 ติดต่อได้</span>':''}
     </div>
-    <button class="wishlist-btn ${wished?'active':''}" data-wish="${d.id}" aria-label="บันทึกที่ถูกใจ">${wished?'❤️':'🤍'}</button>
     <div class="card-body">
       <h3 data-open="${d.id}" style="cursor:pointer">${escapeHtml(d.name)}</h3>
       <div class="card-meta">${km != null
@@ -336,6 +350,7 @@ function applyFilters(){
 
     const grid = document.getElementById('dormGrid');
     document.getElementById('resultCount').textContent = `พบ ${dorms.length} หอพัก`;
+    renderHeroStats();
     document.getElementById('emptyMsg')?.remove();
     if(dorms.length===0){
       grid.innerHTML = '';
@@ -483,7 +498,7 @@ function nearbyHtml(d){
       </p>`;
   }
   return `<div class="td-nearby">${uni}</div>
-    ${nearbyPlacesHtml(d.nearby)}`;
+    ${nearbyPlacesHtml(d.nearby, { dorm:d })}`;
 }
 
 // แถวเลือกห้องพัก (แบบตารางเลือกห้องของเว็บจองที่พัก) — ใช้ห้องจริงที่หอกรอกไว้
@@ -1337,7 +1352,7 @@ async function refreshUnreadBadge(){
 (async ()=>{
   try{ new QRCode(document.getElementById('qrcode'), {
     text: location.href.replace(/index\.html.*$/,''),
-    width: 110, height: 110, colorDark:'#1F3A2E', colorLight:'#ffffff'
+    width: 110, height: 110, colorDark:'#0E3A5C', colorLight:'#ffffff'
   }); }catch(err){ console.error(err); }
 
   await showSetupBannerIfNeeded();

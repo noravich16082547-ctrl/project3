@@ -1,26 +1,30 @@
 /* ==========================================================================
    DormCRU — สไตล์หลัก
-   แนวคิด: สีเขียวป่าเชียงราย + ทองดอกดาวเรือง (เทศกาลดอกไม้เชียงราย)
-   Signature: เส้นทางเดิน "จากประตูมอ" เป็นจุดไข่ปลา แทนตัวเลขลำดับทั่วไป
+   แนวคิด: โทนฟ้า — น้ำเงินเข้มเป็นหลัก ฟ้าสดเป็นสีเน้น พื้นหลังฟ้าจาง ๆ
+   เน้นให้อ่านง่าย สะอาดตา ไม่ใส่ลวดลายเยอะจนรก
+
+   หมายเหตุ: ชื่อตัวแปรยังเป็น --forest / --gold ตามเดิม เพราะถูกอ้างถึง
+   กว่า 400 จุดทั่วไฟล์ ถ้าเปลี่ยนชื่อจะเสี่ยงพลาดมากกว่าได้ประโยชน์
+   ให้อ่านว่า --forest = สีหลัก (น้ำเงินเข้ม), --gold = สีเน้น (ฟ้าสด)
    ========================================================================== */
 
 :root{
-  --forest: #1F3A2E;
-  --forest-2: #16281F;
-  --sage-bg: #F3F6EE;
-  --cream: #FBF9F3;
-  --gold: #E8A33D;
-  --gold-deep: #C97F1E;
-  --coral: #D6604A;
-  --ink: #23291E;
-  --ink-soft: #5B6355;
-  --line: #DCE3D2;
+  --forest: #0E3A5C;        /* น้ำเงินเข้ม — หัวข้อ แถบเมนู ปุ่มขอบ */
+  --forest-2: #082840;      /* น้ำเงินเข้มกว่า — ไล่เฉดกับพื้นหลัง hero */
+  --sage-bg: #EAF3FB;       /* ฟ้าจางมาก — พื้นกล่อง/แถบ */
+  --cream: #F6FAFD;         /* พื้นหลังหน้าเว็บ */
+  --gold: #2E9BD6;          /* ฟ้าสด — สีเน้น ปุ่มหลัก */
+  --gold-deep: #16709F;     /* ฟ้าเข้ม — ตอนเอาเมาส์ชี้ / ตัวหนังสือเน้น */
+  --coral: #D6604A;         /* ส้มแดง — ปุ่มลบ/เตือน (คงไว้ให้ต่างจากสีหลักชัด) */
+  --ink: #16232E;
+  --ink-soft: #55697E;
+  --line: #D2E2EF;
   --white: #FFFFFF;
 
   --radius: 14px;
   --radius-sm: 8px;
-  --shadow: 0 8px 24px rgba(31,58,46,0.08);
-  --shadow-lg: 0 16px 40px rgba(31,58,46,0.14);
+  --shadow: 0 8px 24px rgba(14,58,92,0.08);
+  --shadow-lg: 0 16px 40px rgba(14,58,92,0.16);
 
   --font-display: 'Prompt', sans-serif;
   --font-body: 'Sarabun', sans-serif;
@@ -59,7 +63,7 @@ button{ font-family: inherit; cursor:pointer; }
   height: 68px;
 }
 .brand{ display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight:600; font-size:1.15rem; color:var(--white); }
-.brand .dot{ width:10px; height:10px; border-radius:50%; background: var(--gold); box-shadow: 0 0 0 4px rgba(232,163,61,.25); }
+.brand .dot{ width:10px; height:10px; border-radius:50%; background: var(--gold); box-shadow: 0 0 0 4px rgba(46,155,214,.30); }
 .nav-links{ display:flex; gap: 6px; align-items:center; }
 .nav-links a, .nav-links button{
   color: var(--white); background: transparent; border:none;
@@ -74,7 +78,7 @@ button{ font-family: inherit; cursor:pointer; }
 /* ---------- Hero ---------- */
 .hero{
   background:
-    radial-gradient(circle at 85% 20%, rgba(232,163,61,.18), transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(46,155,214,.20), transparent 45%),
     linear-gradient(180deg, var(--forest) 0%, var(--forest-2) 100%);
   color: var(--white);
   padding: 56px 0 40px;
@@ -85,16 +89,12 @@ button{ font-family: inherit; cursor:pointer; }
 .hero .eyebrow{
   display:inline-flex; align-items:center; gap:8px;
   font-size:.82rem; letter-spacing:.04em; color: var(--gold);
-  background: rgba(232,163,61,.12); border:1px solid rgba(232,163,61,.35);
+  background: rgba(46,155,214,.14); border:1px solid rgba(46,155,214,.40);
   padding:5px 12px; border-radius:999px; margin-bottom: 14px;
 }
 .hero h1{ color: var(--white); font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
 .hero p.lead{ color: rgba(255,255,255,.82); max-width: 46ch; }
 
-/* Signature: walking-distance ring diagram */
-.walk-rings{ position:relative; width:100%; aspect-ratio: 1/1; max-width:340px; margin:0 auto; }
-.walk-rings svg{ width:100%; height:100%; }
-.walk-rings .gate-label{ font-family: var(--font-display); font-size:.72rem; fill:var(--white); }
 
 /* ---------- Search / Filter panel ---------- */
 .search-panel{
@@ -119,7 +119,7 @@ button{ font-family: inherit; cursor:pointer; }
   border:none; border-radius: var(--radius-sm); padding: 10px 18px; font-weight:600; font-size:.95rem;
   transition: transform .12s ease, box-shadow .12s ease;
 }
-.btn-primary{ background: var(--gold); color: var(--forest-2); }
+.btn-primary{ background: var(--gold); color: var(--white); }
 .btn-primary:hover{ background: var(--gold-deep); color:var(--white); }
 .btn-outline{ background:transparent; border:1px solid var(--forest); color: var(--forest); }
 .btn-outline:hover{ background: var(--forest); color:var(--white); }
@@ -157,7 +157,7 @@ button{ font-family: inherit; cursor:pointer; }
 .card-media{ position:relative; aspect-ratio: 4/3; overflow:hidden; background:var(--sage-bg); }
 .card-media img{ width:100%; height:100%; object-fit:cover; }
 .badge-type{
-  position:absolute; top:10px; left:10px; background: rgba(31,58,46,.85); color:var(--white);
+  position:absolute; top:10px; left:10px; background: rgba(14,58,92,.85); color:var(--white);
   font-size:.72rem; padding:4px 10px; border-radius: 999px; font-weight:600;
 }
 .badge-vacancy{
@@ -165,11 +165,6 @@ button{ font-family: inherit; cursor:pointer; }
   font-size:.72rem; padding:4px 10px; border-radius: 999px; font-weight:700;
 }
 .badge-vacancy.full{ background: var(--coral); color: var(--white); }
-.wishlist-btn{
-  position:absolute; bottom:10px; right:10px; width:34px; height:34px; border-radius:50%;
-  background: rgba(255,255,255,.92); border:none; font-size:1.05rem; display:flex; align-items:center; justify-content:center;
-}
-.wishlist-btn.active{ color: var(--coral); }
 
 .card-body{ padding: 16px 16px 18px; display:flex; flex-direction:column; gap:8px; flex:1; }
 .card-body h3{ font-size:1.05rem; margin:0; }
@@ -270,7 +265,7 @@ tr:last-child td{ border-bottom:none; }
 .btn-reject{ background:#B23A24; color:#fff; border:none; }
 .slip-thumb{ width:44px; height:44px; border-radius:6px; object-fit:cover; cursor:pointer; }
 
-.modal-backdrop{ position:fixed; inset:0; background: rgba(20,30,22,.55); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+.modal-backdrop{ position:fixed; inset:0; background: rgba(10,30,46,.58); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
 .modal-backdrop.open{ display:flex; }
 .modal{ background:var(--white); border-radius: var(--radius); max-width: 480px; width:100%; padding: 24px; max-height:88vh; overflow:auto; }
 .modal img{ border-radius: var(--radius-sm); }
@@ -296,7 +291,6 @@ footer a:hover{ color: var(--gold); }
 /* ---------- Responsive ---------- */
 @media (max-width: 980px){
   .hero .container{ grid-template-columns: 1fr; }
-  .walk-rings{ display:none; }
   .search-grid{ grid-template-columns: repeat(2,1fr); }
   .dorm-grid{ grid-template-columns: repeat(2,1fr); }
   .detail-layout{ grid-template-columns: 1fr; }
@@ -332,7 +326,7 @@ footer a:hover{ color: var(--gold); }
 .wishlist-toggle{ display:inline-flex; align-items:center; gap:6px; }
 .wishlist-toggle.active{ background:var(--gold); color:var(--forest-2); border-color:var(--gold); }
 .skeleton-card{ background:var(--white); border-radius:var(--radius); border:1px solid var(--line); height:320px;
-  background-image:linear-gradient(90deg, var(--sage-bg) 0px, #eef2e8 40px, var(--sage-bg) 80px);
+  background-image:linear-gradient(90deg, var(--sage-bg) 0px, #e8f1f9 40px, var(--sage-bg) 80px);
   background-size:600px; animation:shimmer 1.4s infinite linear; }
 @keyframes shimmer{ from{background-position:-600px 0} to{background-position:600px 0} }
 
@@ -394,7 +388,7 @@ footer a:hover{ color: var(--gold); }
 /* ==========================================================================
    แถบ "ติดต่อเจ้าของเว็บ" — อยู่ล่างสุดของทุกหน้า
    ========================================================================== */
-.site-contact-bar{ background:#0F1D16; color: rgba(255,255,255,.82); padding: 18px 0 22px; }
+.site-contact-bar{ background:#092338; color: rgba(255,255,255,.82); padding: 18px 0 22px; }
 .site-contact-inner{
   max-width:1180px; margin:0 auto; padding: 0 20px;
   display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
@@ -446,13 +440,13 @@ footer{ margin-bottom: 0; }
    กดแล้วคลิกทะลุไปโดนรูปข้างล่าง เปิดได้แค่รูปเดียว ไม่ได้เปิดดูทั้งหมด
    ตอนนี้เป็นปุ่มจริงที่กดได้ แล้วเปิดหน้าต่างเลื่อนดูรูปครบทุกใบ */
 .g-more{
-  position:absolute; inset:0; background: rgba(20,30,22,.55); color:#fff;
+  position:absolute; inset:0; background: rgba(10,30,46,.58); color:#fff;
   display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:600;
   text-align:center; padding:6px;
   border:0; cursor:pointer; font-family:inherit; width:100%;
   transition: background .15s ease;
 }
-.g-more:hover{ background: rgba(20,30,22,.72); }
+.g-more:hover{ background: rgba(10,30,46,.75); }
 
 /* ---- ปุ่มเลื่อนรูปในหน้าต่างดูรูปใหญ่ ---- */
 .iv-nav{
@@ -585,7 +579,7 @@ footer{ margin-bottom: 0; }
   border:1px solid var(--line); border-left:4px solid var(--gold);
   border-radius: var(--radius); background: var(--white); padding:14px 16px; margin-bottom:10px;
 }
-.booking-item.is-new{ border-left-color: var(--coral); background:#FFFDF8; }
+.booking-item.is-new{ border-left-color: var(--coral); background:#FAFDFF; }
 .booking-item.done{ border-left-color:#1F6D3D; opacity:.75; }
 .booking-item.cancelled{ border-left-color:#B23A24; opacity:.6; }
 .bk-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
@@ -764,9 +758,9 @@ footer{ margin-bottom: 0; }
    ดาวและกล่องรีวิว (ใช้ทั้งฝั่งนักศึกษาและหลังบ้าน)
    ========================================================================== */
 .stars{ display:inline-flex; gap:1px; vertical-align:middle; }
-.stars .st{ color:#D9DFD2; font-size:.95rem; line-height:1; }
+.stars .st{ color:#CFDEEB; font-size:.95rem; line-height:1; }
 .stars .st.on{ color:var(--gold); }
-.stars .st.half{ background:linear-gradient(90deg,var(--gold) 50%,#D9DFD2 50%);
+.stars .st.half{ background:linear-gradient(90deg,var(--gold) 50%,#CFDEEB 50%);
   -webkit-background-clip:text; background-clip:text; color:transparent; }
 .card-rating{
   display:inline-block; background:var(--forest); color:#fff; font-weight:700;
@@ -783,7 +777,7 @@ footer{ margin-bottom: 0; }
 .rev-score-sub{ font-size:.78rem; color:var(--ink-soft); font-weight:400; margin-top:6px; font-family:var(--font-body); }
 .rev-bars{ display:flex; flex-direction:column; gap:5px; }
 .rev-bar{ display:grid; grid-template-columns:30px 1fr 26px; gap:8px; align-items:center; font-size:.78rem; color:var(--ink-soft); }
-.rb-track{ height:7px; background:#E3E9DA; border-radius:999px; overflow:hidden; }
+.rb-track{ height:7px; background:#DDE9F3; border-radius:999px; overflow:hidden; }
 .rb-fill{ height:100%; background:var(--gold); border-radius:999px; }
 .rev-bar em{ font-style:normal; text-align:right; }
 .rev-empty{ background:var(--sage-bg); border-radius:var(--radius); padding:18px 20px; margin-bottom:14px; }
@@ -804,7 +798,7 @@ footer{ margin-bottom: 0; }
 .rev-form-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
 .star-picker{ display:flex; align-items:center; gap:2px; }
 .st-pick{
-  background:none; border:none; font-size:1.7rem; line-height:1; color:#D9DFD2; padding:0 2px;
+  background:none; border:none; font-size:1.7rem; line-height:1; color:#CFDEEB; padding:0 2px;
   transition:transform .12s ease;
 }
 .st-pick.on{ color:var(--gold); }
@@ -922,7 +916,7 @@ footer{ margin-bottom: 0; }
 .fp-room[data-cell]:hover{ outline:2px solid var(--gold); }
 
 .fp-stair{
-  background:repeating-linear-gradient(45deg, #EDF1E7, #EDF1E7 6px, #E3E9DA 6px, #E3E9DA 12px);
+  background:repeating-linear-gradient(45deg, #E6EFF8, #E6EFF8 6px, #DDE9F3 6px, #DDE9F3 12px);
   color:var(--ink-soft); border-style:dashed;
 }
 .fp-stair-ic{ font-size:1.1rem; }
@@ -1024,7 +1018,7 @@ footer{ margin-bottom: 0; }
 .loc-map-wrap{ margin-top:8px; }
 .loc-map{
   height:300px; width:100%; border-radius:var(--radius-sm);
-  border:1px solid var(--line); overflow:hidden; background:#EDEAE3;
+  border:1px solid var(--line); overflow:hidden; background:#DEE9F2;
 }
 .loc-map-fallback{
   display:none; padding:16px; text-align:center; font-size:.85rem; color:var(--muted);
@@ -1176,7 +1170,7 @@ footer{ margin-bottom: 0; }
   transition:transform .12s ease, box-shadow .12s ease;
 }
 .rp-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-.rp-thumb:hover{ transform:translateY(-2px); box-shadow:0 6px 14px rgba(31,58,46,.2); }
+.rp-thumb:hover{ transform:translateY(-2px); box-shadow:0 6px 14px rgba(14,58,92,.2); }
 
 /* หน้าต่างดูรูปใหญ่ต้องอยู่เหนือหน้าต่างรายละเอียดห้อง */
 #imgModal{ z-index:150; }
@@ -1273,7 +1267,7 @@ footer{ margin-bottom: 0; }
 .rt-in.rt-saved{ border-color:#1F6D3D; background:#E4F2E7; }
 
 /* แถวที่เพิ่งกดเพิ่มมา ยังไม่ได้กรอกอะไร */
-.rt-blank td{ background:#FCFAF4; }
+.rt-blank td{ background:#F4F9FD; }
 
 .rt-x{ color:var(--coral); padding:4px 10px; }
 .rt-x:hover{ background:#FDECEA; }
@@ -1337,3 +1331,80 @@ footer{ margin-bottom: 0; }
   .loc-search input{ flex:1 1 100%; }
   .loc-search .btn{ flex:1 1 100%; }
 }
+
+/* ---------- หน้าตั้งรหัสผ่านใหม่ ---------- */
+.rs-tip{
+  background:#FDF1DC; border:1px solid #F0D9A8; border-radius:var(--radius-sm);
+  padding:14px 16px; margin:14px 0; font-size:.86rem; line-height:1.6;
+}
+.rs-tip strong{ display:block; margin-bottom:6px; color:#946A0E; }
+.rs-tip p{ margin:0; color:#7A5A12; }
+.rs-otp{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+.rs-code{
+  font-size:1.5rem !important; letter-spacing:.4em; text-align:center;
+  font-family:ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+.rt-docno{ min-width:110px; }
+@media (max-width:640px){ .rt-docno{ min-width:0; } }
+/* ระยะที่ระบบคิดจากพิกัดจริง (ต่างจากระยะที่พิมพ์เอง) */
+.np-dist.np-pinned{ color:var(--gold-deep); font-weight:600; }
+
+/* ---------- แผงแก้ไขหอพัก (ย้ายมาจาก pop up) ---------- */
+.edit-panel{ border:2px solid var(--gold); }
+.ep-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap; margin-bottom:14px; padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+.edit-panel .loc-map{ height:320px; }
+
+/* ---------- ตัวเลขบนหัวเว็บ (แทนวงกลมเรดาร์เดิม) ---------- */
+.hero-stats{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  max-width:340px; margin:0 auto; width:100%;
+}
+.hs-card{
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+  border-radius:var(--radius); padding:18px 16px; text-align:center;
+  backdrop-filter:blur(2px);
+}
+.hs-wide{ grid-column:1 / -1; }
+.hs-num{
+  font-family:var(--font-display); font-size:2rem; font-weight:700;
+  color:var(--gold); line-height:1.1;
+}
+.hs-label{ font-size:.8rem; opacity:.82; margin-top:4px; line-height:1.45; }
+@media (max-width:860px){
+  .hero-stats{ max-width:100%; margin-top:20px; }
+}
+
+/* ==========================================================================
+   ตกแต่งเพิ่มเล็กน้อย (ธีมฟ้า)
+   ใส่เท่าที่ช่วยให้อ่านง่ายขึ้นจริง ไม่ใส่ลวดลายจนรก
+   ========================================================================== */
+
+/* เส้นฟ้าบาง ๆ คั่นใต้แถบเมนูบนสุด ให้ขอบเขตชัดขึ้นโดยไม่ต้องใช้เงา */
+.topbar{ border-bottom:3px solid var(--gold); }
+
+/* หัวข้อหมวดมีขีดสั้น ๆ นำหน้า อ่านแล้วกวาดตาหาหัวข้อง่ายขึ้น */
+.section-head h2::before,
+.td-h::before{
+  content:""; display:inline-block; width:4px; height:1em;
+  background:var(--gold); border-radius:2px;
+  margin-right:10px; vertical-align:-.12em;
+}
+
+/* การ์ดหอ: ขีดฟ้าโผล่ด้านบนตอนเอาเมาส์ชี้ บอกว่ากดได้ */
+.card-dorm{ position:relative; }
+.card-dorm::after{
+  content:""; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg, var(--gold), var(--gold-deep));
+  opacity:0; transition:opacity .18s ease;
+}
+.card-dorm:hover::after{ opacity:1; }
+
+/* เมนูหลังบ้าน: แถบฟ้าด้านซ้ายบอกว่าอยู่หน้าไหน */
+.side-link.active{ box-shadow: inset 3px 0 0 var(--gold); }
+
+/* กล่องค้นหาหน้าแรก ลอยขึ้นมาทับขอบ hero นิดหน่อย ดูเป็นชั้น ๆ */
+.search-panel{ border-top:3px solid var(--gold); }

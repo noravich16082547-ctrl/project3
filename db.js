@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -66,7 +66,7 @@ try{
 const SITE_CONTACT = {
   name:  'ทีมงาน DormCRU',                     // ชื่อผู้ดูแลเว็บ
   phone: '',                                  // เช่น '081-234-5678'
-  email: 'เมลผู้ดูแลเว็บ@gmail.com',           // อีเมลผู้ดูแลเว็บ — แก้ตรงนี้ถ้าอยากใช้อีเมลอื่น
+  email: 'darkwarior707@gmail.com',           // อีเมลผู้ดูแลเว็บ — แก้ตรงนี้ถ้าอยากใช้อีเมลอื่น
   line:  '',                                  // LINE ID เช่น '@dormcru' หรือลิงก์เต็ม https://line.me/...
   facebook: ''                                // ลิงก์เพจ เช่น 'https://facebook.com/dormcru'
 };
@@ -364,26 +364,57 @@ function normalizeNearby(list){
   return list
     .filter(p => p && String(p.name||'').trim())
     .slice(0, 30)
-    .map(p => ({
-      cat: NEARBY_CATS[p.cat] ? p.cat : 'other',
-      name: String(p.name).trim().slice(0,60),
-      dist: String(p.dist || '').trim().slice(0,30)
-    }));
+    .map(p => {
+      const lat = Number(p.lat), lng = Number(p.lng);
+      const hasPin = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+      return {
+        cat: NEARBY_CATS[p.cat] ? p.cat : 'other',
+        name: String(p.name).trim().slice(0,60),
+        // ระยะที่พิมพ์เอง — เก็บไว้เผื่อรายการเก่าที่ยังไม่ได้ปักหมุด
+        dist: String(p.dist || '').trim().slice(0,30),
+        // พิกัดจากการค้นหาบนแผนที่ (ของใหม่) — มีแล้วระบบคิดระยะให้เอง
+        lat: hasPin ? +lat.toFixed(6) : null,
+        lng: hasPin ? +lng.toFixed(6) : null
+      };
+    });
 }
 
 function hasNearby(d){ return !!(d && Array.isArray(d.nearby) && d.nearby.length); }
 
+// ---------------------------------------------------------------------------
+// ระยะทางจากหอไปร้าน
+//
+// ร้านที่ปักหมุดไว้ -> คิดจากพิกัดจริงให้เอง หน่วยกิโลเมตร (เหมือนระยะหอ-มอ)
+// ร้านเก่าที่ยังไม่ได้ปักหมุด -> ใช้ข้อความที่เจ้าของหอพิมพ์ไว้เหมือนเดิม
+// ---------------------------------------------------------------------------
+function nearbyDistanceKm(place, dorm){
+  if(!place || place.lat == null || place.lng == null) return null;
+  if(!hasLocation(dorm)) return null;
+  return haversineKm({ lat:place.lat, lng:place.lng }, { lat:dorm.lat, lng:dorm.lng });
+}
+
+// ข้อความระยะทางของร้านหนึ่งร้าน — คืน '' ถ้าไม่รู้ระยะเลย
+function nearbyDistanceText(place, dorm){
+  const km = nearbyDistanceKm(place, dorm);
+  if(km != null) return distanceLabel(km);
+  return place && place.dist ? place.dist : '';
+}
+
 // วาดรายการร้านรอบหอ (ใช้ทั้งฝั่งนักศึกษาและหลังบ้าน)
+// opts.dorm = หอที่เป็นจุดตั้งต้น ใช้คิดระยะจากพิกัด (ไม่ส่งมาก็ใช้ข้อความที่พิมพ์ไว้)
 function nearbyPlacesHtml(list, opts){
   const o = opts || {};
   const places = normalizeNearby(list);
   if(!places.length) return '';
   return `<div class="np-grid">${places.map((p,i)=>{
     const m = nearbyCatMeta(p.cat);
+    const dist = nearbyDistanceText(p, o.dorm);
+    const pinned = p.lat != null && p.lng != null;
     return `<div class="np-item">
       <span class="np-ic" title="${escapeAttr(m.label)}">${m.icon}</span>
       <span class="np-name">${escapeAttr(p.name)}</span>
-      ${p.dist ? `<span class="np-dist">${escapeAttr(p.dist)}</span>` : ''}
+      ${dist ? `<span class="np-dist${pinned?' np-pinned':''}"
+                     title="${pinned?'คิดจากพิกัดบนแผนที่':'ระยะที่เจ้าของหอพิมพ์เอง'}">${escapeAttr(dist)}</span>` : ''}
       ${o.edit ? `<button type="button" class="np-x" data-rmnear="${i}" title="ลบรายการนี้">✕</button>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -702,7 +733,7 @@ function planCellHtml(cell, opts){
     <span class="fp-st">${mine ? 'คุณจองไว้' : meta.short}</span>
     ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
     ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
-    ${(cell.photos && cell.photos.length) ? `<span class="fp-pic" title="มีรูปห้อง ${cell.photos.length} รูป">📷 ${cell.photos.length}</span>` : ''}
+    <!-- เอาป้ายไอคอนกล้องบนช่องห้องออกแล้ว (รกตา) — ดูรูปห้องได้ตอนกดเข้าไปในห้อง -->
   </${tag}>`;
 }
 
@@ -1010,6 +1041,71 @@ async function hasRecoverySession(){
   }catch(e){ return false; }
 }
 
+// ---------------------------------------------------------------------------
+// แลก token จากลิงก์ในอีเมลให้กลายเป็น session
+//
+// Supabase ส่งลิงก์กลับมาได้หลายรูปแบบ ขึ้นกับรุ่นและเทมเพลตอีเมลที่ตั้งไว้:
+//   1) #access_token=...&type=recovery      (แบบเดิม supabase-js อ่านเองอัตโนมัติ)
+//   2) ?code=...                            (แบบ PKCE ต้องเรียก exchangeCodeForSession)
+//   3) ?token_hash=...&type=recovery        (แบบใหม่ ต้องเรียก verifyOtp)
+// ต้องรองรับให้ครบ ไม่งั้นบางคนกดลิงก์แล้วหน้าเว็บบอกว่า "ลิงก์ใช้ไม่ได้"
+// ทั้งที่ลิงก์ยังดีอยู่ แค่คนละรูปแบบเท่านั้น
+// ---------------------------------------------------------------------------
+async function exchangeRecoveryUrl(){
+  if(!sb) return false;
+  const q = new URLSearchParams(location.search || '');
+  const h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+
+  // แบบ 3: token_hash
+  const tokenHash = q.get('token_hash') || h.get('token_hash');
+  const type = q.get('type') || h.get('type') || 'recovery';
+  if(tokenHash){
+    try{
+      const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+      if(!error) return true;
+      console.warn('verifyOtp:', error.message);
+    }catch(e){ console.warn(e); }
+  }
+
+  // แบบ 2: code (PKCE)
+  const code = q.get('code') || h.get('code');
+  if(code && sb.auth.exchangeCodeForSession){
+    try{
+      const { error } = await sb.auth.exchangeCodeForSession(code);
+      if(!error) return true;
+      console.warn('exchangeCodeForSession:', error.message);
+    }catch(e){ console.warn(e); }
+  }
+
+  // แบบ 1: supabase-js อ่าน hash ให้เองแล้ว แค่เช็กว่ามี session หรือยัง
+  return await hasRecoverySession();
+}
+
+// ---------------------------------------------------------------------------
+// ทางสำรอง: กรอกรหัส 6 หลักจากอีเมลแทนการกดลิงก์
+//
+// มีประโยชน์จริงเพราะระบบสแกนลิงก์ของผู้ให้บริการอีเมล (Gmail/Outlook)
+// บางทีแอบกดลิงก์ล่วงหน้าเพื่อตรวจไวรัส ทำให้ token ถูกใช้ไปแล้ว
+// พอผู้ใช้กดจริงเลยขึ้นว่า "ลิงก์หมดอายุ" ทั้งที่เพิ่งได้อีเมลมา
+// รหัส 6 หลักไม่มีปัญหานี้ เพราะต้องพิมพ์เองเท่านั้น
+// (ต้องแก้เทมเพลตอีเมลใน Supabase ให้โชว์ {{ .Token }} ด้วย — ดู README v31)
+// ---------------------------------------------------------------------------
+async function verifyRecoveryCode(email, code){
+  requireSupabase();
+  const mail = String(email || '').trim().toLowerCase();
+  const token = String(code || '').trim().replace(/\s/g, '');
+  if(!mail) throw new Error('กรุณากรอกอีเมลที่ขอรีเซ็ตไว้');
+  if(!/^\d{6}$/.test(token)) throw new Error('รหัสต้องเป็นตัวเลข 6 หลัก');
+
+  const { error } = await sb.auth.verifyOtp({ email: mail, token, type:'recovery' });
+  if(error){
+    if(/expired/i.test(error.message || '')) throw new Error('รหัสหมดอายุแล้ว — กลับไปกด "ลืมรหัสผ่าน" เพื่อขอรหัสใหม่');
+    if(/invalid|not found/i.test(error.message || '')) throw new Error('รหัสไม่ถูกต้อง — ตรวจอีเมลกับรหัส 6 หลักอีกครั้ง');
+    throw error;
+  }
+  return true;
+}
+
 async function toggleWishlist(dormId){
   const user = await waitForSession();
   if(!user) return null;
@@ -1102,7 +1198,17 @@ async function updateDorm(id, fields){
 async function deleteDorm(id){
   requireSupabase();
   const { error } = await sb.from('dorms').delete().eq('id', id);
-  if(error) throw error;
+  if(error){
+    // ฐานข้อมูลกันไม่ให้ลบหอที่ยังมีใบจอง/ข้อความผูกอยู่
+    // ข้อความดิบที่ได้มาอ่านไม่รู้เรื่องเลยสำหรับคนใช้งาน ต้องแปลให้
+    if(/foreign key|violates/i.test(error.message || '')){
+      throw new Error(
+        'ลบไม่ได้เพราะหอนี้ยังมีใบจอง/ข้อความผูกอยู่ในฐานข้อมูล — ' +
+        'ต้องรันไฟล์ fix-v32.sql ใน Supabase SQL Editor ก่อน (รันครั้งเดียวพอ) แล้วลองลบใหม่'
+      );
+    }
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1265,6 +1371,7 @@ function mapRentalRow(r){
   return {
     id: r.id, dormId: r.dorm_id || '', ownerId: r.owner_id,
     rentDate: r.rent_date || '',
+    contractNo: r.contract_no || '',
     roomNo: r.room_no || '', tenantName: r.tenant_name || '',
     tenantPhone: r.tenant_phone || '', note: r.note || '',
     contractUrl: r.contract_url || '',
@@ -1294,6 +1401,7 @@ async function createRental(fields){
     owner_id: user.id,                       // trigger ฝั่ง DB บังคับทับให้อีกชั้นอยู่แล้ว
     dorm_id: (fields && fields.dormId) || null,
     rent_date: (fields && fields.rentDate) || null,
+    contract_no: (fields && fields.contractNo) || null,
     room_no: (fields && fields.roomNo) || null,
     tenant_name: (fields && fields.tenantName) || null,
     tenant_phone: (fields && fields.tenantPhone) || null,
@@ -1309,7 +1417,7 @@ async function createRental(fields){
 
 // แก้ทีละช่อง (บันทึกตอนคลิกออกจากช่อง ไม่ใช่ทุกตัวอักษรที่พิมพ์)
 const RENTAL_FIELD_MAP = {
-  rentDate:'rent_date', roomNo:'room_no', tenantName:'tenant_name',
+  rentDate:'rent_date', contractNo:'contract_no', roomNo:'room_no', tenantName:'tenant_name',
   tenantPhone:'tenant_phone', note:'note', contractUrl:'contract_url', dormId:'dorm_id'
 };
 async function updateRental(id, fields){

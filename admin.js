@@ -232,17 +232,26 @@ async function renderOwnerPage(){
           บอกน้อง ๆ ว่าใกล้หอมีอะไร เช่น เซเว่น ร้านอาหาร ร้านทำเล็บ ตลาด ตู้ ATM —
           เรื่องนี้เป็นสิ่งที่นักศึกษาถามบ่อยที่สุดตอนเลือกหอ
         </p>
+        ${hasLocation(d) ? '' : `<p class="form-hint" style="color:#946A0E">
+          ⚠️ หอนี้ยังไม่ได้ปักหมุด — ระบบจึงคิดระยะทางให้ไม่ได้
+          กด "แก้ไขข้อมูลหอ" ปักหมุดหอก่อน แล้วค่อยมาเพิ่มร้านรอบ ๆ</p>`}
         <div class="ef-row">
           <select id="opNearCat">
             ${NEARBY_CAT_ORDER.map(c=>`<option value="${c}">${NEARBY_CATS[c].icon} ${escapeHtml(NEARBY_CATS[c].label)}</option>`).join('')}
           </select>
           <input type="text" id="opNearName" placeholder="ชื่อร้าน เช่น 7-Eleven หน้าหอ">
-          <input type="text" id="opNearDist" placeholder="ระยะทาง" style="max-width:130px">
-          <button type="button" class="btn btn-outline btn-sm" id="opNearAdd">+ เพิ่ม</button>
+          <button type="button" class="btn btn-outline btn-sm" id="opNearFind">🔍 หาบนแผนที่</button>
+          <button type="button" class="btn btn-outline btn-sm" id="opNearAdd">+ เพิ่มเอง</button>
         </div>
+        <div class="form-hint">
+          กด <strong>"หาบนแผนที่"</strong> แล้วเลือกร้านจากรายการ —
+          ระบบจะคิดระยะทางจากหอให้เองเป็นกิโลเมตร (เหมือนระยะหอ–มหาวิทยาลัย)<br>
+          ถ้าหาไม่เจอ กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อร้านไว้ก่อนได้
+        </div>
+        <div class="loc-results" id="opNearResults" style="display:none;margin-top:8px"></div>
         <div id="opNearList" style="margin-top:12px">
           ${hasNearby(d)
-            ? nearbyPlacesHtml(d.nearby, { edit:true })
+            ? nearbyPlacesHtml(d.nearby, { edit:true, dorm:d })
             : '<p class="muted" style="font-size:.86rem">ยังไม่ได้กรอก — เพิ่มสัก 3-5 ที่ที่ใกล้หอที่สุดก็พอ</p>'}
         </div>
       </section>
@@ -418,7 +427,8 @@ async function renderOwnerPage(){
   bindPlanEditor(box, d);
 
   // รอบ ๆ หอมีอะไรบ้าง — เพิ่ม/ลบรายการ
-  const addNear = async ()=>{
+  // pin = {lat,lng} ถ้ามาจากการค้นหาบนแผนที่ (ระบบคิดระยะให้เอง)
+  const addNear = async (pin)=>{
     const name = document.getElementById('opNearName').value.trim();
     if(!name){ toast('กรุณาใส่ชื่อร้านหรือสถานที่','error'); return; }
     const list = (d.nearby || []).slice();
@@ -426,17 +436,71 @@ async function renderOwnerPage(){
     list.push({
       cat:  document.getElementById('opNearCat').value,
       name: name.slice(0,60),
-      dist: document.getElementById('opNearDist').value.trim().slice(0,30)
+      dist: '',
+      lat: pin ? pin.lat : null,
+      lng: pin ? pin.lng : null
     });
     document.getElementById('opNearName').value = '';
-    document.getElementById('opNearDist').value = '';
-    await saveNearby(d, list, 'เพิ่มแล้ว');
+    const res = document.getElementById('opNearResults');
+    if(res){ res.style.display = 'none'; res.innerHTML = ''; }
+    await saveNearby(d, list, pin ? 'เพิ่มแล้ว — ระบบคิดระยะทางให้เรียบร้อย' : 'เพิ่มแล้ว');
   };
-  document.getElementById('opNearAdd')?.addEventListener('click', addNear);
-  ['opNearName','opNearDist'].forEach(id=>{
-    document.getElementById(id)?.addEventListener('keydown', (e)=>{
-      if(e.key === 'Enter'){ e.preventDefault(); addNear(); }
-    });
+  document.getElementById('opNearAdd')?.addEventListener('click', ()=> addNear(null));
+
+  // ---- หาร้านบนแผนที่แล้วเก็บพิกัดไว้ ----
+  const findNear = async ()=>{
+    const box = document.getElementById('opNearResults');
+    const btn = document.getElementById('opNearFind');
+    const q = document.getElementById('opNearName').value.trim();
+    if(!box) return;
+    if(q.length < 2){
+      box.style.display = 'block';
+      box.innerHTML = '<div class="lr-msg">พิมพ์ชื่อร้านอย่างน้อย 2 ตัวอักษรก่อน</div>';
+      return;
+    }
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังหา...'; }
+    box.style.display = 'block';
+    box.innerHTML = '<div class="lr-msg">กำลังค้นหา...</div>';
+    try{
+      const list = await searchPlace(q);
+      if(!list.length){
+        box.innerHTML = `<div class="lr-msg">ไม่พบร้านชื่อนี้บนแผนที่ —
+          กด "+ เพิ่มเอง" เพื่อบันทึกแค่ชื่อไว้ก่อนได้</div>`;
+        return;
+      }
+      // เรียงตามระยะห่างจาก "หอ" ไม่ใช่จากมอ เพราะกำลังหาร้านรอบหอ
+      const sorted = hasLocation(d)
+        ? list.slice().sort((a,b)=> haversineKm(a,d) - haversineKm(b,d))
+        : list;
+      box.innerHTML = sorted.map((p,i)=>{
+        const km = hasLocation(d) ? haversineKm(p, d) : null;
+        return `<button type="button" class="lr-item" data-np="${i}">
+          <span class="lr-name">${escapeHtml(p.short || p.name)}</span>
+          <span class="lr-sub">${escapeHtml(p.name)}</span>
+          ${km != null ? `<span class="lr-dist">ห่างจากหอ ${escapeHtml(distanceLabel(km))}</span>` : ''}
+        </button>`;
+      }).join('');
+      box.querySelectorAll('[data-np]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const p = sorted[+b.dataset.np];
+          if(!p) return;
+          // ใช้ชื่อที่ค้นเจอ ถ้าเจ้าของหอยังไม่ได้พิมพ์ชื่อเอง
+          const nameBox = document.getElementById('opNearName');
+          if(p.short) nameBox.value = p.short.slice(0,60);
+          addNear({ lat:p.lat, lng:p.lng });
+        });
+      });
+    }catch(err){
+      console.error(err);
+      box.innerHTML = `<div class="lr-msg">${escapeHtml(err.message || 'ค้นหาไม่สำเร็จ')}</div>`;
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '🔍 หาบนแผนที่'; }
+    }
+  };
+  document.getElementById('opNearFind')?.addEventListener('click', findNear);
+  document.getElementById('opNearName')?.addEventListener('keydown', (e)=>{
+    // Enter = ค้นหาบนแผนที่ (วิธีที่แนะนำ) ไม่ใช่เพิ่มเองทันที
+    if(e.key === 'Enter'){ e.preventDefault(); findNear(); }
   });
   box.querySelectorAll('[data-rmnear]').forEach(b=>{
     b.addEventListener('click', async ()=>{
@@ -1183,12 +1247,42 @@ function openEdit(dorm){
   document.getElementById('fFacebook').value = dorm ? (dorm.facebook||'') : '';
   document.getElementById('verifiedWrap').style.display = 'block';
   document.getElementById('fVerified').checked = dorm ? !!dorm.verified : false;
-  document.getElementById('editModal').classList.add('open');
-  // แผนที่ต้องสร้าง "หลัง" modal เปิดแล้ว ไม่งั้น Leaflet วัดขนาดกล่องได้ 0 แล้วแผนที่จะเพี้ยน
-  setTimeout(openLocMap, 60);
+  openEditPanel();
+}
+
+// เปิด/ปิดแผงแก้ไข (เดิมเป็น pop up ตอนนี้เป็นส่วนหนึ่งของหน้า)
+//
+// ⚠️ สำคัญ: แผงนี้อยู่ใน #sec-overview
+// ถ้าตอนนั้นผู้ใช้อยู่แท็บอื่น (เช่น หน้ารวมหอของผู้ดูแลระบบ แล้วกดปุ่มแก้ไขในตาราง)
+// sec-overview จะถูกซ่อนอยู่ แผงก็จะกางออกมาแบบมองไม่เห็นอะไรเลย
+// จึงต้องสลับกลับมาแท็บ "หน้าหอพักของฉัน" ก่อนเสมอ
+function gotoOverviewTab(){
+  DASH_SECTIONS.forEach(sec=>{
+    const el = document.getElementById('sec-' + sec);
+    if(el) el.style.display = (sec === 'overview') ? 'block' : 'none';
+  });
+  document.querySelectorAll('.side-link').forEach(b=>{
+    b.classList.toggle('active', b.dataset.sec === 'overview');
+  });
+}
+
+function openEditPanel(){
+  const panel = document.getElementById('editPanel');
+  if(!panel) return;
+  gotoOverviewTab();
+  panel.style.display = 'block';
+  // เลื่อนหน้าจอมาที่แผงให้เลย ไม่งั้นกดแก้ไขแล้วดูเหมือนไม่มีอะไรเกิดขึ้น
+  setTimeout(()=> panel.scrollIntoView({ behavior:'smooth', block:'start' }), 20);
+  // แผนที่ต้องสร้าง "หลัง" แผงแสดงแล้ว ไม่งั้น Leaflet วัดขนาดกล่องได้ 0 แล้วแผนที่จะเพี้ยน
+  setTimeout(openLocMap, 80);
+}
+function closeEditPanel(){
+  const panel = document.getElementById('editPanel');
+  if(panel) panel.style.display = 'none';
+  stopGpsWatch();
 }
 document.getElementById('btnAddDorm').addEventListener('click', ()=> openEdit(null));
-document.getElementById('closeEditModal').addEventListener('click', ()=> document.getElementById('editModal').classList.remove('open'));
+document.getElementById('closeEditModal').addEventListener('click', closeEditPanel);
 
 // ---------------------------------------------------------------------------
 // ตำแหน่งหอบนแผนที่
@@ -1616,8 +1710,7 @@ document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
   gpsTimer = setTimeout(finishGps, GPS_WATCH_MS);
 });
 
-// ปิด modal ระหว่างกำลังหาตำแหน่งอยู่ ต้องหยุด watch ไม่งั้นมันวิ่งค้างกิน battery
-document.getElementById('closeEditModal')?.addEventListener('click', stopGpsWatch);
+// หมายเหตุ: การหยุดเฝ้า GPS ตอนปิดแผง ย้ายไปอยู่ใน closeEditPanel() แล้ว
 
 ['fLat','fLng'].forEach(id=>{
   document.getElementById(id)?.addEventListener('input', ()=>{
@@ -1728,7 +1821,7 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
       activeOwnerDormId = newId;         // เปิดหอที่เพิ่งสร้างในหน้าโปรไฟล์เลย
       toast('สร้างหน้าหอพักของคุณสำเร็จ — นักศึกษาเห็นหอนี้แล้ว','success');
     }
-    document.getElementById('editModal').classList.remove('open');
+    closeEditPanel();
     renderListings(); renderStats(); renderOwnerPage();
   }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+err.message,'error'); }
 });
@@ -2057,13 +2150,13 @@ function rentalDateText(iso){
 async function renderRental(){
   const body = document.getElementById('rentalTable');
   if(!body) return;
-  body.innerHTML = '<tr><td colspan="5" class="rp-empty">กำลังโหลด...</td></tr>';
+  body.innerHTML = '<tr><td colspan="6" class="rp-empty">กำลังโหลด...</td></tr>';
   try{
     rentalRows = await getRentals(ME.role === 'admin' ? null : ME.uid);
     applyRentalFilter();
   }catch(err){
     console.error(err);
-    body.innerHTML = `<tr><td colspan="5" class="rp-empty">${escapeHtml(err.message||'โหลดข้อมูลไม่สำเร็จ')}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="rp-empty">${escapeHtml(err.message||'โหลดข้อมูลไม่สำเร็จ')}</td></tr>`;
   }
 }
 
@@ -2090,7 +2183,7 @@ function applyRentalFilter(){
   if(cnt) cnt.textContent = rentalRows.length ? `แสดง ${rows.length} จากทั้งหมด ${rentalRows.length} รายการ` : '';
 
   if(!rows.length){
-    body.innerHTML = `<tr><td colspan="5" class="rp-empty">${
+    body.innerHTML = `<tr><td colspan="6" class="rp-empty">${
       rentalRows.length === 0
         ? 'ยังไม่มีรายการ — กดปุ่ม "+ เพิ่มรายการเช่า" ด้านบนเพื่อเริ่มบันทึกผู้เช่ารายแรก'
         : (m ? 'ไม่มีรายการในเดือนที่เลือก — ลองเลือกเดือนอื่น หรือกด "ดูทุกเดือน"' : 'ไม่มีรายการ')
@@ -2099,8 +2192,10 @@ function applyRentalFilter(){
   }
 
   body.innerHTML = rows.map(r=>`
-    <tr data-rt="${escapeAttr(r.id)}" class="${r.rentDate||r.roomNo||r.tenantName ? '' : 'rt-blank'}">
+    <tr data-rt="${escapeAttr(r.id)}" class="${r.rentDate||r.roomNo||r.tenantName||r.contractNo ? '' : 'rt-blank'}">
       <td><input type="date" class="rt-in rt-date" data-f="rentDate" value="${escapeAttr(r.rentDate)}"></td>
+      <td><input type="text" class="rt-in rt-docno" data-f="contractNo" value="${escapeAttr(r.contractNo)}"
+                 placeholder="เช่น CT-001" maxlength="40"></td>
       <td><input type="text" class="rt-in rt-room" data-f="roomNo" value="${escapeAttr(r.roomNo)}"
                  placeholder="เช่น 302" maxlength="20"></td>
       <td>
@@ -2276,9 +2371,9 @@ function downloadRentalCsv(){
   const rows = filteredRentalRows();
   if(!rows.length){ toast('ไม่มีรายการให้บันทึก','error'); return; }
   const esc = (v)=> `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
-  const lines = [['วันที่','ห้อง','ผู้เช่า','เบอร์ติดต่อ','สัญญา'].map(esc).join(',')];
+  const lines = [['วันที่','เลขที่สัญญา','ห้อง','ผู้เช่า','เบอร์ติดต่อ','รูปสัญญา'].map(esc).join(',')];
   rows.forEach(r=> lines.push([
-    rentalDateText(r.rentDate), r.roomNo, r.tenantName, r.tenantPhone,
+    rentalDateText(r.rentDate), r.contractNo, r.roomNo, r.tenantName, r.tenantPhone,
     r.contractUrl ? 'แนบแล้ว' : 'ยังไม่แนบ'
   ].map(esc).join(',')));
   // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 ไม่งั้นภาษาไทยจะเป็นตัวต่างดาว
@@ -2442,9 +2537,7 @@ async function renderOwners(){
   });
 }
 
-['editModal'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',(e)=>{ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
-});
+// (เดิมมีโค้ดกดพื้นหลัง modal เพื่อปิด — ตอนนี้ฟอร์มอยู่ในหน้าแล้ว ไม่มีพื้นหลังให้กด)
 // เอาปุ่ม "ส่งอีเมลทดสอบ" ออกจากหน้าต่างแก้ไขหอพักแล้ว
 // (ฟังก์ชัน sendTestNotifyEmail ใน db.js ยังอยู่ เผื่อวันหลังอยากเอากลับมา)
 

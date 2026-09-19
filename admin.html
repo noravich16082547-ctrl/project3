@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=32">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -50,6 +50,140 @@
     <!-- ================= หน้าหลัก = หน้าโปรไฟล์หอพักของเจ้าของหอ ================= -->
     <div id="sec-overview">
       <div id="ownerPage"><div class="chat-empty">กำลังโหลด...</div></div>
+
+      <!-- ================= ฟอร์มเพิ่ม/แก้ไขหอพัก =================
+           เดิมเป็น pop up ลอยทับหน้าจอ บนจอเล็กต้องเลื่อนอยู่ในกล่องแคบ ๆ อึดอัด
+           ย้ายมาเป็นส่วนหนึ่งของหน้าหอพักของฉันแทน กดแก้ไขแล้วแผงนี้กางออกมา -->
+      <section class="op-card edit-panel" id="editPanel" style="display:none">
+        <div class="ep-head">
+          <h3 id="editTitle" style="margin:0">เพิ่ม/แก้ไขหอพัก</h3>
+          <button type="button" class="btn btn-ghost btn-sm" id="closeEditModal">✕ ปิดโดยไม่บันทึก</button>
+        </div>
+      <div class="form-field"><label>ชื่อหอพัก</label><input type="text" id="fName"></div>
+      <div class="form-field"><label>ประเภทหอพัก</label>
+        <select id="fHallType"><option value="หอหญิงล้วน">หอหญิงล้วน</option><option value="หอชายล้วน">หอชายล้วน</option><option value="หอรวม">หอรวม</option></select>
+      </div>
+      <!-- ================= ตำแหน่งหอ ================= -->
+      <div class="form-field">
+        <label>📍 ตำแหน่งหอพักบนแผนที่</label>
+        <p class="form-hint" style="margin-top:0">
+          <strong>ลากหมุดสีแดงไปวางตรงหอของคุณ</strong> หรือแตะบนแผนที่ตรงจุดที่ต้องการ —
+          หมุดนี้คือจุดที่นักศึกษาจะกดนำทางมา ถ้าปักผิดเขาจะไปผิดที่
+        </p>
+  
+        <!-- ค้นหาสถานที่ — วิธีหลักสำหรับคนที่เปิดจากคอม (คอมหาตำแหน่งตัวเองไม่แม่น) -->
+        <div class="loc-search">
+          <input type="text" id="locSearch" placeholder="ค้นหาชื่อหอ / ชื่อหมู่บ้าน / ถนน แล้วกด Enter">
+          <button type="button" class="btn btn-sm btn-outline" id="btnLocSearch">🔍 ค้นหา</button>
+        </div>
+        <div class="loc-results" id="locResults" style="display:none"></div>
+  
+        <!-- แผนที่ลากหมุด -->
+        <div class="loc-map-wrap">
+          <div id="locMap" class="loc-map"></div>
+          <div class="loc-map-fallback" id="locMapFallback">
+            กำลังโหลดแผนที่... ถ้าแผนที่ไม่ขึ้น ใช้วิธีวางลิงก์ Google Maps ด้านล่างแทนได้
+          </div>
+          <div class="loc-map-tools">
+            <button type="button" class="btn btn-sm btn-primary" id="btnHereLoc">📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="btnCrruLoc">🎓 ไปที่มหาวิทยาลัย</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="btnClearLoc">ล้างหมุด</button>
+          </div>
+          <p class="form-hint" id="locDeviceHint" style="margin-top:8px"></p>
+        </div>
+  
+        <div class="loc-state" id="locState"></div>
+  
+        <details class="loc-adv">
+          <summary>วิธีอื่น: วางลิงก์ Google Maps หรือกรอกพิกัดเอง</summary>
+          <div class="ef-row" style="margin-top:8px">
+            <input type="text" id="fMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
+            <button type="button" class="btn btn-outline btn-sm" id="btnParseMap">ใช้ลิงก์นี้</button>
+          </div>
+          <div class="form-hint">เปิด Google Maps → ค้นหาหอของคุณ → คัดลอกลิงก์จากช่อง URL มาวาง</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <div class="form-field" style="margin:0"><label>ละติจูด (lat)</label><input type="number" step="0.000001" id="fLat"></div>
+            <div class="form-field" style="margin:0"><label>ลองจิจูด (lng)</label><input type="number" step="0.000001" id="fLng"></div>
+          </div>
+        </details>
+      </div>
+      <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
+      <div class="form-field">
+        <label>สิ่งอำนวยความสะดวก</label>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <label><input type="checkbox" value="wifi" class="fFacility"> Wi-Fi</label>
+          <label><input type="checkbox" value="parking" class="fFacility"> ที่จอดรถ</label>
+          <label><input type="checkbox" value="laundry" class="fFacility"> ซักผ้าหยอดเหรียญ</label>
+          <label><input type="checkbox" value="keycard" class="fFacility"> คีย์การ์ด</label>
+          <label><input type="checkbox" value="cctv" class="fFacility"> กล้องวงจรปิด</label>
+          <label><input type="checkbox" value="guard" class="fFacility"> รปภ.</label>
+        </div>
+  
+        <!-- อื่น ๆ: เจ้าของหอพิมพ์เองได้ ไม่จำกัดอยู่แค่ 6 อย่างด้านบน -->
+        <div class="extra-fac">
+          <div class="ef-row">
+            <input type="text" id="fFacilityOther" placeholder="อื่น ๆ เช่น ตู้กดน้ำดื่ม, ลิฟต์, เครื่องทำน้ำอุ่น">
+            <button type="button" class="btn btn-outline btn-sm" id="btnAddFacility">+ เพิ่ม</button>
+          </div>
+          <div class="form-hint">พิมพ์แล้วกด "+ เพิ่ม" หรือกด Enter — เพิ่มได้ไม่จำกัด กด ✕ บนป้ายเพื่อลบ</div>
+          <div class="ef-chips" id="facilityChips"></div>
+        </div>
+      </div>
+      <!-- ================= ราคาเริ่มต้น =================
+           เดิมตรงนี้มี 4 ช่อง (ราคา+จำนวนห้อง ของพัดลมกับแอร์)
+           แต่จำนวนห้องกับห้องว่างตอนนี้ดูจาก "ผังห้องพัก" เป็นหลักแล้ว
+           และราคาของแต่ละห้องก็ตั้งได้ในผังห้องทีละห้อง
+           เลยเหลือช่องเดียวไว้โชว์เป็น "ราคาเริ่มต้น" บนการ์ดราคาฝั่งนักศึกษา -->
+      <div class="form-field">
+        <label>ราคาเริ่มต้น (บาท/เดือน)</label>
+        <input type="number" id="fBasePrice" min="0" step="50" placeholder="เช่น 2500">
+        <div class="form-hint">
+          ใส่ราคาห้องที่ถูกที่สุดของหอ — จะขึ้นเป็น "ราคาเริ่มต้น" ในหน้าหอฝั่งนักศึกษา<br>
+          เว้นว่างไว้ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
+        </div>
+      </div>
+      <!-- ================= รูปภาพหอพัก ================= -->
+      <div class="form-field">
+        <label>รูปภาพหอพัก</label>
+        <div class="photo-drop" id="photoDrop">
+          <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
+          <button type="button" class="btn btn-outline" id="btnPickPhotos">📷 เลือกรูปจากเครื่อง</button>
+          <div class="form-hint" style="margin-top:6px">
+            เลือกได้ทีละหลายรูป (กด Ctrl หรือลากคลุมตอนเลือกไฟล์) หรือ<strong>ลากไฟล์มาวางตรงนี้</strong>ก็ได้<br>
+            ระบบย่อขนาดรูปให้อัตโนมัติ ไม่ต้องใส่ลิงก์และไม่ต้องคั่นด้วย comma แล้ว
+          </div>
+          <div class="photo-progress" id="photoProgress" style="display:none"></div>
+        </div>
+        <div class="photo-grid" id="photoGrid"></div>
+        <details style="margin-top:8px">
+          <summary class="muted" style="font-size:.85rem;cursor:pointer">มีลิงก์รูปจากเว็บอื่นอยู่แล้ว? กดที่นี่เพื่อวางลิงก์</summary>
+          <div class="ef-row" style="margin-top:8px">
+            <input type="text" id="fImageUrl" placeholder="https://...">
+            <button type="button" class="btn btn-outline btn-sm" id="btnAddImageUrl">+ เพิ่มลิงก์</button>
+          </div>
+        </details>
+      </div>
+      <h4 style="margin:14px 0 6px">ช่องทางติดต่อหอพัก</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-field"><label>เบอร์โทรหอพัก</label><input type="tel" id="fPhone" placeholder="08x-xxx-xxxx"></div>
+        <div class="form-field"><label>LINE ID หรือลิงก์ LINE</label><input type="text" id="fLine" placeholder="@dormcru หรือ https://line.me/..."></div>
+      </div>
+      <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
+      <div class="form-field">
+        <label>📧 อีเมลรับแจ้งเตือนการจอง</label>
+        <input type="email" id="fContactEmail" placeholder="เช่น dorm.banfai@gmail.com">
+        <div class="form-hint">
+          เมื่อมีนักศึกษากดจองห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
+          เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
+        </div>
+      </div>
+      <div class="form-field" id="verifiedWrap" style="display:none">
+        <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการจองเต็มรูปแบบ<br>
+        <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
+      </div>
+      <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
+      </section>
+
 
       <!-- ภาพรวมตัวเลข (แสดงเฉพาะผู้ดูแลระบบ) -->
       <div id="adminOverview" style="display:none">
@@ -145,7 +279,7 @@
 
       <div class="table-wrap">
         <table class="report-table rental-table">
-          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้เช่า</th><th>สัญญา</th><th></th></tr></thead>
+          <thead><tr><th>วันที่</th><th>เลขที่สัญญา</th><th>ห้อง</th><th>ผู้เช่า</th><th>สัญญา</th><th></th></tr></thead>
           <tbody id="rentalTable"></tbody>
         </table>
       </div>
@@ -180,135 +314,6 @@
   </main>
 </div>
 
-<div class="modal-backdrop" id="editModal">
-  <div class="modal" style="max-width:640px">
-    <button class="modal-close" id="closeEditModal">✕</button>
-    <h3 id="editTitle">เพิ่ม/แก้ไขหอพัก</h3>
-    <div class="form-field"><label>ชื่อหอพัก</label><input type="text" id="fName"></div>
-    <div class="form-field"><label>ประเภทหอพัก</label>
-      <select id="fHallType"><option value="หอหญิงล้วน">หอหญิงล้วน</option><option value="หอชายล้วน">หอชายล้วน</option><option value="หอรวม">หอรวม</option></select>
-    </div>
-    <!-- ================= ตำแหน่งหอ ================= -->
-    <div class="form-field">
-      <label>📍 ตำแหน่งหอพักบนแผนที่</label>
-      <p class="form-hint" style="margin-top:0">
-        <strong>ลากหมุดสีแดงไปวางตรงหอของคุณ</strong> หรือแตะบนแผนที่ตรงจุดที่ต้องการ —
-        หมุดนี้คือจุดที่นักศึกษาจะกดนำทางมา ถ้าปักผิดเขาจะไปผิดที่
-      </p>
-
-      <!-- ค้นหาสถานที่ — วิธีหลักสำหรับคนที่เปิดจากคอม (คอมหาตำแหน่งตัวเองไม่แม่น) -->
-      <div class="loc-search">
-        <input type="text" id="locSearch" placeholder="ค้นหาชื่อหอ / ชื่อหมู่บ้าน / ถนน แล้วกด Enter">
-        <button type="button" class="btn btn-sm btn-outline" id="btnLocSearch">🔍 ค้นหา</button>
-      </div>
-      <div class="loc-results" id="locResults" style="display:none"></div>
-
-      <!-- แผนที่ลากหมุด -->
-      <div class="loc-map-wrap">
-        <div id="locMap" class="loc-map"></div>
-        <div class="loc-map-fallback" id="locMapFallback">
-          กำลังโหลดแผนที่... ถ้าแผนที่ไม่ขึ้น ใช้วิธีวางลิงก์ Google Maps ด้านล่างแทนได้
-        </div>
-        <div class="loc-map-tools">
-          <button type="button" class="btn btn-sm btn-primary" id="btnHereLoc">📱 ใช้ตำแหน่งที่ฉันยืนอยู่ตอนนี้</button>
-          <button type="button" class="btn btn-sm btn-ghost" id="btnCrruLoc">🎓 ไปที่มหาวิทยาลัย</button>
-          <button type="button" class="btn btn-sm btn-ghost" id="btnClearLoc">ล้างหมุด</button>
-        </div>
-        <p class="form-hint" id="locDeviceHint" style="margin-top:8px"></p>
-      </div>
-
-      <div class="loc-state" id="locState"></div>
-
-      <details class="loc-adv">
-        <summary>วิธีอื่น: วางลิงก์ Google Maps หรือกรอกพิกัดเอง</summary>
-        <div class="ef-row" style="margin-top:8px">
-          <input type="text" id="fMapLink" placeholder="วางลิงก์ Google Maps ของหอที่นี่">
-          <button type="button" class="btn btn-outline btn-sm" id="btnParseMap">ใช้ลิงก์นี้</button>
-        </div>
-        <div class="form-hint">เปิด Google Maps → ค้นหาหอของคุณ → คัดลอกลิงก์จากช่อง URL มาวาง</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-          <div class="form-field" style="margin:0"><label>ละติจูด (lat)</label><input type="number" step="0.000001" id="fLat"></div>
-          <div class="form-field" style="margin:0"><label>ลองจิจูด (lng)</label><input type="number" step="0.000001" id="fLng"></div>
-        </div>
-      </details>
-    </div>
-    <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
-    <div class="form-field">
-      <label>สิ่งอำนวยความสะดวก</label>
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <label><input type="checkbox" value="wifi" class="fFacility"> Wi-Fi</label>
-        <label><input type="checkbox" value="parking" class="fFacility"> ที่จอดรถ</label>
-        <label><input type="checkbox" value="laundry" class="fFacility"> ซักผ้าหยอดเหรียญ</label>
-        <label><input type="checkbox" value="keycard" class="fFacility"> คีย์การ์ด</label>
-        <label><input type="checkbox" value="cctv" class="fFacility"> กล้องวงจรปิด</label>
-        <label><input type="checkbox" value="guard" class="fFacility"> รปภ.</label>
-      </div>
-
-      <!-- อื่น ๆ: เจ้าของหอพิมพ์เองได้ ไม่จำกัดอยู่แค่ 6 อย่างด้านบน -->
-      <div class="extra-fac">
-        <div class="ef-row">
-          <input type="text" id="fFacilityOther" placeholder="อื่น ๆ เช่น ตู้กดน้ำดื่ม, ลิฟต์, เครื่องทำน้ำอุ่น">
-          <button type="button" class="btn btn-outline btn-sm" id="btnAddFacility">+ เพิ่ม</button>
-        </div>
-        <div class="form-hint">พิมพ์แล้วกด "+ เพิ่ม" หรือกด Enter — เพิ่มได้ไม่จำกัด กด ✕ บนป้ายเพื่อลบ</div>
-        <div class="ef-chips" id="facilityChips"></div>
-      </div>
-    </div>
-    <!-- ================= ราคาเริ่มต้น =================
-         เดิมตรงนี้มี 4 ช่อง (ราคา+จำนวนห้อง ของพัดลมกับแอร์)
-         แต่จำนวนห้องกับห้องว่างตอนนี้ดูจาก "ผังห้องพัก" เป็นหลักแล้ว
-         และราคาของแต่ละห้องก็ตั้งได้ในผังห้องทีละห้อง
-         เลยเหลือช่องเดียวไว้โชว์เป็น "ราคาเริ่มต้น" บนการ์ดราคาฝั่งนักศึกษา -->
-    <div class="form-field">
-      <label>ราคาเริ่มต้น (บาท/เดือน)</label>
-      <input type="number" id="fBasePrice" min="0" step="50" placeholder="เช่น 2500">
-      <div class="form-hint">
-        ใส่ราคาห้องที่ถูกที่สุดของหอ — จะขึ้นเป็น "ราคาเริ่มต้น" ในหน้าหอฝั่งนักศึกษา<br>
-        เว้นว่างไว้ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
-      </div>
-    </div>
-    <!-- ================= รูปภาพหอพัก ================= -->
-    <div class="form-field">
-      <label>รูปภาพหอพัก</label>
-      <div class="photo-drop" id="photoDrop">
-        <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
-        <button type="button" class="btn btn-outline" id="btnPickPhotos">📷 เลือกรูปจากเครื่อง</button>
-        <div class="form-hint" style="margin-top:6px">
-          เลือกได้ทีละหลายรูป (กด Ctrl หรือลากคลุมตอนเลือกไฟล์) หรือ<strong>ลากไฟล์มาวางตรงนี้</strong>ก็ได้<br>
-          ระบบย่อขนาดรูปให้อัตโนมัติ ไม่ต้องใส่ลิงก์และไม่ต้องคั่นด้วย comma แล้ว
-        </div>
-        <div class="photo-progress" id="photoProgress" style="display:none"></div>
-      </div>
-      <div class="photo-grid" id="photoGrid"></div>
-      <details style="margin-top:8px">
-        <summary class="muted" style="font-size:.85rem;cursor:pointer">มีลิงก์รูปจากเว็บอื่นอยู่แล้ว? กดที่นี่เพื่อวางลิงก์</summary>
-        <div class="ef-row" style="margin-top:8px">
-          <input type="text" id="fImageUrl" placeholder="https://...">
-          <button type="button" class="btn btn-outline btn-sm" id="btnAddImageUrl">+ เพิ่มลิงก์</button>
-        </div>
-      </details>
-    </div>
-    <h4 style="margin:14px 0 6px">ช่องทางติดต่อหอพัก</h4>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-field"><label>เบอร์โทรหอพัก</label><input type="tel" id="fPhone" placeholder="08x-xxx-xxxx"></div>
-      <div class="form-field"><label>LINE ID หรือลิงก์ LINE</label><input type="text" id="fLine" placeholder="@dormcru หรือ https://line.me/..."></div>
-    </div>
-    <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
-    <div class="form-field">
-      <label>📧 อีเมลรับแจ้งเตือนการจอง</label>
-      <input type="email" id="fContactEmail" placeholder="เช่น dorm.banfai@gmail.com">
-      <div class="form-hint">
-        เมื่อมีนักศึกษากดจองห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
-        เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
-      </div>
-    </div>
-    <div class="form-field" id="verifiedWrap" style="display:none">
-      <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการจองเต็มรูปแบบ<br>
-      <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
-    </div>
-    <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
-  </div>
-</div>
 
 <!-- ===== ดูรูปขนาดเต็ม (กดที่รูปหอเพื่อเปิด) ===== -->
 <div class="photo-viewer" id="photoViewer">
@@ -417,9 +422,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=30"></script>
-<script src="app.js?v=30"></script>
-<script src="admin.js?v=30"></script>
+<script src="db.js?v=32"></script>
+<script src="app.js?v=32"></script>
+<script src="admin.js?v=32"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
