@@ -325,7 +325,7 @@ footer a:hover{ color: var(--gold); }
   border-radius:var(--radius-sm); font-size:.88rem; margin-bottom:16px; display:none;
 }
 .setup-banner.show{ display:block; }
-.detail-modal .modal{ max-width: 900px; width:96%; }
+.detail-modal .modal{ max-width: 1360px; width:97%; }
 .detail-modal .detail-layout{ margin-top:16px; }
 .wishlist-toggle{ display:inline-flex; align-items:center; gap:6px; }
 .wishlist-toggle.active{ background:var(--gold); color:var(--forest-2); border-color:var(--gold); }
@@ -413,7 +413,8 @@ footer{ margin-bottom: 0; }
 /* ==========================================================================
    หน้ารายละเอียดหอพัก — เลย์เอาต์แบบหน้าโรงแรม
    ========================================================================== */
-.detail-modal .modal{ max-width: 1080px; width: 96%; padding: 0; }
+/* v35: ขยายหน้าต่างรายละเอียดหอให้ใหญ่ขึ้น อ่านง่ายขึ้นบนจอคอม */
+.detail-modal .modal{ max-width: 1360px; width: 97%; max-height: 92vh; padding: 0; }
 .trip-detail{ padding: 22px 26px 30px; }
 
 /* ---- หัวเรื่อง + ปุ่มบันทึก/แชร์ ---- */
@@ -914,6 +915,8 @@ footer{ margin-bottom: 0; }
 }
 .fp-room.is-bookable:hover::after{ opacity:.75; }
 .fp-room.is-mine{ outline:3px solid var(--gold); outline-offset:-3px; }
+/* ห้องที่เราส่งคำขอนัดพบไว้ แต่เจ้าของหอยังไม่ยืนยัน — ยังว่างอยู่ (เขียว) แค่ตีกรอบไข่ปลาไว้ (v35) */
+.fp-room.is-waiting{ outline:3px dashed rgba(255,255,255,.85); outline-offset:-4px; }
 
 /* โหมดแก้ไข: กดห้องเพื่อเปิด pop up */
 .fp-room[data-cell]{ cursor:pointer; }
@@ -994,11 +997,10 @@ footer{ margin-bottom: 0; }
 .np-ic{ font-size:1.1rem; flex-shrink:0; }
 .np-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .np-dist{ font-size:.78rem; color:var(--ink-soft); white-space:nowrap; }
-/* ร้านที่ปักหมุดไว้ = กดชื่อร้านเปิดดูตำแหน่งจริงบน Google Maps ได้ (v34) */
-.np-go{ color:inherit; text-decoration:none; }
-.np-go:hover{ color:var(--gold-deep); text-decoration:underline; }
-.np-go-ic{ font-size:.72rem; opacity:.55; }
-.np-go:hover .np-go-ic{ opacity:1; }
+/* ร้านที่ปักหมุดไว้ = กดชื่อร้านเปิดดูตำแหน่งจริงบน Google Maps ได้ (v34)
+   v35: เอาไอคอน 🗺 ท้ายชื่อออก (รกตา) — เหลือแค่ตัวหนังสือขีดเส้นใต้ก็รู้แล้วว่ากดได้ */
+.np-go{ color:var(--gold-deep); text-decoration:underline; text-underline-offset:2px; }
+.np-go:hover{ color:var(--forest); }
 .np-x{
   border:none; background:rgba(31,58,46,.1); color:var(--forest); border-radius:50%;
   width:20px; height:20px; font-size:.68rem; line-height:1; flex-shrink:0;
@@ -1183,8 +1185,15 @@ footer{ margin-bottom: 0; }
 
 /* หน้าต่างดูรูปใหญ่ต้องอยู่เหนือหน้าต่างรายละเอียดห้อง */
 #imgModal{ z-index:150; }
-#imgModal .modal{ max-width:min(92vw,1100px); background:transparent; padding:0; position:relative; }
-#imgModal .modal img{ width:auto; height:auto; max-width:100%; max-height:82vh; margin:0 auto; }
+/* v35: เวลากดดูรูป ขยายให้เต็มจอมากขึ้น (เดิม 1100px / 82vh) */
+#imgModal .modal{ max-width:min(98vw,1800px); background:transparent; padding:0; position:relative; }
+/* min-width = ขยายรูปเล็ก ๆ ขึ้นมาด้วย ไม่งั้นรูปที่ความละเอียดต่ำจะลอยเล็กจิ๋วกลางจอดำ
+   (height:auto ทำให้สัดส่วนรูปไม่เพี้ยน ส่วน max-height กันรูปแนวตั้งไม่ให้ล้นจอ) */
+#imgModal .modal img{
+  width:auto; height:auto; margin:0 auto;
+  min-width:min(62vw, 1200px); max-width:100%; max-height:92vh;
+}
+#imgModal.modal-backdrop{ padding:10px; }
 #imgModal .modal-close{ color:#fff; font-size:1.6rem; }
 
 @media (max-width:640px){

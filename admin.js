@@ -426,7 +426,7 @@ async function renderOwnerPage(){
           <div class="op-plan-sum">
             <span><strong>${s.total}</strong> ห้อง</span>
             <span class="st-vacant-txt">ว่าง <strong>${s.vacant}</strong></span>
-            <span class="st-booked-txt">นัดพบแล้ว <strong>${s.booked}</strong></span>
+            <span class="st-booked-txt">ไม่ว่าง <strong>${s.booked}</strong></span>
           </div>` : ''; })()}
       </div>
       <div id="opPlan">${floorPlanHtml(d.floorPlan, { edit:true })}</div>
@@ -1198,11 +1198,13 @@ function updateRoomStatusHint(status, cell){
   if(!el) return;
   if(status === 'booked'){
     el.innerHTML = (cell && cell.bookingId)
-      ? 'ห้องนี้มีนักศึกษากดนัดพบไว้ รอคุณกด <strong>"ยืนยันรับนัด"</strong> ในเมนู "คำขอนัดพบ"'
+      ? 'ห้องนี้ไม่ว่างเพราะคุณกด <strong>"ยืนยันรับนัด"</strong> ในเมนู "คำขอนัดพบ" ไปแล้ว'
       : 'ห้องไม่ว่าง — ใช้กับห้องที่มีคนอยู่แล้ว หรือห้องที่ยังไม่ปล่อยเช่า เช่น กำลังซ่อม ' +
         'นักศึกษาจะเห็นเป็นสีแดงและกดนัดพบไม่ได้';
   }else{
-    el.textContent = 'ห้องว่างพร้อมให้เช่า นักศึกษากดนัดพบห้องนี้ได้จากผังในหน้าหอของคุณ';
+    el.innerHTML = 'ห้องว่างพร้อมให้เช่า นักศึกษากดนัดพบห้องนี้ได้จากผังในหน้าหอของคุณ<br>' +
+      '<strong>ห้องจะยังเป็นสีเขียวแม้มีคนกดนัดพบแล้ว</strong> — จะเปลี่ยนเป็น "ไม่ว่าง" ' +
+      'ก็ต่อเมื่อคุณกด "ยืนยันรับนัด" ในเมนูคำขอนัดพบ';
   }
 }
 
@@ -1229,10 +1231,10 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.amen  = editRoomAmen.slice(0,20);
   target.cell.photos = editRoomPhotos.slice(0, MAX_ROOM_PHOTOS);
 
-  // เปลี่ยนสถานะจาก "มีคนนัดพบแล้ว" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบนัดพบเดิม
+  // เปลี่ยนสถานะจาก "ไม่ว่าง" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบนัดพบเดิม
   if(newStatus !== target.cell.status){
     if(target.cell.status === 'booked' && target.cell.bookingId){
-      if(!confirm('ห้องนี้มีนักศึกษากดนัดพบไว้อยู่\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอนัดพบนั้น\n' +
+      if(!confirm('ห้องนี้ผูกอยู่กับนัดที่คุณยืนยันไปแล้ว\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอนัดพบนั้น\n' +
                   '(คำขอนัดพบยังอยู่ในเมนู "คำขอนัดพบ" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
     }
     target.cell.status = newStatus;

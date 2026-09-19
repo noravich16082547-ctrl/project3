@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -429,7 +429,7 @@ function nearbyPlacesHtml(list, opts){
     const nameHtml = pinned
       ? `<a class="np-name np-go" href="${nearbyPinLink(p)}" target="_blank" rel="noopener"
             title="เปิดดูตำแหน่ง ${escapeAttr(p.name)} บน Google Maps"
-            >${escapeAttr(p.name)} <span class="np-go-ic">🗺</span></a>`
+            >${escapeAttr(p.name)}</a>`
       : `<span class="np-name">${escapeAttr(p.name)}</span>`;
     return `<div class="np-item">
       <span class="np-ic" title="${escapeAttr(m.label)}">${m.icon}</span>
@@ -677,15 +677,20 @@ function amenityGridHtml(codes){
 //   ห้องพัก   { k:'room',  id, no:'101', type:'air', price:2800, status:'vacant', note }
 //   ทางเดิน   { k:'stair', id, label:'บันได' }   ใช้แทนบันได ลิฟต์ หรือช่องว่าง
 //
-// สถานะห้อง (status) — ตรงกับสีที่แสดงในเว็บ
-//   vacant   เทา      ว่าง
-//   pending  แดง      มีคนกดนัดพบแล้ว รอเจ้าของหอยืนยัน
-//   occupied น้ำเงิน  มีผู้เช่าอยู่แล้ว
-//   closed   เทาเข้ม  ปิดปรับปรุง ไม่ปล่อยเช่า
+// สถานะห้อง (status) — มี 2 แบบเท่านั้น ตรงกับสีที่แสดงในเว็บ
+//   vacant  เขียว  ว่าง     — นักศึกษากดนัดพบได้
+//   booked  แดง    ไม่ว่าง  — ห้องนี้มีคนแล้ว นัดพบไม่ได้
+//
+// ⚠️ v35 เปลี่ยน "จังหวะ" ที่ห้องเปลี่ยนเป็นสีแดง:
+//    เดิม  นักศึกษากดนัดพบ -> ห้องแดงทันที (ทั้งที่เจ้าของหอยังไม่ได้ตอบเลย)
+//          ห้องจึงถูกล็อกไว้ให้คนที่กดก่อน แม้เขาจะไม่มาดูห้องจริงก็ตาม
+//    ใหม่  นักศึกษากดนัดพบ -> ห้องยัง "ว่าง" (เขียว) เพราะนัดไปดูห้องไม่ใช่การเหมาห้อง
+//          เจ้าของหอกดยืนยัน -> ห้องเป็น "ไม่ว่าง" (แดง)
+//    ตัวที่เปลี่ยนสีจริง ๆ อยู่ฝั่งฐานข้อมูล ในไฟล์ fix-v35.sql
 // ---------------------------------------------------------------------------
 const ROOM_STATUS_META = {
-  vacant: { label:'ว่าง',      short:'ว่าง',    cls:'st-vacant' },   // เขียว
-  booked: { label:'นัดพบแล้ว',   short:'นัดพบแล้ว', cls:'st-booked' }    // แดง
+  vacant: { label:'ว่าง',    short:'ว่าง',    cls:'st-vacant' },   // เขียว
+  booked: { label:'ไม่ว่าง', short:'ไม่ว่าง', cls:'st-booked' }    // แดง
 };
 const ROOM_STATUS_ORDER = ['vacant','booked'];
 const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด
@@ -814,19 +819,24 @@ function planCellHtml(cell, opts){
   const st   = normalizeRoomStatus(cell.status);
   const meta = ROOM_STATUS_META[st];
   const mine = o.myUserId && cell.userId === o.myUserId;
+  // ห้องที่ "เรา" ส่งคำขอนัดพบไว้แต่เจ้าของหอยังไม่ยืนยัน — ห้องยังว่าง (เขียว) อยู่
+  // แต่ตีกรอบไว้ให้เจ้าตัวรู้ว่าเคยกดไปแล้ว จะได้ไม่กดซ้ำโดยไม่รู้ตัว
+  const myPending = !mine && st === 'vacant' &&
+                    Array.isArray(o.pendingCells) && o.pendingCells.includes(cell.id);
   const canBook = o.bookable && st === 'vacant';
   const amen = (cell.amen || []).filter(Boolean);
   // ฝั่งนักศึกษา: กดห้องไหนก็ดูรายละเอียดห้องนั้นได้ ไม่ใช่เฉพาะห้องว่าง
   const clickable = o.bookable || o.edit;
   const tag = clickable ? 'button' : 'div';
   const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
+              (myPending ? ' · คุณส่งคำขอนัดพบห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน' : '') +
               (amen.length ? ' · ' + amen.join(', ') : '');
-  return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''}"
+  return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''} ${myPending?'is-waiting':''}"
       ${o.edit ? `data-cell="${escapeAttr(cell.id)}"` : ''}
       ${o.bookable ? `data-roominfo="${escapeAttr(cell.id)}"` : ''}
       title="${escapeAttr(tip)}">
     <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
-    <span class="fp-st">${mine ? 'คุณนัดพบไว้' : meta.short}</span>
+    <span class="fp-st">${mine ? 'คุณนัดพบไว้' : (myPending ? 'ว่าง · คุณนัดไว้' : meta.short)}</span>
     ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
     ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
     <!-- เอาป้ายไอคอนกล้องบนช่องห้องออกแล้ว (รกตา) — ดูรูปห้องได้ตอนกดเข้าไปในห้อง -->

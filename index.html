@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=34">
+<link rel="stylesheet" href="style.css?v=35">
 </head>
 <body>
 
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=34"></script>
-<script src="app.js?v=34"></script>
+<script src="db.js?v=35"></script>
+<script src="app.js?v=35"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -651,7 +651,7 @@ function openDetail(id){
                  (s.booked ? ` · ไม่ว่าง ${s.booked} ห้อง` : ''); })()}
         <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>กดนัดพบได้เลย
       </p>
-      <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid })}</div>
+      <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid, pendingCells: myPendingCells })}</div>
     ` : `
       <h2 class="td-rooms-h">เลือกห้องพักของคุณ</h2>
       ${roomRowsHtml(d)}
@@ -664,6 +664,13 @@ function openDetail(id){
   document.getElementById('detailModal').classList.add('open');
   document.querySelector('#detailModal .modal').scrollTop = 0;
   renderReviewBox(d);
+
+  // โหลดคำขอนัดพบของเราในหอนี้ แล้ววาดผังใหม่ให้เห็นว่าเคยกดห้องไหนไว้ (v35)
+  if(hasFloorPlan(d)){
+    loadMyPendingCells(d.id).then(()=>{
+      if(myPendingCells.length && activeDorm && activeDorm.id === d.id) refreshPlanBox(d);
+    });
+  }
 
   // เปิดรูปใหญ่เมื่อกดที่รูปในแกลเลอรี — เลื่อนดูได้ครบทุกรูปของหอ
   document.querySelectorAll('#detailContent .td-gallery img[data-gimg]').forEach(img=>{
@@ -911,14 +918,34 @@ document.addEventListener('keydown', (e)=>{
 //         + ยิงอีเมลแจ้งเจ้าของหอผ่าน /api/notify-booking
 // ===========================================================================
 let bookingDorm = null;
-let bookingCellId = null;   // ห้องเจาะจงในผังที่กำลังจะนัดพบ (ถ้ากดมาจากผังห้องพัก)
+let bookingCellId = null;
+
+// ---------------------------------------------------------------------------
+// ห้องในหอนี้ที่ "เรา" ส่งคำขอนัดพบไว้แล้วแต่เจ้าของหอยังไม่ยืนยัน (v35)
+//
+// ตั้งแต่ v35 ห้องจะยังเป็นสีเขียวจนกว่าเจ้าของหอจะกดยืนยัน
+// ถ้าไม่มีอะไรบอกเลย นักศึกษาจะจำไม่ได้ว่าเคยกดห้องไหนไปแล้ว แล้วกดซ้ำ
+// จึงตีกรอบไข่ปลาไว้บนห้องที่ตัวเองขอนัดไว้ (ยังเขียว ยังนับเป็นห้องว่างเหมือนเดิม)
+// ---------------------------------------------------------------------------
+let myPendingCells = [];
+
+async function loadMyPendingCells(dormId){
+  myPendingCells = [];
+  if(!myProfile || !myProfile.uid) return;
+  try{
+    const list = await getMyBookings(myProfile.uid);
+    myPendingCells = list
+      .filter(b => b.dormId === dormId && b.status === 'pending' && b.roomUid)
+      .map(b => b.roomUid);
+  }catch(err){ console.error('โหลดคำขอนัดพบของฉันไม่สำเร็จ:', err); }
+}   // ห้องเจาะจงในผังที่กำลังจะนัดพบ (ถ้ากดมาจากผังห้องพัก)
 
 // วาดผังห้องในหน้ารายละเอียดใหม่ (ใช้หลังนัดพบห้องเสร็จ ห้องจะได้เปลี่ยนสีทันที)
 function refreshPlanBox(dorm){
   const box = document.getElementById('planBox');
   if(!box || !hasFloorPlan(dorm)) return;
   activeDorm = dorm;
-  box.innerHTML = floorPlanHtml(dorm.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid });
+  box.innerHTML = floorPlanHtml(dorm.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid, pendingCells: myPendingCells });
   box.querySelectorAll('[data-roominfo]').forEach(btn=>{
     btn.addEventListener('click', ()=> openRoomInfo(dorm, btn.dataset.roominfo));
   });
@@ -939,10 +966,13 @@ function openRoomInfo(dorm, cellId){
   const mine = myProfile && cell.userId === myProfile.uid;
 
   const isVacant = normalizeRoomStatus(cell.status) === 'vacant';
+  // ห้องยังว่าง แต่เราขอนัดไว้แล้วและเจ้าของหอยังไม่ยืนยัน (v35)
+  const waiting = isVacant && myPendingCells.includes(cell.id);
 
   document.getElementById('roomInfoContent').innerHTML = `
     <h3 style="margin-top:0">ห้อง ${escapeHtml(cell.no || '')}
-      <span class="ri-pill ${meta.cls}">${escapeHtml(mine ? 'คุณนัดพบไว้' : meta.label)}</span>
+      <span class="ri-pill ${meta.cls}">${escapeHtml(
+        mine ? 'คุณนัดพบไว้' : (waiting ? 'ว่าง · คุณนัดไว้' : meta.label))}</span>
     </h3>
     <p class="muted" style="font-size:.86rem;margin-top:-4px">
       ${escapeHtml(found.floor.name)} · ${escapeHtml(dorm.name)}${typeLabel ? ' · ห้อง' + escapeHtml(typeLabel) : ''}
@@ -959,8 +989,12 @@ function openRoomInfo(dorm, cellId){
 
     ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
 
-    ${isVacant ? '' : `<div class="ri-note">${escapeHtml(
-        mine ? 'คุณส่งคำขอนัดพบนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ยกเลิกได้ที่เมนู "การนัดพบของฉัน"'
+    ${isVacant
+      ? (waiting ? `<div class="ri-note">${escapeHtml(
+          'คุณส่งคำขอนัดพบห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน — ห้องยังว่างอยู่ ' +
+          'จนกว่าเจ้าของหอจะกดยืนยัน · ดูสถานะหรือยกเลิกได้ที่เมนู "การนัดพบของฉัน"')}</div>` : '')
+      : `<div class="ri-note">${escapeHtml(
+        mine ? 'เจ้าของหอยืนยันนัดพบห้องนี้กับคุณแล้ว — ยกเลิกได้ที่เมนู "การนัดพบของฉัน"'
              : 'ห้องนี้ไม่ว่างแล้ว ลองดูห้องอื่นในผังที่เป็นสีเขียวได้เลย')}</div>`}
 
     <div class="ri-actions">
@@ -1102,6 +1136,8 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
     });
 
     document.getElementById('bookingModal').classList.remove('open');
+    // จำไว้ว่าเราขอนัดห้องนี้ไว้แล้ว (ห้องยังเขียวอยู่ แค่ตีกรอบไข่ปลาให้เจ้าตัวเห็น)
+    if(bookingCellId && !myPendingCells.includes(bookingCellId)) myPendingCells.push(bookingCellId);
     bookingCellId = null;
 
     // ยิงอีเมลแจ้งเจ้าของหอ (ไม่บล็อกการนัดพบ ถ้าเมลส่งไม่ออกก็ยังนัดพบสำเร็จ)
@@ -1112,7 +1148,9 @@ document.getElementById('bookingForm').addEventListener('submit', async (e)=>{
       toast('ส่งคำขอนัดพบแล้ว — ติดตามสถานะได้ที่เมนู "การนัดพบของฉัน"','success');
     }
 
-    // ดึงข้อมูลหอใหม่ แล้ววาดผังห้องใหม่ ห้องที่เพิ่งนัดพบจะเปลี่ยนเป็นสีแดงทันที
+    // ดึงข้อมูลหอใหม่ แล้ววาดผังห้องใหม่
+    // v35: ห้อง "ไม่เปลี่ยนเป็นสีแดง" ตอนนี้แล้ว — ยังว่างอยู่จนกว่าเจ้าของหอจะกดยืนยัน
+    // (วาดใหม่เพื่อให้กรอบไข่ปลา "คุณนัดไว้" ขึ้น และเผื่อห้องอื่นเพิ่งถูกยืนยันไป)
     try{
       const fresh = await getDormById(bookingDorm.id);
       if(fresh){
