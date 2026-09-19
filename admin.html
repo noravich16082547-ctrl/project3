@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=37">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -109,7 +109,7 @@
       </div>
       <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
       <div class="form-field">
-        <label>สิ่งอำนวยความสะดวก</label>
+        <label>สิ่งอำนวยความสะดวกส่วนกลาง (ของทั้งหอ)</label>
         <div style="display:flex;flex-wrap:wrap;gap:10px">
           <label><input type="checkbox" value="wifi" class="fFacility"> Wi-Fi</label>
           <label><input type="checkbox" value="parking" class="fFacility"> ที่จอดรถ</label>
@@ -338,7 +338,7 @@
 
 <!-- ===== pop up แก้รายละเอียดห้องในผัง (กดที่ช่องห้องเพื่อเปิด) ===== -->
 <div class="modal-backdrop" id="roomModal">
-  <div class="modal" style="max-width:440px">
+  <div class="modal room-edit-modal">
     <button class="modal-close" id="closeRoomModal">✕</button>
     <h3 style="margin-top:0" id="roomModalTitle">รายละเอียดห้อง</h3>
     <p class="muted" style="font-size:.85rem;margin-top:-4px" id="roomModalSub"></p>
@@ -434,9 +434,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=36"></script>
-<script src="app.js?v=36"></script>
-<script src="admin.js?v=36"></script>
+<script src="db.js?v=37"></script>
+<script src="app.js?v=37"></script>
+<script src="admin.js?v=37"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

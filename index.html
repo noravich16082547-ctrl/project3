@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
 
@@ -241,8 +241,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=36"></script>
-<script src="app.js?v=36"></script>
+<script src="db.js?v=37"></script>
+<script src="app.js?v=37"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -568,10 +568,10 @@ function openDetail(id){
         <h3 class="td-h">รอบ ๆ หอมีอะไรบ้าง</h3>
         ${nearbyHtml(d)}
 
-        <h3 class="td-h">สิ่งอำนวยความสะดวก</h3>
+        <h3 class="td-h">สิ่งอำนวยความสะดวกส่วนกลาง</h3>
         ${(d.facilities && d.facilities.length)
           ? `<div class="amenity-grid">${amenityGridHtml(d.facilities)}</div>`
-          : `<p class="muted" style="font-size:.88rem">ยังไม่มีข้อมูลสิ่งอำนวยความสะดวกในระบบ — สอบถามกับหอโดยตรงได้เลย</p>`}
+          : `<p class="muted" style="font-size:.88rem">ยังไม่มีข้อมูลส่วนกลางของหอในระบบ — สอบถามกับหอโดยตรงได้เลย</p>`}
 
         <h3 class="td-h">แผนที่และเส้นทางจากมหาวิทยาลัย</h3>
         ${mapRouteEmbedUrl(d)
@@ -960,6 +960,9 @@ function openRoomInfo(dorm, cellId){
     ${(cell.photos && cell.photos.length) ? `
       <h4 class="ri-h">รูปภายในห้องนี้</h4>
       ${roomPhotosHtml(cell.photos)}` : ''}
+
+    <h4 class="ri-h">สิ่งอำนวยความสะดวกในห้องนี้</h4>
+    ${roomAmenChipsHtml(cell.amen)}
 
     ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
 

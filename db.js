@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -828,7 +828,9 @@ function planCellHtml(cell, opts){
   // ฝั่งนักศึกษา: กดห้องไหนก็ดูรายละเอียดห้องนั้นได้ ไม่ใช่เฉพาะห้องว่าง
   const clickable = o.bookable || o.edit;
   const tag = clickable ? 'button' : 'div';
+  // ราคา/ของในห้องไม่ได้พิมพ์ลงบนช่องแล้ว แต่ยังอยู่ใน tooltip ตอนเอาเมาส์ชี้
   const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
+              (cell.price ? ' · ' + fmtBaht(cell.price) + ' บาท/เดือน' : '') +
               (myPending ? ' · คุณส่งคำขอนัดพบห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน' : '') +
               (amen.length ? ' · ' + amen.join(', ') : '');
   return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''} ${myPending?'is-waiting':''}"
@@ -837,9 +839,11 @@ function planCellHtml(cell, opts){
       title="${escapeAttr(tip)}">
     <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
     <span class="fp-st">${mine ? 'คุณนัดพบไว้' : (myPending ? 'ว่าง · คุณนัดไว้' : meta.short)}</span>
-    ${cell.price ? `<span class="fp-price">${fmtBaht(cell.price)}฿</span>` : ''}
-    ${amen.length ? `<span class="fp-amen">${amen.slice(0,3).map(a=>escapeAttr(a)).join(' · ')}${amen.length>3?' +'+(amen.length-3):''}</span>` : ''}
-    <!-- เอาป้ายไอคอนกล้องบนช่องห้องออกแล้ว (รกตา) — ดูรูปห้องได้ตอนกดเข้าไปในห้อง -->
+    <!-- v37: ช่องห้องเหลือแค่ "เลขห้อง + ว่าง/ไม่ว่าง"
+         ราคาและของในห้องถูกเอาออก เพราะช่องมันเล็ก ตัวหนังสือเลยโดนตัดกลางคำ
+         ("แอร์ · เครื่องทำน้ำอุ่...") อ่านไม่รู้เรื่องและทำให้ผังดูรก
+         ข้อมูลพวกนี้ดูได้ครบตอนกดเข้าไปในห้อง (และอยู่ใน tooltip ของช่องด้วย)
+         v32 เคยเอาไอคอนกล้องออกด้วยเหตุผลเดียวกัน -->
   </${tag}>`;
 }
 

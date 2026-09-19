@@ -240,16 +240,18 @@ async function renderOwnerPage(){
         </div>
       </section>
 
-      <!-- ---------- สิ่งอำนวยความสะดวก ---------- -->
+      <!-- ---------- สิ่งอำนวยความสะดวกส่วนกลาง (ของทั้งหอ) ----------
+           v37: เปลี่ยนชื่อการ์ดให้ไม่ซ้ำกับ "สิ่งอำนวยความสะดวกในห้อง" ที่ตั้งรายห้องในผัง -->
       <section class="op-card">
         <div class="opc-head">
-          <h3>สิ่งอำนวยความสะดวก</h3>
+          <h3>สิ่งอำนวยความสะดวกส่วนกลาง</h3>
           <button type="button" class="btn btn-outline btn-sm" id="opFacToggle" title="เพิ่มหรือแก้ไข">＋ เพิ่มหรือแก้ไข</button>
         </div>
         <div id="opFacView">
           ${facs.length
             ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
             : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "＋ เพิ่มหรือแก้ไข" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
+          <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ตั้งแยกรายห้องได้ที่ผังห้องพักด้านล่าง</p>
         </div>
         <div class="op-inline" id="opFacEdit" style="display:none">
           <div class="fac-pick">

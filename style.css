@@ -894,7 +894,8 @@ footer{ margin-bottom: 0; }
 .fp-row:last-child{ border-bottom:none; }
 
 .fp-cell{
-  width:92px; min-height:76px; border-radius:var(--radius-sm);
+  /* v37: ช่องเหลือแค่เลขห้อง + ว่าง/ไม่ว่าง จึงเตี้ยลงได้ */
+  width:92px; min-height:66px; border-radius:var(--radius-sm);
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
   font-family:var(--font-body); font-size:.78rem; text-align:center;
   border:1px solid rgba(0,0,0,.10); position:relative; padding:6px 4px;
@@ -1093,6 +1094,13 @@ footer{ margin-bottom: 0; }
 .ri-actions{ display:flex; gap:8px; margin-top:18px; }
 .ri-actions .btn{ flex:1; }
 
+/* v37: หน้าต่าง "แก้ไขห้อง" ฝั่งเจ้าของหอ — เดิมบีบไว้ 440px
+   ช่องกรอก ปุ่มเลือกของในห้อง และช่องอัปรูป เลยอัดกันจนต้องเลื่อนยาวมาก */
+.room-edit-modal{ max-width:860px; padding:28px 30px 30px; }
+.room-edit-modal .photo-grid{ grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); }
+.room-edit-modal .ra-quick{ gap:8px; }
+@media (max-width:640px){ .room-edit-modal{ padding:22px 18px 24px; } }
+
 /* v36: ขยายหน้าต่างรายละเอียดห้องให้ใหญ่ขึ้น (เดิมบีบไว้แค่ 400px ทำให้รูปห้องจิ๋วมาก) */
 .room-info-modal{ max-width:720px; padding:28px 30px 30px; }
 .room-info-modal .rp-gallery{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
@@ -1103,6 +1111,8 @@ footer{ margin-bottom: 0; }
   .room-info-modal .rp-gallery{ grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); }
 }
 /* บรรทัดของในห้องบนช่องผัง */
+/* .fp-price / .fp-amen ไม่ได้ใช้บนช่องห้องแล้วตั้งแต่ v37 (ดูเหตุผลใน planCellHtml)
+   เก็บกฎไว้เฉย ๆ เผื่ออยากเอาราคากลับมาโชว์บนช่องทีหลัง */
 .fp-amen{ font-size:.6rem; opacity:.85; line-height:1.15; margin-top:1px;
   max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
