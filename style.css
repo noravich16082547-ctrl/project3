@@ -1088,10 +1088,20 @@ footer{ margin-bottom: 0; }
 /* ป้ายที่เจ้าของหอติ๊กไว้ — ใช้สีเดียวกับปุ่มที่ติ๊กแล้วในหลังบ้าน จะได้เห็นตรงกัน */
 .ra-chip.on{ background:var(--forest); color:#fff; border-color:var(--forest); font-weight:600; }
 
-/* ปุ่มท้ายหน้าต่างรายละเอียดห้อง (จอง / ข้อความ) */
+/* ปุ่มท้ายหน้าต่างรายละเอียดห้อง (นัดพบ / ข้อความ) */
 .ri-h{ margin:16px 0 8px; font-size:.95rem; }
 .ri-actions{ display:flex; gap:8px; margin-top:18px; }
 .ri-actions .btn{ flex:1; }
+
+/* v36: ขยายหน้าต่างรายละเอียดห้องให้ใหญ่ขึ้น (เดิมบีบไว้แค่ 400px ทำให้รูปห้องจิ๋วมาก) */
+.room-info-modal{ max-width:720px; padding:28px 30px 30px; }
+.room-info-modal .rp-gallery{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.room-info-modal .ri-price{ font-size:2rem; }
+.room-info-modal .ri-actions .btn{ padding:12px 16px; font-size:.95rem; }
+@media (max-width:640px){
+  .room-info-modal{ padding:22px 18px 24px; }
+  .room-info-modal .rp-gallery{ grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); }
+}
 /* บรรทัดของในห้องบนช่องผัง */
 .fp-amen{ font-size:.6rem; opacity:.85; line-height:1.15; margin-top:1px;
   max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
