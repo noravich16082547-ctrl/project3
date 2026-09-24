@@ -911,7 +911,7 @@ footer{ margin-bottom: 0; }
 .fp-room.is-bookable{ cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
 .fp-room.is-bookable:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(31,58,46,.22); outline:2px solid var(--gold); }
 .fp-room.is-bookable::after{
-  content:'กดเพื่อจอง'; position:absolute; bottom:3px; left:0; right:0;
+  content:'กดเพื่อนัดพบ'; position:absolute; bottom:3px; left:0; right:0;
   font-size:.62rem; opacity:0; transition:opacity .12s ease;
 }
 .fp-room.is-bookable:hover::after{ opacity:.75; }
