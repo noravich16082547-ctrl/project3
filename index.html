@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 
@@ -24,21 +24,202 @@
       <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
       <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมอ แล้วแชทหรือนัดพบกับหอได้โดยตรง</p>
     </div>
-    <!-- เดิมตรงนี้เป็นวงกลมเรดาร์ตกแต่ง ซึ่งไม่ได้บอกอะไรจริง ๆ เลย
-         เปลี่ยนเป็นตัวเลขจากข้อมูลในระบบจริง มีประโยชน์กว่าและดูสะอาดกว่า -->
-    <div class="hero-stats" id="heroStats">
-      <div class="hs-card">
-        <div class="hs-num" id="hsDorms">–</div>
-        <div class="hs-label">หอพักในระบบ</div>
-      </div>
-      <div class="hs-card">
-        <div class="hs-num" id="hsVacant">–</div>
-        <div class="hs-label">ห้องว่างตอนนี้</div>
-      </div>
-      <div class="hs-card hs-wide">
-        <div class="hs-num" id="hsNear">–</div>
-        <div class="hs-label">หออยู่ในรัศมี 1 กม. จากมหาวิทยาลัย</div>
-      </div>
+    <!-- ภาพตกแต่งหัวเว็บ: วิวหอพักยามค่ำใต้ดอยเชียงราย (ตกแต่งอย่างเดียว ไม่มีตัวเลข) -->
+    <div class="hero-art" aria-hidden="true">
+      <svg class="hero-art-svg" viewBox="0 0 440 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+<defs>
+  <linearGradient id="haSky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#103E63"/><stop offset=".62" stop-color="#1E6A9C"/><stop offset="1" stop-color="#5FB0DD"/>
+  </linearGradient>
+  <radialGradient id="haMoonGlow" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="#FFF6D8" stop-opacity=".55"/><stop offset="1" stop-color="#FFF6D8" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="haBld" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#174A72"/><stop offset="1" stop-color="#0B2E4B"/>
+  </linearGradient>
+  <linearGradient id="haBld2" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1D5884"/><stop offset="1" stop-color="#0E3757"/>
+  </linearGradient>
+  <linearGradient id="haBeam" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#FFE8A3" stop-opacity=".7"/><stop offset="1" stop-color="#FFE8A3" stop-opacity="0"/>
+  </linearGradient>
+  <clipPath id="haClip"><rect width="440" height="300" rx="26"/></clipPath>
+</defs>
+<g clip-path="url(#haClip)">
+<rect width="440" height="300" fill="url(#haSky)"/>
+<circle class="ha-star" style="animation-delay:2.6s" cx="177" cy="29" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.46s" cx="49" cy="115" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.15s" cx="41" cy="74" r="1" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.96s" cx="234" cy="63" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:3.31s" cx="294" cy="64" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.31s" cx="75" cy="38" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.19s" cx="215" cy="16" r="1" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.58s" cx="80" cy="47" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.24s" cx="72" cy="83" r="1.2" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.33s" cx="361" cy="33" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.39s" cx="339" cy="34" r="1.2" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.48s" cx="376" cy="18" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:3.11s" cx="266" cy="97" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.45s" cx="250" cy="84" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.8s" cx="139" cy="111" r="1" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.1s" cx="136" cy="20" r="1.2" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.15s" cx="187" cy="103" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.66s" cx="49" cy="25" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.69s" cx="187" cy="29" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.36s" cx="354" cy="19" r="1.2" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.32s" cx="191" cy="86" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:3.78s" cx="245" cy="18" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.24s" cx="254" cy="99" r="0.8" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:1.14s" cx="371" cy="49" r="1.6" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:0.09s" cx="209" cy="95" r="1.2" fill="#fff"/>
+<circle class="ha-star" style="animation-delay:2.44s" cx="248" cy="55" r="1" fill="#fff"/>
+<circle cx="356" cy="62" r="46" fill="url(#haMoonGlow)"/>
+<circle cx="356" cy="62" r="19" fill="#FFF3CF"/><circle cx="364" cy="56" r="16" fill="#123F63" opacity=".0"/>
+<circle cx="350" cy="57" r="3" fill="#F1E2B4" opacity=".7"/><circle cx="361" cy="68" r="2.2" fill="#F1E2B4" opacity=".7"/>
+<g class="ha-cloud" fill="#fff" opacity=".13"><ellipse cx="90" cy="70" rx="38" ry="9"/><ellipse cx="108" cy="63" rx="20" ry="9"/></g>
+<g class="ha-cloud ha-cloud2" fill="#fff" opacity=".10"><ellipse cx="250" cy="44" rx="30" ry="7"/><ellipse cx="262" cy="38" rx="15" ry="7"/></g>
+<path d="M0 190 L52 140 L92 168 L150 112 L214 170 L262 132 L318 176 L372 128 L440 172 L440 300 L0 300Z" fill="#2A78A8" opacity=".55"/>
+<path d="M0 206 L70 168 L128 196 L190 160 L250 198 L320 166 L386 200 L440 182 L440 300 L0 300Z" fill="#1A5B87" opacity=".85"/>
+<rect x="34" y="150" width="70" height="150" fill="url(#haBld2)"/>
+<rect x="30" y="144" width="78" height="8" rx="2" fill="#0B2E4B"/>
+<rect class="ha-win" style="animation-delay:1.7s" x="42.0" y="162" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="57.0" y="162" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="72.0" y="162" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:2.4s" x="87.0" y="162" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:2.6s" x="42.0" y="181" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="57.0" y="181" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="72.0" y="181" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="87.0" y="181" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="42.0" y="200" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:0.5s" x="57.0" y="200" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="72.0" y="200" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="87.0" y="200" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="42.0" y="219" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="57.0" y="219" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="72.0" y="219" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:5.2s" x="87.0" y="219" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="42.0" y="238" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="57.0" y="238" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="72.0" y="238" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="87.0" y="238" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="118" y="104" width="92" height="196" fill="url(#haBld)"/>
+<path d="M114 106 L164 82 L214 106Z" fill="#0B2E4B"/>
+<rect x="126.0" y="116" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="142.8" y="116" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="159.5" y="116" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="176.2" y="116" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="193.0" y="116" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="126.0" y="135" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:3.6s" x="142.8" y="135" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="159.5" y="135" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="176.2" y="135" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="193.0" y="135" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:2.3s" x="126.0" y="154" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="142.8" y="154" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="159.5" y="154" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="176.2" y="154" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:2.9s" x="193.0" y="154" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="126.0" y="173" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="142.8" y="173" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="159.5" y="173" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="176.2" y="173" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="193.0" y="173" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:5.7s" x="126.0" y="192" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="142.8" y="192" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="159.5" y="192" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="176.2" y="192" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="193.0" y="192" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="126.0" y="211" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="142.8" y="211" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:3.2s" x="159.5" y="211" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="176.2" y="211" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="193.0" y="211" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="126.0" y="230" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="142.8" y="230" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:2.4s" x="159.5" y="230" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="176.2" y="230" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="193.0" y="230" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="224" y="132" width="76" height="168" fill="url(#haBld2)"/>
+<rect x="220" y="126" width="84" height="8" rx="2" fill="#0B2E4B"/><rect x="276" y="112" width="6" height="16" fill="#0B2E4B"/>
+<rect x="232.0" y="144" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="249.0" y="144" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="266.0" y="144" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:3.6s" x="283.0" y="144" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="232.0" y="163" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="249.0" y="163" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="266.0" y="163" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:2.8s" x="283.0" y="163" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="232.0" y="182" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="249.0" y="182" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="266.0" y="182" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="283.0" y="182" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="232.0" y="201" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="249.0" y="201" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="266.0" y="201" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="283.0" y="201" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="232.0" y="220" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="249.0" y="220" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="266.0" y="220" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="283.0" y="220" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="232.0" y="239" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:6.0s" x="249.0" y="239" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="266.0" y="239" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="283.0" y="239" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="314" y="168" width="88" height="132" fill="url(#haBld)"/>
+<path d="M308 170 L358 148 L408 170Z" fill="#0B2E4B"/>
+<rect x="322.0" y="180" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="337.8" y="180" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="353.5" y="180" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="369.2" y="180" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="385.0" y="180" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="322.0" y="199" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="337.8" y="199" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="353.5" y="199" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="369.2" y="199" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect class="ha-win" style="animation-delay:3.0s" x="385.0" y="199" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="322.0" y="218" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="337.8" y="218" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="353.5" y="218" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="369.2" y="218" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="385.0" y="218" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="322.0" y="237" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="337.8" y="237" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect x="353.5" y="237" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<rect x="369.2" y="237" width="9" height="10" rx="1.5" fill="#3E7FAD"/>
+<rect class="ha-win" style="animation-delay:3.1s" x="385.0" y="237" width="9" height="10" rx="1.5" fill="#FFD27A"/>
+<g transform="translate(20 250) scale(1)"><rect x="-2" y="-6" width="4" height="12" fill="#0B2E4B"/><circle cx="0" cy="-16" r="13" fill="#1F7FA6"/><circle cx="-7" cy="-10" r="9" fill="#186F94"/><circle cx="7" cy="-11" r="9" fill="#1A7499"/></g>
+<g transform="translate(112 250) scale(0.8)"><rect x="-2" y="-6" width="4" height="12" fill="#0B2E4B"/><circle cx="0" cy="-16" r="13" fill="#1F7FA6"/><circle cx="-7" cy="-10" r="9" fill="#186F94"/><circle cx="7" cy="-11" r="9" fill="#1A7499"/></g>
+<g transform="translate(214 250) scale(0.9)"><rect x="-2" y="-6" width="4" height="12" fill="#0B2E4B"/><circle cx="0" cy="-16" r="13" fill="#1F7FA6"/><circle cx="-7" cy="-10" r="9" fill="#186F94"/><circle cx="7" cy="-11" r="9" fill="#1A7499"/></g>
+<g transform="translate(306 250) scale(0.85)"><rect x="-2" y="-6" width="4" height="12" fill="#0B2E4B"/><circle cx="0" cy="-16" r="13" fill="#1F7FA6"/><circle cx="-7" cy="-10" r="9" fill="#186F94"/><circle cx="7" cy="-11" r="9" fill="#1A7499"/></g>
+<g transform="translate(414 250) scale(1.05)"><rect x="-2" y="-6" width="4" height="12" fill="#0B2E4B"/><circle cx="0" cy="-16" r="13" fill="#1F7FA6"/><circle cx="-7" cy="-10" r="9" fill="#186F94"/><circle cx="7" cy="-11" r="9" fill="#1A7499"/></g>
+<rect x="0" y="252" width="440" height="48" fill="#082840"/>
+<rect x="0" y="252" width="440" height="3" fill="#2E9BD6" opacity=".55"/>
+<g class="ha-road"><rect x="-40" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="-4" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="32" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="68" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="104" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="140" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="176" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="212" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="248" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="284" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="320" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="356" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="392" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="428" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/><rect x="464" y="275" width="18" height="3" rx="1.5" fill="#fff" opacity=".45"/></g>
+<g class="ha-bike">
+  <path d="M30 268 L110 256 L110 282 Z" fill="url(#haBeam)"/>
+  <g transform="translate(0 0)">
+    <circle cx="-2" cy="277" r="7" fill="#0B2E4B" stroke="#BFE3F7" stroke-width="2.4"/>
+    <circle cx="26" cy="277" r="7" fill="#0B2E4B" stroke="#BFE3F7" stroke-width="2.4"/>
+    <path d="M-4 270 Q0 260 10 262 L20 262 L24 254 L28 254 L27 262 Q32 266 30 272 L4 272 Z" fill="#2E9BD6"/>
+    <rect x="22" y="250" width="3" height="10" rx="1.5" fill="#0B2E4B" transform="rotate(18 23 255)"/>
+    <circle cx="29" cy="262" r="2.2" fill="#FFE8A3"/>
+    <path d="M6 262 L10 246 Q12 240 18 242 L20 250 L14 262Z" fill="#F4F8FC"/>
+    <circle cx="14" cy="236" r="6.5" fill="#FFD27A"/>
+    <path d="M8 236 Q14 226 21 235 Z" fill="#D6604A"/>
+  </g>
+</g>
+<g class="ha-pin">
+  <ellipse cx="164" cy="78" rx="9" ry="2.5" fill="#000" opacity=".25"/>
+  <g class="ha-pin-body">
+    <path d="M164 74 C152 60 148 54 148 46 A16 16 0 0 1 180 46 C180 54 176 60 164 74Z" fill="#2E9BD6" stroke="#fff" stroke-width="2"/>
+    <path d="M157 48 L164 41 L171 48 L171 54 L157 54Z" fill="#fff"/>
+    <rect x="162" y="49" width="4" height="5" fill="#2E9BD6"/>
+  </g>
+</g>
+</g></svg>
+      <span class="ha-tag ha-tag-1">🏠 ห้องจริงจากเจ้าของหอ</span>
+      <span class="ha-tag ha-tag-2">🛵 ใกล้ มร.ชร.</span>
+      <span class="ha-tag ha-tag-3">💬 แชทกับหอได้เลย</span>
     </div>
   </div>
 </section>
@@ -125,7 +306,7 @@
     </div>
     <div style="margin-top:8px;font-size:.82rem;opacity:.85">
       ข้อมูลหอพัก ราคา และห้องว่างทั้งหมดมาจากเจ้าของหอที่ลงข้อมูลเองในระบบ
-      · ดูรายชื่อหอพักเครือข่ายทางการเพิ่มเติมได้ที่ <a href="https://aso.crru.ac.th/asoblog/dormnetwork" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">สำนักงานบริการที่พักอาศัย มร.ชร.</a>
+      · ก่อนโอนเงินจองห้อง แนะนำให้ไปดูห้องจริงและคุยกับเจ้าของหอให้ชัดเจนทุกครั้ง
     </div>
   </div>
 </footer>
@@ -241,8 +422,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=37"></script>
-<script src="app.js?v=37"></script>
+<script src="db.js?v=38"></script>
+<script src="app.js?v=38"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -284,22 +465,6 @@ function cardRatingHtml(dormId){
   return `<span class="card-rating" title="${r.count} รีวิว">★ ${r.avg} <small>(${r.count})</small></span>`;
 }
 
-// ตัวเลขบนหัวเว็บ — คิดจากหอทั้งหมดในระบบ ไม่ใช่เฉพาะที่กรองอยู่
-// (ถ้าใช้ผลกรอง ตัวเลขจะกระโดดไปมาทุกครั้งที่ขยับแถบราคา งงกว่าเดิม)
-function renderHeroStats(){
-  const box = document.getElementById('heroStats');
-  if(!box) return;
-  const list = allDorms || [];
-  const vacant = list.reduce((s,d)=> s + (totalVacancy(d) || 0), 0);
-  const near = list.filter(d=>{
-    const km = distanceToCrru(d);
-    return km != null && km <= 1;
-  }).length;
-  document.getElementById('hsDorms').textContent  = list.length;
-  document.getElementById('hsVacant').textContent = vacant || '–';
-  document.getElementById('hsNear').textContent   = near;
-}
-
 function dormCardHtml(d){
   const vac = totalVacancy(d);
   const km = distanceToCrru(d);
@@ -315,7 +480,7 @@ function dormCardHtml(d){
     <div class="card-body">
       <h3 data-open="${d.id}" style="cursor:pointer">${escapeHtml(d.name)}</h3>
       <div class="card-meta">${km != null
-        ? `<span class="walk-chip">🚶 ห่างมอ ${distanceLabel(km)}${km<=3?' · เดิน '+walkMinutes(km)+' นาที':''}</span>`
+        ? `<span class="walk-chip">🛵 ห่างมอ ${distanceLabel(km)} · มอไซต์ ${rideMinutes(km)} นาที</span>`
         : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
       <div class="card-meta">${cardRatingHtml(d.id)}${facilityIcons(d.facilities)}</div>
       <div class="card-price">
@@ -350,7 +515,6 @@ function applyFilters(){
 
     const grid = document.getElementById('dormGrid');
     document.getElementById('resultCount').textContent = `พบ ${dorms.length} หอพัก`;
-    renderHeroStats();
     document.getElementById('emptyMsg')?.remove();
     if(dorms.length===0){
       grid.innerHTML = '';
@@ -458,7 +622,7 @@ function statusBlockHtml(d){
   const big = km == null ? '—' : (km < 1 ? Math.round(km*100)*10 : km.toFixed(1));
   const unit = km == null ? '' : `<span class="unit">${km < 1 ? 'ม.' : 'กม.'}</span>`;
   const head = km == null ? 'ยังไม่ได้ปักหมุดหอ'
-             : `ห่างจากมหาวิทยาลัย${km <= 3 ? ' · เดินราว ' + walkMinutes(km) + ' นาที' : ''}`;
+             : `ห่างจากมหาวิทยาลัย · ขี่มอไซต์ราว ${rideMinutes(km)} นาที`;
   const note = d.verified
     ? 'เจ้าของหอเข้ามายืนยันราคาและห้องว่างในระบบแล้ว'
     : 'ข้อมูลรวบรวมจากประกาศสาธารณะของมหาวิทยาลัย ยังรอเจ้าของหอเข้ามายืนยัน — แนะนำให้สอบถามหอโดยตรงอีกครั้ง';
@@ -484,7 +648,7 @@ function nearbyHtml(d){
       <span class="nb-ic">🎓</span>
       <span class="nb-name">มหาวิทยาลัยราชภัฏเชียงราย</span>
       <span class="nb-dist">
-        ${km != null ? `${distanceLabel(km)}${km<=3?' · เดิน '+walkMinutes(km)+' นาที':''} · ` : ''}
+        ${km != null ? `${distanceLabel(km)} · 🛵 ${rideMinutes(km)} นาที · ` : ''}
         ${dir
           ? `<a href="${dir}" target="_blank" rel="noopener">ดูเส้นทาง</a>`
           : `<span class="muted">${NO_PIN_TEXT}</span>`}

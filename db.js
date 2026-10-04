@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -75,7 +75,7 @@ const SITE_CONTACT = {
 function siteContactList(){
   const out = [];
   if(SITE_CONTACT.phone) out.push({ icon:'📞', label: SITE_CONTACT.phone, href:`tel:${SITE_CONTACT.phone}` });
-  if(SITE_CONTACT.email) out.push({ icon:'✉️', label: SITE_CONTACT.email, href:`mailto:${SITE_CONTACT.email}` });
+  if(SITE_CONTACT.email) out.push({ icon:'✉️', label: SITE_CONTACT.email, href:'' });   // แสดงอย่างเดียว ไม่ให้กด
   if(SITE_CONTACT.line){
     const href = SITE_CONTACT.line.startsWith('http') ? SITE_CONTACT.line : `https://line.me/R/ti/p/~${encodeURIComponent(SITE_CONTACT.line)}`;
     out.push({ icon:'💬', label:`LINE: ${SITE_CONTACT.line}`, href });
@@ -87,7 +87,9 @@ function siteContactList(){
 // แบบบรรทัดเดียว (ใช้ในหน้าเข้าสู่ระบบ) — คืนค่าว่างถ้ายังไม่ได้กรอกช่องทางใดเลย
 function siteContactHtml(){
   return siteContactList()
-    .map(c=>`<a href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''} style="color:inherit">${c.icon} ${c.label}</a>`)
+    .map(c=> c.href
+      ? `<a href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''} style="color:inherit">${c.icon} ${c.label}</a>`
+      : `<span>${c.icon} ${c.label}</span>`)
     .join(' &nbsp;·&nbsp; ');
 }
 
@@ -96,8 +98,10 @@ function siteContactBarHtml(){
   const list = siteContactList();
   const who = SITE_CONTACT.name || 'ผู้ดูแลเว็บ DormCRU';
   const items = list.length
-    ? list.map(c=>`<a class="site-contact-item" href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''}>
-         <span class="ic">${c.icon}</span><span>${c.label}</span></a>`).join('')
+    ? list.map(c=> c.href
+        ? `<a class="site-contact-item" href="${c.href}" ${c.href.startsWith('http')?'target="_blank" rel="noopener"':''}>
+             <span class="ic">${c.icon}</span><span>${c.label}</span></a>`
+        : `<span class="site-contact-item is-static"><span class="ic">${c.icon}</span><span>${c.label}</span></span>`).join('')
     : `<span class="site-contact-item muted-light">ยังไม่ได้กรอกช่องทางติดต่อ — เปิดไฟล์ <code>db.js</code> แล้วเติมค่าในตัวแปร <code>SITE_CONTACT</code></span>`;
   return `
     <div class="site-contact-inner">
@@ -242,18 +246,21 @@ function distanceLabel(km){
   return km.toFixed(1) + ' กม.';
 }
 
-// เวลาเดินโดยประมาณ (คนเดินเฉลี่ย 5 กม./ชม.) — ใช้บอกคร่าว ๆ เท่านั้น
-function walkMinutes(km){
+// เวลาขี่มอเตอร์ไซค์โดยประมาณ — นักศึกษาส่วนใหญ่ขี่มอไซต์ไปเรียน
+// ระยะถนนจริงมักยาวกว่าระยะเส้นตรงราว 1.3 เท่า และขี่ในเมือง/ในมอเฉลี่ยราว 25 กม./ชม.
+// (เทียบกับ Google Maps แล้วใกล้เคียง เช่น เส้นตรง 410 ม. ≈ 2 นาที) — ใช้บอกคร่าว ๆ เท่านั้น
+function rideMinutes(km){
   if(km == null) return null;
-  return Math.max(1, Math.round(km / 5 * 60));
+  return Math.max(1, Math.ceil(km * 1.3 / 25 * 60));
 }
+// เก็บชื่อเดิมไว้ เผื่อมีโค้ดส่วนอื่นเรียกใช้อยู่
+function walkMinutes(km){ return rideMinutes(km); }
 
-// ข้อความสรุปตำแหน่งหอ เช่น "ห่างมอ 450 ม. · เดินราว 6 นาที"
+// ข้อความสรุปตำแหน่งหอ เช่น "ห่างมหาวิทยาลัย 410 ม. · ขี่มอไซต์ราว 2 นาที"
 function locationSummary(d){
   const km = distanceToCrru(d);
   if(km == null) return null;
-  const m = walkMinutes(km);
-  return `ห่างมหาวิทยาลัย ${distanceLabel(km)}` + (km <= 3 ? ` · เดินราว ${m} นาที` : '');
+  return `ห่างมหาวิทยาลัย ${distanceLabel(km)} · ขี่มอไซต์ราว ${rideMinutes(km)} นาที`;
 }
 
 // ---------------------------------------------------------------------------
@@ -630,7 +637,7 @@ function mapRouteEmbedUrl(d){
 function mapDirectionsLink(d){
   const q = dormPlaceQuery(d);
   if(!q) return null;
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(CRRU_ORIGIN)}&destination=${encodeURIComponent(q)}&travelmode=walking`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(CRRU_ORIGIN)}&destination=${encodeURIComponent(q)}&travelmode=two-wheeler`;
 }
 // ลิงก์เปิดหมุดหอบนแผนที่ (ไม่ใช่เส้นทาง) — null ถ้าหอยังไม่ปักหมุด
 function mapPinLink(d){
