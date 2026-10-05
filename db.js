@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -1955,6 +1955,37 @@ async function getMyBookings(uid){
   if(error) throw error;
   return data.map(mapBookingRow);
 }
+// ---------------------------------------------------------------------------
+// แจ้งเตือน "การนัดพบของฉัน" (v40) — เจ้าของหอกดยืนยัน/ปฏิเสธแล้วขึ้นตัวเลขบนปุ่ม
+// เหมือน "ข้อความของฉัน" จำไว้ในเบราว์เซอร์ว่านักศึกษาเห็นสถานะไหนไปแล้ว
+// (ไม่ต้องรัน SQL เพิ่ม) — เปิดหน้าต่างการนัดพบของฉันเมื่อไหร่ ตัวเลขหายเอง
+// ---------------------------------------------------------------------------
+function bookingSeenKey(uid){ return 'dormcru_bk_seen_' + uid; }
+function getSeenBookingStatuses(uid){
+  try{
+    const raw = localStorage.getItem(bookingSeenKey(uid));
+    return raw ? JSON.parse(raw) : null;      // null = ยังไม่เคยเปิดดูเลย
+  }catch(e){ return null; }
+}
+function markBookingsSeen(uid, list){
+  try{
+    const map = {};
+    (list || []).forEach(b=>{ map[b.id] = b.status; });
+    localStorage.setItem(bookingSeenKey(uid), JSON.stringify(map));
+  }catch(e){ /* เบราว์เซอร์ปิด localStorage ไว้ — ไม่เป็นไร แค่ไม่มีตัวเลขแจ้งเตือน */ }
+}
+// จำนวนการนัดพบที่สถานะเปลี่ยน (หอรับนัดแล้ว / ถูกยกเลิก) ตั้งแต่เปิดดูครั้งล่าสุด
+async function countBookingUpdates(uid){
+  if(!sb || !uid) return 0;
+  const list = await getMyBookings(uid);
+  const seen = getSeenBookingStatuses(uid);
+  return list.filter(b=>{
+    if(b.status === 'pending') return false;
+    if(!seen) return b.status === 'confirmed';   // ครั้งแรก นับเฉพาะที่หอรับนัดแล้ว
+    return seen[b.id] !== b.status;
+  }).length;
+}
+
 async function getAllBookings(){
   if(!sb) return [];
   const { data, error } = await sb.from('bookings').select('*').order('created_at', { ascending:false });

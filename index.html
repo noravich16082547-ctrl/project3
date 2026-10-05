@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 
@@ -422,8 +422,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=40"></script>
-<script src="app.js?v=40"></script>
+<script src="db.js?v=41"></script>
+<script src="app.js?v=41"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -1339,6 +1339,9 @@ async function openMyBookings(){
     const user = await waitForSession();
     if(!user){ box.innerHTML = '<div class="chat-empty">กรุณาเข้าสู่ระบบ</div>'; return; }
     const list = await getMyBookings(user.id);
+    // เปิดดูแล้ว = ถือว่าเห็นสถานะล่าสุดแล้ว ตัวเลขแจ้งเตือนบนปุ่มหายไป
+    markBookingsSeen(user.id, list);
+    refreshBookingBadge();
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:30px 10px"><div class="emoji">📌</div>
         <p>ยังไม่มีการนัดพบ<br><small class="muted">เปิดหน้าหอพักที่สนใจแล้วกด "นัดพบห้องนี้" ได้เลย</small></p></div>`;
@@ -1522,6 +1525,16 @@ async function openThreads(){
 }
 document.getElementById('closeThreadsModal').addEventListener('click', ()=> document.getElementById('threadsModal').classList.remove('open'));
 
+async function refreshBookingBadge(){
+  try{
+    const el = document.getElementById('navBkUnread');
+    if(!el) return;
+    const user = await waitForSession();
+    const n = user ? await countBookingUpdates(user.id) : 0;
+    el.innerHTML = n ? `<span class="nav-badge">${n}</span>` : '';
+  }catch(err){ console.error(err); }
+}
+
 async function refreshUnreadBadge(){
   try{
     const n = await getUnreadCount();
@@ -1552,7 +1565,11 @@ async function refreshUnreadBadge(){
     setInterval(refreshUnreadBadge, 30000);
   }
   const bkBtn = document.getElementById('navBookingBtn');
-  if(bkBtn) bkBtn.addEventListener('click', (e)=>{ e.preventDefault(); openMyBookings(); });
+  if(bkBtn){
+    bkBtn.addEventListener('click', (e)=>{ e.preventDefault(); openMyBookings(); });
+    refreshBookingBadge();
+    setInterval(refreshBookingBadge, 30000);
+  }
 
   let ratingsLoaded = false;
   watchDorms((dorms)=>{

@@ -2713,7 +2713,7 @@ function applyReportFilter(){
   }
   body.innerHTML = rows.map(b=>`
     <tr>
-      <td>${escapeHtml(reportDateText(b))}${b.visitDate ? '' : '<br><small class="muted">(วันที่ส่งคำขอ)</small>'}</td>
+      <td>${escapeHtml(reportDateText(b))}</td>
       <td>${escapeHtml(reportRoomText(b))}</td>
       <td>${escapeHtml(b.userName || '-')}${b.contactPhone ? `<br><small class="muted">${escapeHtml(b.contactPhone)}</small>` : ''}</td>
       <td>${escapeHtml(reportTimeText(b))}</td>
