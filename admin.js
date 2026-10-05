@@ -251,7 +251,7 @@ async function renderOwnerPage(){
           ${facs.length
             ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
             : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "＋ เพิ่มหรือแก้ไข" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
-          <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ตั้งแยกรายห้องได้ที่ผังห้องพักด้านล่าง</p>
+          <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ติ๊กครั้งเดียวตามประเภทห้องได้ที่การ์ด "ห้องพักและราคา"</p>
         </div>
         <div class="op-inline" id="opFacEdit" style="display:none">
           <div class="fac-pick">
@@ -300,6 +300,43 @@ async function renderOwnerPage(){
              <p class="form-hint">แก้ราคาได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า</p>`
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"
                · ใส่ได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า</p>`}
+
+        <!-- v38: ของในห้องแยกตามประเภทห้อง — ติ๊กครั้งเดียว ห้องในผังดึงไปใช้เอง -->
+        <div class="op-typeamen">
+          <div class="opc-head">
+            <strong>ของในห้องแต่ละประเภท</strong>
+            <button type="button" class="btn btn-outline btn-sm" id="opTypeAmenToggle">✏️ ติ๊กของในห้อง</button>
+          </div>
+          <p class="form-hint" style="margin-top:2px">ติ๊กครั้งเดียว — ห้องในผังที่เลือกประเภทเป็นแอร์หรือพัดลม
+            จะได้ของในห้องชุดนี้อัตโนมัติ ไม่ต้องกรอกทีละห้อง</p>
+          <div id="opTypeAmenView">
+            ${ROOM_TYPE_ORDER.map(code=>{
+              const list = typeAmenFor(d, code);
+              return `<div class="op-ta-row">
+                <span class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</span>
+                ${list.length
+                  ? `<span class="op-ta-list">${list.map(a=>`<span class="op-ta-chip">${escapeHtml(a)}</span>`).join('')}</span>`
+                  : '<span class="muted" style="font-size:.85rem">ยังไม่ได้ติ๊ก</span>'}
+              </div>`;
+            }).join('')}
+          </div>
+          <div class="op-inline" id="opTypeAmenEdit" style="display:none">
+            ${ROOM_TYPE_ORDER.map(code=>`
+              <div class="op-ta-edit">
+                <div class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</div>
+                <div class="ra-quick" data-taquick="${code}"></div>
+                <div class="ef-row" style="margin-top:8px">
+                  <input type="text" data-taother="${code}" placeholder="อื่น ๆ เช่น ตู้เสื้อผ้าบิลท์อิน">
+                  <button type="button" class="btn btn-outline btn-sm" data-taadd="${code}">+ เพิ่ม</button>
+                </div>
+                <div class="ef-chips" data-tachips="${code}"></div>
+              </div>`).join('')}
+            <div class="op-actions">
+              <button class="btn btn-primary btn-sm" id="opTypeAmenSave">บันทึก</button>
+              <button class="btn btn-ghost btn-sm" id="opTypeAmenCancel">ยกเลิก</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ---------- รอบ ๆ หอมีอะไรบ้าง ---------- -->
@@ -567,6 +604,78 @@ async function renderOwnerPage(){
   document.getElementById('opFacOther')?.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){ e.preventDefault(); addFacCustom(); }
   });
+  // ---- ของในห้องแต่ละประเภท (v38) ----
+  let taEdit = {};
+  ROOM_TYPE_ORDER.forEach(code=>{ taEdit[code] = typeAmenFor(d, code); });
+  const taRender = (code)=>{
+    const quick = document.querySelector(`[data-taquick="${code}"]`);
+    if(quick){
+      quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
+        const on = taEdit[code].some(x=>x.toLowerCase() === a.toLowerCase());
+        return `<button type="button" class="ra-q ${on?'on':''}" data-taq="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
+      }).join('');
+      quick.querySelectorAll('[data-taq]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const v = b.dataset.taq;
+          const i = taEdit[code].findIndex(x=>x.toLowerCase() === v.toLowerCase());
+          if(i >= 0) taEdit[code].splice(i,1); else taEdit[code].push(v);
+          taRender(code);
+        });
+      });
+    }
+    // ป้ายของที่พิมพ์เอง (ของที่อยู่ในปุ่มลัดแล้วไม่ต้องโชว์ซ้ำ)
+    const chips = document.querySelector(`[data-tachips="${code}"]`);
+    if(chips){
+      const extra = taEdit[code].filter(x=>!ROOM_AMEN_PRESETS.some(a=>a.toLowerCase() === x.toLowerCase()));
+      chips.innerHTML = extra.map(a=>`
+        <span class="ef-chip">${escapeHtml(a)}
+          <button type="button" data-tarm="${escapeHtml(a)}" title="ลบ">✕</button>
+        </span>`).join('');
+      chips.querySelectorAll('[data-tarm]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          taEdit[code] = taEdit[code].filter(x=>x !== b.dataset.tarm);
+          taRender(code);
+        });
+      });
+    }
+  };
+  const taAdd = (code)=>{
+    const input = document.querySelector(`[data-taother="${code}"]`);
+    if(!input) return;
+    const v = (input.value||'').trim().slice(0,30);
+    if(!v) return;
+    if(taEdit[code].some(x=>x.toLowerCase() === v.toLowerCase())){ toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return; }
+    if(taEdit[code].length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อประเภทห้อง','error'); return; }
+    taEdit[code].push(v); input.value=''; taRender(code);
+  };
+  ROOM_TYPE_ORDER.forEach(code=>{
+    taRender(code);
+    document.querySelector(`[data-taadd="${code}"]`)?.addEventListener('click', ()=> taAdd(code));
+    document.querySelector(`[data-taother="${code}"]`)?.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); taAdd(code); }
+    });
+  });
+  const taEditBox = document.getElementById('opTypeAmenEdit');
+  const taSetOpen = (on)=>{
+    if(taEditBox) taEditBox.style.display = on ? 'block' : 'none';
+    const view = document.getElementById('opTypeAmenView');
+    if(view) view.style.display = on ? 'none' : 'block';
+  };
+  document.getElementById('opTypeAmenToggle')?.addEventListener('click', ()=>{
+    taSetOpen(!(taEditBox && taEditBox.style.display === 'block'));
+  });
+  document.getElementById('opTypeAmenCancel')?.addEventListener('click', ()=>{
+    ROOM_TYPE_ORDER.forEach(code=>{ taEdit[code] = typeAmenFor(d, code); taRender(code); });
+    taSetOpen(false);
+  });
+  document.getElementById('opTypeAmenSave')?.addEventListener('click', async ()=>{
+    const plan = normalizeFloorPlan(d.floorPlan);
+    const next = Object.assign({}, plan.typeAmen);
+    ROOM_TYPE_ORDER.forEach(code=>{ next[code] = cleanAmenList(taEdit[code]); });
+    plan.typeAmen = normalizeTypeAmen(next);
+    await savePlan(d, plan, 'บันทึกของในห้องแล้ว — ห้องในผังที่เลือกประเภทนี้จะได้ของชุดนี้อัตโนมัติ');
+  });
+
   const facSave = document.getElementById('opFacSave');
   if(facSave) facSave.addEventListener('click', async ()=>{
     const checked = Array.from(document.querySelectorAll('.opFac:checked')).map(cb=>cb.value);
@@ -1018,6 +1127,43 @@ const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่อ�
                            'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต','เฟอร์นิเจอร์ครบ'];
 let editRoomAmen = [];     // ของในห้องที่กำลังแก้อยู่ใน pop up
 let editRoomPhotos = [];   // รูปในห้องที่กำลังแก้อยู่ใน pop up
+let editRoomPrevType = ''; // ประเภทห้องก่อนเปลี่ยน (ใช้ตัดสินว่าควรสลับชุดของในห้องให้ไหม)
+
+// บอกเจ้าของหอว่าของในห้องตอนนี้ดึงมาจากประเภทห้อง หรือกรอกเองเฉพาะห้องนี้
+function updateRoomAmenHint(){
+  const el = document.getElementById('rmAmenFromType');
+  if(!el || !planRoomCtx) return;
+  const type = document.getElementById('rmType')?.value || '';
+  const def = typeAmenFor(planRoomCtx.dorm, type);
+  const label = ROOM_TYPE_META[type] ? ROOM_TYPE_META[type].label : '';
+  if(!type){
+    el.innerHTML = 'เลือกประเภทห้องด้านบน ระบบจะดึงของในห้องที่ติ๊กไว้ในการ์ด "ห้องพักและราคา" มาใส่ให้';
+  }else if(!def.length){
+    el.innerHTML = `ยังไม่ได้ติ๊กของในห้องของห้อง${escapeHtml(label)} — ติ๊กครั้งเดียวได้ที่การ์ด "ห้องพักและราคา" ห้องอื่นจะได้ไม่ต้องกรอกซ้ำ`;
+  }else if(sameAmenList(editRoomAmen, def)){
+    el.innerHTML = `✓ ใช้ของในห้องตามประเภท <strong>ห้อง${escapeHtml(label)}</strong> — แก้ที่การ์ด "ห้องพักและราคา" แล้วทุกห้องประเภทนี้เปลี่ยนตาม`;
+  }else{
+    el.innerHTML = `ห้องนี้ตั้งของในห้องเอง (ต่างจากชุดของห้อง${escapeHtml(label)}) · <a href="#" id="rmAmenReset">ใช้ชุดของห้อง${escapeHtml(label)}</a>`;
+    document.getElementById('rmAmenReset')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      editRoomAmen = def.slice(); renderRoomAmen(); updateRoomAmenHint();
+    });
+  }
+}
+
+// เปลี่ยนประเภทห้อง → ถ้าของในห้องยังเป็นชุดของประเภทเดิม (หรือยังว่าง) สลับเป็นชุดของประเภทใหม่ให้
+document.getElementById('rmType')?.addEventListener('change', (e)=>{
+  if(!planRoomCtx) return;
+  const dorm = planRoomCtx.dorm;
+  const newType = e.target.value;
+  const prevDef = typeAmenFor(dorm, editRoomPrevType);
+  if(!editRoomAmen.length || sameAmenList(editRoomAmen, prevDef)){
+    editRoomAmen = typeAmenFor(dorm, newType);
+    renderRoomAmen();
+  }
+  editRoomPrevType = newType;
+  updateRoomAmenHint();
+});
 
 // ---------------------------------------------------------------------------
 // รูปภายในห้อง — อัปโหลดจากเครื่องเหมือนรูปหอ แต่ผูกกับห้องนั้น ๆ
@@ -1109,7 +1255,7 @@ function renderRoomAmen(){
         const v = b.dataset.amen;
         const i = editRoomAmen.findIndex(x=>x.toLowerCase() === v.toLowerCase());
         if(i >= 0) editRoomAmen.splice(i,1); else editRoomAmen.push(v);
-        renderRoomAmen();
+        renderRoomAmen(); updateRoomAmenHint();
       });
     });
   }
@@ -1123,7 +1269,7 @@ function renderRoomAmen(){
     chips.querySelectorAll('[data-rmamen]').forEach(b=>{
       b.addEventListener('click', ()=>{
         editRoomAmen = editRoomAmen.filter(x=>x !== b.dataset.rmamen);
-        renderRoomAmen();
+        renderRoomAmen(); updateRoomAmenHint();
       });
     });
   }
@@ -1139,7 +1285,7 @@ function addRoomAmen(){
   if(editRoomAmen.length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อห้อง','error'); return; }
   editRoomAmen.push(v);
   input.value = '';
-  renderRoomAmen();
+  renderRoomAmen(); updateRoomAmenHint();
 }
 
 document.getElementById('btnAddAmen')?.addEventListener('click', addRoomAmen);
@@ -1159,7 +1305,9 @@ function openRoomEditor(dorm, cellId){
   document.getElementById('rmNo').value    = cell.no || '';
   document.getElementById('rmPrice').value = (cell.price == null) ? '' : cell.price;
   document.getElementById('rmNote').value  = cell.note || '';
-  editRoomAmen = (cell.amen || []).slice();
+  // ห้องที่ยังไม่ได้กรอกของในห้องเอง = ดึงชุดของประเภทห้องมาใส่ให้เลย
+  editRoomAmen = (cell.amen && cell.amen.length) ? cell.amen.slice() : typeAmenFor(dorm, cell.type);
+  editRoomPrevType = cell.type || '';
   renderRoomAmen();
   editRoomPhotos = (cell.photos || []).slice();
   renderRoomPhotos();
@@ -1176,6 +1324,7 @@ function openRoomEditor(dorm, cellId){
     + legacy.map(r=>
         `<option value="${escapeHtml(r.code)}">${escapeHtml(r.label)} · ${fmtBaht(r.price)} บาท/เดือน</option>`).join('');
   sel.value = cell.type || '';
+  updateRoomAmenHint();
 
   // ปุ่มเลือกสถานะ
   const wrap = document.getElementById('rmStatus');
@@ -1231,7 +1380,10 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.type  = document.getElementById('rmType').value;
   target.cell.price = priceRaw === '' ? null : Math.max(0, Number(priceRaw) || 0);
   target.cell.note  = document.getElementById('rmNote').value.trim().slice(0,120);
-  target.cell.amen  = editRoomAmen.slice(0,20);
+  // ของในห้องเหมือนชุดของประเภทห้องทุกอย่าง = เก็บเป็น "ใช้ตามประเภท" (ว่างไว้)
+  // วันหลังเจ้าของหอแก้ชุดของประเภทห้อง ห้องนี้จะเปลี่ยนตามเอง
+  const typeDef = typeAmenFor(p, target.cell.type);
+  target.cell.amen  = (typeDef.length && sameAmenList(editRoomAmen, typeDef)) ? [] : cleanAmenList(editRoomAmen);
   target.cell.photos = editRoomPhotos.slice(0, MAX_ROOM_PHOTOS);
 
   // เปลี่ยนสถานะจาก "ไม่ว่าง" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบนัดพบเดิม

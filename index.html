@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
 
@@ -422,8 +422,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=38"></script>
-<script src="app.js?v=38"></script>
+<script src="db.js?v=39"></script>
+<script src="app.js?v=39"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -600,7 +600,7 @@ function highlightsHtml(d){
   const items = [];
   items.push({ ic:'🏠', label: d.hallType });
   const km = distanceToCrru(d);
-  if(km != null) items.push({ ic:'🚶', label:`ห่างมอ ${distanceLabel(km)}` });
+  if(km != null) items.push({ ic:'🛵', label:`ห่างมอ ${distanceLabel(km)} · มอไซต์ ${rideMinutes(km)} นาที` });
   else           items.push({ ic:'📍', label:'ต.บ้านดู่ ใกล้ มร.ชร.' });
   if(d.verified) items.push({ ic:'✓', label:'เจ้าของหอยืนยันแล้ว' });
   else items.push({ ic:'⚠', label:'รอเจ้าของหอยืนยัน' });
@@ -686,8 +686,7 @@ function roomRowsHtml(d){
     ${canChat(d) ? `<div class="rr-actions" style="justify-content:center">
       <button class="btn btn-primary" data-book="">📌 ส่งคำขอนัดพบ</button>
       <button class="btn btn-outline" data-chat="1">💬 ถามเจ้าของหอ</button>
-    </div>` : (d.phone ? `<a class="btn btn-primary" href="tel:${escapeAttr(d.phone)}"
-        style="text-decoration:none">📞 โทรสอบถาม ${escapeHtml(d.phone)}</a>` : '')}
+    </div>` : (d.phone ? `<p style="font-weight:600;color:var(--forest)">📞 โทรสอบถาม ${escapeHtml(d.phone)}</p>` : '')}
   </div>`;
 }
 
@@ -1126,7 +1125,7 @@ function openRoomInfo(dorm, cellId){
       ${roomPhotosHtml(cell.photos)}` : ''}
 
     <h4 class="ri-h">สิ่งอำนวยความสะดวกในห้องนี้</h4>
-    ${roomAmenChipsHtml(cell.amen)}
+    ${roomAmenChipsHtml(effectiveRoomAmen(dorm, cell))}
 
     ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
 

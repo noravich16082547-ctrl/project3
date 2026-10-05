@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -721,6 +721,9 @@ function normalizeFloorPlan(plan){
   const p = (plan && typeof plan === 'object') ? plan : {};
   const floors = Array.isArray(p.floors) ? p.floors : [];
   return {
+    // ของในห้องแยกตามประเภทห้อง (แอร์/พัดลม) — ตั้งครั้งเดียวในการ์ด "ห้องพักและราคา"
+    // ห้องในผังที่ไม่ได้กรอกของในห้องเอง จะใช้ชุดนี้ตามประเภทห้องของมัน
+    typeAmen: normalizeTypeAmen(p.typeAmen),
     floors: floors.map((f,fi)=>({
       id: f.id || 'f'+(fi+1),
       name: f.name || ('ชั้น ' + (fi+1)),
@@ -747,6 +750,52 @@ function normalizeFloorPlan(plan){
       }))
     }))
   };
+}
+
+// ---------------------------------------------------------------------------
+// ของในห้องตามประเภทห้อง (v38)
+//
+// เดิมเจ้าของหอต้องติ๊ก "สิ่งอำนวยความสะดวกในห้อง" ทีละห้อง ทั้งที่ห้องแอร์ทุกห้อง
+// มีของเหมือนกันแทบทั้งหมด ตอนนี้ตั้งชุดของในห้องไว้ที่ประเภทห้องครั้งเดียว
+// เก็บไว้ใน floor_plan.typeAmen = { air:[...], fan:[...] } (ไม่ต้องรัน SQL เพิ่ม)
+// ห้องที่ cell.amen ว่าง = ใช้ชุดของประเภทห้อง, ห้องที่กรอกเองไว้ = ใช้ของห้องนั้น
+// ---------------------------------------------------------------------------
+function cleanAmenList(list){
+  if(!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.map(x=>String(x||'').trim().slice(0,30)).filter(x=>{
+    const k = x.toLowerCase();
+    if(!x || seen.has(k)) return false;
+    seen.add(k); return true;
+  }).slice(0,20);
+}
+function normalizeTypeAmen(obj){
+  const out = {};
+  if(obj && typeof obj === 'object'){
+    Object.keys(obj).slice(0,10).forEach(k=>{
+      const list = cleanAmenList(obj[k]);
+      if(list.length) out[String(k).slice(0,20)] = list;
+    });
+  }
+  return out;
+}
+// ของในห้องที่ตั้งไว้สำหรับประเภทห้องนี้ (ไม่มี = [])
+function typeAmenFor(planOrDorm, type){
+  if(!type) return [];
+  const plan = planOrDorm && planOrDorm.floorPlan ? planOrDorm.floorPlan : planOrDorm;
+  const m = (plan && plan.typeAmen) || {};
+  return Array.isArray(m[type]) ? m[type].slice() : [];
+}
+// ของในห้องที่ใช้จริงของห้องหนึ่ง — ของที่กรอกเองก่อน ไม่มีค่อยใช้ของประเภทห้อง
+function effectiveRoomAmen(planOrDorm, cell){
+  const own = (cell && cell.amen || []).filter(Boolean);
+  return own.length ? own : typeAmenFor(planOrDorm, cell && cell.type);
+}
+// เทียบรายการของในห้อง 2 ชุดว่าเหมือนกันไหม (ไม่สนลำดับ/ตัวพิมพ์)
+function sameAmenList(a, b){
+  const A = cleanAmenList(a).map(x=>x.toLowerCase()).sort();
+  const B = cleanAmenList(b).map(x=>x.toLowerCase()).sort();
+  return A.length === B.length && A.every((x,i)=>x === B[i]);
 }
 
 function newCellId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -831,7 +880,8 @@ function planCellHtml(cell, opts){
   const myPending = !mine && st === 'vacant' &&
                     Array.isArray(o.pendingCells) && o.pendingCells.includes(cell.id);
   const canBook = o.bookable && st === 'vacant';
-  const amen = (cell.amen || []).filter(Boolean);
+  const amen = (cell.amen && cell.amen.length) ? cell.amen.filter(Boolean)
+             : ((o.typeAmen && o.typeAmen[cell.type]) || []);
   // ฝั่งนักศึกษา: กดห้องไหนก็ดูรายละเอียดห้องนั้นได้ ไม่ใช่เฉพาะห้องว่าง
   const clickable = o.bookable || o.edit;
   const tag = clickable ? 'button' : 'div';
@@ -879,8 +929,9 @@ function roomAmenChipsHtml(list){
 }
 
 function floorPlanHtml(plan, opts){
-  const o = opts || {};
+  const o = Object.assign({}, opts || {});
   const p = normalizeFloorPlan(plan);
+  o.typeAmen = p.typeAmen;
   if(!p.floors.length){
     return o.edit
       ? `<div class="fp-empty">
@@ -935,18 +986,27 @@ function statusPill(status){
   return `<span class="status-pill ${cls}">${label}</span>`;
 }
 
+// แถวข้อมูลติดต่อแบบแสดงอย่างเดียว (ไม่ใช่ลิงก์) — ใช้กับเบอร์โทรและอีเมล
+function contactStaticHtml(icon, label, value){
+  return `<div class="contact-static">
+    <span class="cs-ic">${icon}</span>
+    <span class="cs-txt"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>
+  </div>`;
+}
+
 // ปุ่มติดต่อแบบเต็ม (ใช้ในการ์ดด้านข้างของหน้ารายละเอียด) — เรียงเป็นบล็อกกดง่ายบนมือถือ
 function contactButtonsBlock(d){
   const btns = [];
   if(d.phone){
-    btns.push(`<a class="btn btn-primary btn-block" href="tel:${d.phone}" style="text-align:center;text-decoration:none;display:block">📞 โทร ${d.phone}</a>`);
+    // v38: เบอร์โทรกับอีเมลแสดงไว้ให้ดูอย่างเดียว ไม่เป็นปุ่มกด
+    btns.push(contactStaticHtml('📞', 'เบอร์โทร', d.phone));
   }
   if(d.lineId){
     const href = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-block" href="${href}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">💬 แชททาง LINE</a>`);
   }
   if(d.contactEmail){
-    btns.push(`<a class="btn btn-outline btn-block" href="mailto:${d.contactEmail}" style="text-align:center;text-decoration:none;display:block">✉️ ${d.contactEmail}</a>`);
+    btns.push(contactStaticHtml('✉️', 'อีเมล', d.contactEmail));
   }
   if(d.facebook){
     btns.push(`<a class="btn btn-outline btn-block" href="${d.facebook}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">📘 เปิดเพจ Facebook</a>`);
@@ -955,7 +1015,7 @@ function contactButtonsBlock(d){
     btns.push(`<div class="muted" style="font-size:.86rem;background:var(--sage-bg);border:1px solid var(--line);border-radius:8px;padding:12px">
       ยังไม่มีช่องทางติดต่อในระบบสำหรับหอนี้<br><br>
       สอบถามได้ที่ <strong>สำนักงานบริการที่พักอาศัย มร.ชร.</strong><br>
-      <a href="tel:053776273" style="color:var(--forest);font-weight:600">📞 0-5377-6273</a>
+      <span style="color:var(--forest);font-weight:600">📞 0-5377-6273</span>
     </div>`);
   }
   return btns.join('');
@@ -966,12 +1026,12 @@ function hasContact(d){ return !!(d.phone || d.lineId || d.facebook || d.contact
 
 function contactButtonsHtml(d){
   const btns = [];
-  if(d.phone) btns.push(`<a class="btn btn-outline btn-sm" href="tel:${d.phone}">📞 ${d.phone}</a>`);
+  if(d.phone) btns.push(`<span class="contact-static-sm">📞 ${escapeHtml(d.phone)}</span>`);
   if(d.lineId){
     const lineHref = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-sm" href="${lineHref}" target="_blank" rel="noopener">💬 LINE</a>`);
   }
-  if(d.contactEmail) btns.push(`<a class="btn btn-outline btn-sm" href="mailto:${d.contactEmail}">✉️ ${d.contactEmail}</a>`);
+  if(d.contactEmail) btns.push(`<span class="contact-static-sm">✉️ ${escapeHtml(d.contactEmail)}</span>`);
   if(d.facebook) btns.push(`<a class="btn btn-outline btn-sm" href="${d.facebook}" target="_blank" rel="noopener">📘 Facebook</a>`);
   if(btns.length === 0) return `<span class="muted" style="font-size:.85rem">ยังไม่มีช่องทางติดต่อ — รอเจ้าของหอยืนยันข้อมูล</span>`;
   return btns.join(' ');

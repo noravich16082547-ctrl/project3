@@ -1517,3 +1517,32 @@ footer{ margin-bottom: 0; }
 
 /* กล่องค้นหาหน้าแรก ลอยขึ้นมาทับขอบ hero นิดหน่อย ดูเป็นชั้น ๆ */
 .search-panel{ border-top:3px solid var(--gold); }
+
+/* ---------- v38: เบอร์โทร/อีเมลหอพัก แสดงอย่างเดียว ไม่ใช่ปุ่มกด ---------- */
+.contact-static{
+  display:flex; align-items:center; gap:12px;
+  background:var(--sage-bg); border:1px solid var(--line); border-radius:10px;
+  padding:10px 14px; cursor:default;
+}
+.contact-static .cs-ic{ font-size:1.15rem; }
+.contact-static .cs-txt{ display:flex; flex-direction:column; min-width:0; }
+.contact-static .cs-txt small{ font-size:.74rem; color:var(--ink-soft); }
+.contact-static .cs-txt strong{ color:var(--forest); font-size:.98rem; word-break:break-all; user-select:all; }
+.contact-static-sm{
+  display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--forest);
+  background:var(--sage-bg); border:1px solid var(--line); border-radius:999px; padding:5px 12px;
+}
+
+/* ---------- v38: ของในห้องแต่ละประเภท (การ์ดห้องพักและราคา) ---------- */
+.op-typeamen{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+.op-ta-row{ display:flex; align-items:flex-start; gap:12px; padding:6px 0; flex-wrap:wrap; }
+.op-ta-type{ font-weight:600; color:var(--forest); min-width:96px; white-space:nowrap; }
+.op-ta-list{ display:flex; flex-wrap:wrap; gap:6px; flex:1; }
+.op-ta-chip{
+  font-size:.8rem; background:var(--sage-bg); border:1px solid var(--line);
+  border-radius:999px; padding:3px 10px; color:var(--forest);
+}
+.op-ta-edit{ padding:10px 0 12px; border-bottom:1px solid var(--line); }
+.op-ta-edit:last-of-type{ border-bottom:none; }
+.op-ta-edit .op-ta-type{ margin-bottom:8px; }
+.rm-amen-from{ margin-top:8px; background:#EEF7EF; border:1px solid #CFE6D3; border-radius:8px; padding:8px 10px; color:#2D6A3E; }

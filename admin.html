@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -382,8 +382,9 @@
         <input type="text" id="rmAmenOther" placeholder="อื่น ๆ เช่น โต๊ะเขียนหนังสือ, ตู้เสื้อผ้าบิลท์อิน">
         <button type="button" class="btn btn-outline btn-sm" id="btnAddAmen">+ เพิ่ม</button>
       </div>
-      <div class="form-hint">กดปุ่มด้านบนเพื่อเลือกเร็ว ๆ หรือพิมพ์เองแล้วกด Enter — กด ✕ บนป้ายเพื่อลบ</div>
+      <div class="form-hint">ของในห้องดึงมาจากประเภทห้องให้อัตโนมัติ · กดปุ่มด้านบนเพื่อเพิ่ม/เอาออกเฉพาะห้องนี้ หรือพิมพ์เองแล้วกด Enter</div>
       <div class="ef-chips" id="rmAmenChips"></div>
+      <div class="form-hint rm-amen-from" id="rmAmenFromType"></div>
     </div>
 
     <div class="form-field">
@@ -434,9 +435,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=38"></script>
-<script src="app.js?v=38"></script>
-<script src="admin.js?v=38"></script>
+<script src="db.js?v=39"></script>
+<script src="app.js?v=39"></script>
+<script src="admin.js?v=39"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>
