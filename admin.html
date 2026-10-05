@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -152,6 +152,13 @@
           เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
           เว้นว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
         </div>
+      </div>
+      <!-- ของในห้องแต่ละประเภท (v41) — ติ๊กครั้งเดียว ห้องในผังที่เลือกประเภทนี้ดึงไปใช้เอง -->
+      <div class="form-field">
+        <label>ของในห้องแต่ละประเภท</label>
+        <div class="form-hint" style="margin-top:0">ติ๊กครั้งเดียว — ห้องในผังที่เลือกประเภทเป็นแอร์หรือพัดลม
+          จะได้ของในห้องชุดนี้อัตโนมัติ ไม่ต้องกรอกทีละห้อง</div>
+        <div id="fTypeAmen"></div>
       </div>
       <!-- ================= รูปภาพหอพัก ================= -->
       <div class="form-field">
@@ -431,9 +438,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=41"></script>
-<script src="app.js?v=41"></script>
-<script src="admin.js?v=41"></script>
+<script src="db.js?v=42"></script>
+<script src="app.js?v=42"></script>
+<script src="admin.js?v=42"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

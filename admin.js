@@ -221,16 +221,7 @@ async function renderOwnerPage(){
         <label>ของในห้องแต่ละประเภท</label>
         <div class="form-hint" style="margin-top:0">ติ๊กครั้งเดียว — ห้องในผังที่เลือกประเภทเป็นแอร์หรือพัดลม
           จะได้ของในห้องชุดนี้อัตโนมัติ ไม่ต้องกรอกทีละห้อง</div>
-        ${ROOM_TYPE_ORDER.map(code=>`
-          <div class="op-ta-edit">
-            <div class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</div>
-            <div class="ra-quick" data-taquick="${code}"></div>
-            <div class="ef-row" style="margin-top:8px">
-              <input type="text" data-taother="${code}" placeholder="อื่น ๆ เช่น ตู้เสื้อผ้าบิลท์อิน">
-              <button type="button" class="btn btn-outline btn-sm" data-taadd="${code}">+ เพิ่ม</button>
-            </div>
-            <div class="ef-chips" data-tachips="${code}"></div>
-          </div>`).join('')}
+        ${typeAmenEditorHtml()}
       </div>
       <div class="form-field">
         <label><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</label>
@@ -536,7 +527,7 @@ async function renderOwnerPage(){
       // ของในห้องแต่ละประเภท เก็บรวมไว้ในผังห้อง (floor_plan.typeAmen)
       const plan = normalizeFloorPlan(d.floorPlan);
       const ta = Object.assign({}, plan.typeAmen);
-      ROOM_TYPE_ORDER.forEach(code=>{ ta[code] = cleanAmenList(taEdit[code]); });
+      Object.assign(ta, taBasic.values());
       plan.typeAmen = normalizeTypeAmen(ta);
       await updateDorm(d.id, { ...d, name, hallType: document.getElementById('opfHallType').value, rooms, verified, floorPlan: plan });
       toast('บันทึกข้อมูลหอแล้ว','success');
@@ -588,57 +579,8 @@ async function renderOwnerPage(){
   document.getElementById('opFacOther')?.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){ e.preventDefault(); addFacCustom(); }
   });
-  // ---- ของในห้องแต่ละประเภท (v38) ----
-  let taEdit = {};
-  ROOM_TYPE_ORDER.forEach(code=>{ taEdit[code] = typeAmenFor(d, code); });
-  const taRender = (code)=>{
-    const quick = document.querySelector(`[data-taquick="${code}"]`);
-    if(quick){
-      quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
-        const on = taEdit[code].some(x=>x.toLowerCase() === a.toLowerCase());
-        return `<button type="button" class="ra-q ${on?'on':''}" data-taq="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
-      }).join('');
-      quick.querySelectorAll('[data-taq]').forEach(b=>{
-        b.addEventListener('click', ()=>{
-          const v = b.dataset.taq;
-          const i = taEdit[code].findIndex(x=>x.toLowerCase() === v.toLowerCase());
-          if(i >= 0) taEdit[code].splice(i,1); else taEdit[code].push(v);
-          taRender(code);
-        });
-      });
-    }
-    // ป้ายของที่พิมพ์เอง (ของที่อยู่ในปุ่มลัดแล้วไม่ต้องโชว์ซ้ำ)
-    const chips = document.querySelector(`[data-tachips="${code}"]`);
-    if(chips){
-      const extra = taEdit[code].filter(x=>!ROOM_AMEN_PRESETS.some(a=>a.toLowerCase() === x.toLowerCase()));
-      chips.innerHTML = extra.map(a=>`
-        <span class="ef-chip">${escapeHtml(a)}
-          <button type="button" data-tarm="${escapeHtml(a)}" title="ลบ">✕</button>
-        </span>`).join('');
-      chips.querySelectorAll('[data-tarm]').forEach(b=>{
-        b.addEventListener('click', ()=>{
-          taEdit[code] = taEdit[code].filter(x=>x !== b.dataset.tarm);
-          taRender(code);
-        });
-      });
-    }
-  };
-  const taAdd = (code)=>{
-    const input = document.querySelector(`[data-taother="${code}"]`);
-    if(!input) return;
-    const v = (input.value||'').trim().slice(0,30);
-    if(!v) return;
-    if(taEdit[code].some(x=>x.toLowerCase() === v.toLowerCase())){ toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return; }
-    if(taEdit[code].length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อประเภทห้อง','error'); return; }
-    taEdit[code].push(v); input.value=''; taRender(code);
-  };
-  ROOM_TYPE_ORDER.forEach(code=>{
-    taRender(code);
-    document.querySelector(`[data-taadd="${code}"]`)?.addEventListener('click', ()=> taAdd(code));
-    document.querySelector(`[data-taother="${code}"]`)?.addEventListener('keydown', (e)=>{
-      if(e.key === 'Enter'){ e.preventDefault(); taAdd(code); }
-    });
-  });
+  // ---- ของในห้องแต่ละประเภท (v38) — อยู่ในฟอร์มข้อมูลพื้นฐานของหอ ----
+  const taBasic = mountTypeAmenEditor(document.getElementById('opBasicEdit'), code=> typeAmenFor(d, code));
 
   const facSave = document.getElementById('opFacSave');
   if(facSave) facSave.addEventListener('click', async ()=>{
@@ -1089,6 +1031,79 @@ function bindPlanEditor(box, d){
 // ---------------------------------------------------------------------------
 const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่องทำน้ำอุ่น','ตู้เย็น','ทีวี','ระเบียง',
                            'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต','เฟอร์นิเจอร์ครบ'];
+// ---------------------------------------------------------------------------
+// ตัวเลือก "ของในห้องแต่ละประเภท" (แอร์/พัดลม) — ใช้ทั้งในฟอร์มข้อมูลพื้นฐานของหอ
+// และฟอร์ม "เพิ่มหอพักใหม่" (v41) ทำงานในกล่อง root ของตัวเองเท่านั้น จะได้ไม่ชนกัน
+// ---------------------------------------------------------------------------
+function typeAmenEditorHtml(){
+  return ROOM_TYPE_ORDER.map(code=>`
+    <div class="op-ta-edit">
+      <div class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</div>
+      <div class="ra-quick" data-taquick="${code}"></div>
+      <div class="ef-row" style="margin-top:8px">
+        <input type="text" data-taother="${code}" placeholder="อื่น ๆ เช่น ตู้เสื้อผ้าบิลท์อิน">
+        <button type="button" class="btn btn-outline btn-sm" data-taadd="${code}">+ เพิ่ม</button>
+      </div>
+      <div class="ef-chips" data-tachips="${code}"></div>
+    </div>`).join('');
+}
+function mountTypeAmenEditor(root, initialFor){
+  const state = {};
+  if(!root) return { values: ()=> ({}) };
+  ROOM_TYPE_ORDER.forEach(code=>{ state[code] = cleanAmenList(initialFor ? initialFor(code) : []); });
+  const render = (code)=>{
+    const quick = root.querySelector(`[data-taquick="${code}"]`);
+    if(quick){
+      quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
+        const on = state[code].some(x=>x.toLowerCase() === a.toLowerCase());
+        return `<button type="button" class="ra-q ${on?'on':''}" data-taq="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
+      }).join('');
+      quick.querySelectorAll('[data-taq]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const v = b.dataset.taq;
+          const i = state[code].findIndex(x=>x.toLowerCase() === v.toLowerCase());
+          if(i >= 0) state[code].splice(i,1); else state[code].push(v);
+          render(code);
+        });
+      });
+    }
+    // ป้ายของที่พิมพ์เอง (ของที่มีปุ่มลัดอยู่แล้วไม่ต้องโชว์ซ้ำ)
+    const chips = root.querySelector(`[data-tachips="${code}"]`);
+    if(chips){
+      const extra = state[code].filter(x=>!ROOM_AMEN_PRESETS.some(a=>a.toLowerCase() === x.toLowerCase()));
+      chips.innerHTML = extra.map(a=>`
+        <span class="ef-chip">${escapeHtml(a)}
+          <button type="button" data-tarm="${escapeHtml(a)}" title="ลบ">✕</button>
+        </span>`).join('');
+      chips.querySelectorAll('[data-tarm]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          state[code] = state[code].filter(x=>x !== b.dataset.tarm);
+          render(code);
+        });
+      });
+    }
+  };
+  const add = (code)=>{
+    const input = root.querySelector(`[data-taother="${code}"]`);
+    if(!input) return;
+    const v = (input.value||'').trim().slice(0,30);
+    if(!v) return;
+    if(state[code].some(x=>x.toLowerCase() === v.toLowerCase())){ toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return; }
+    if(state[code].length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อประเภทห้อง','error'); return; }
+    state[code].push(v); input.value=''; render(code);
+  };
+  ROOM_TYPE_ORDER.forEach(code=>{
+    render(code);
+    root.querySelector(`[data-taadd="${code}"]`)?.addEventListener('click', ()=> add(code));
+    root.querySelector(`[data-taother="${code}"]`)?.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); add(code); }
+    });
+  });
+  return {
+    values(){ const out = {}; ROOM_TYPE_ORDER.forEach(c=>{ out[c] = cleanAmenList(state[c]); }); return out; }
+  };
+}
+
 let editRoomAmen = [];     // ของในห้องที่กำลังแก้อยู่ใน pop up
 let editRoomPhotos = [];   // รูปในห้องที่กำลังแก้อยู่ใน pop up
 let editRoomPrevType = ''; // ประเภทห้องก่อนเปลี่ยน (ใช้ตัดสินว่าควรสลับชุดของในห้องให้ไหม)
@@ -1679,6 +1694,8 @@ function addCustomFacility(){
   renderFacilityChips();
 }
 
+let editTypeAmen = null;   // ตัวเลือกของในห้องแต่ละประเภทในฟอร์มเพิ่ม/แก้หอ
+
 function openEdit(dorm){
   editingId = dorm ? dorm.id : null;
   document.getElementById('editTitle').textContent = dorm ? 'แก้ไข: '+dorm.name : 'เพิ่มหอพักใหม่';
@@ -1698,6 +1715,12 @@ function openEdit(dorm){
   // ให้ยกราคานั้นมาใส่ช่องห้องพัดลมให้ จะได้ไม่ต้องกรอกใหม่และราคาไม่หาย
   document.getElementById('fPriceFan').value = dorm ? (fanPriceValue(dorm) || '') : '';
   document.getElementById('fPriceAir').value = dorm ? (airPriceValue(dorm) || '') : '';
+  // ของในห้องแต่ละประเภท (v41) — ฟอร์มเพิ่มหอใหม่ก็ติ๊กได้เลย
+  const taBox = document.getElementById('fTypeAmen');
+  if(taBox){
+    taBox.innerHTML = typeAmenEditorHtml();
+    editTypeAmen = mountTypeAmenEditor(taBox, code=> dorm ? typeAmenFor(dorm, code) : []);
+  }
 
   editImages = dorm ? (dorm.images||[]).slice() : [];
   renderEditPhotos();
@@ -2436,6 +2459,12 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   };
   // เจ้าของหอยืนยันข้อมูลหอของตัวเองได้เอง ไม่ต้องรอแอดมิน
   data.verified = document.getElementById('fVerified').checked;
+  // ของในห้องแต่ละประเภท เก็บไว้ในผังห้อง (floor_plan.typeAmen) — หอใหม่เริ่มจากผังว่าง
+  if(editTypeAmen){
+    const plan = normalizeFloorPlan(editing ? editing.floorPlan : emptyFloorPlan());
+    plan.typeAmen = normalizeTypeAmen(Object.assign({}, plan.typeAmen, editTypeAmen.values()));
+    data.floorPlan = plan;
+  }
   if(!data.name){ toast('กรุณาใส่ชื่อหอพัก','error'); return; }
 
   try{
