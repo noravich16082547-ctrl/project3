@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=39">
+<link rel="stylesheet" href="style.css?v=40">
 </head>
 <body>
 
@@ -422,8 +422,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=39"></script>
-<script src="app.js?v=39"></script>
+<script src="db.js?v=40"></script>
+<script src="app.js?v=40"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -1102,7 +1102,8 @@ function openRoomInfo(dorm, cellId){
   const meta = roomStatusMeta(cell.status);
   const typeLabel = roomTypeLabel(cell.type, dorm);
   const legacyType = roomTypes(dorm).find(r=>r.code === cell.type);
-  const price = cell.price || (legacyType ? legacyType.price : null);
+  // v39: ราคาห้องใช้ราคาตามประเภทห้องเป็นหลัก (ไม่มีราคารายห้องแล้ว) — ห้องเก่าที่ไม่มีประเภทค่อยใช้ราคาเดิมของห้อง
+  const price = (legacyType && legacyType.price) || cell.price || null;
   const mine = myProfile && cell.userId === myProfile.uid;
 
   const isVacant = normalizeRoomStatus(cell.status) === 'vacant';
@@ -1196,7 +1197,7 @@ async function openBooking(dorm, preselectCode, cellId){
   if(picked){
     const tLabel = roomTypeLabel(picked.cell.type, dorm);
     const t = roomTypes(dorm).find(r=>r.code === picked.cell.type);
-    const price = picked.cell.price || (t ? t.price : null);
+    const price = (t && t.price) || picked.cell.price || null;
     pickBox.innerHTML = `🏠 กำลังนัดพบ <strong>ห้อง ${escapeHtml(picked.cell.no||'')}</strong>
       · ${escapeHtml(picked.floor.name)}${tLabel?' · ห้อง'+escapeHtml(tLabel):''}
       ${price?` · ${fmtBaht(price)} บาท/เดือน`:''}

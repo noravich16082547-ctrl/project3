@@ -216,6 +216,22 @@ async function renderOwnerPage(){
           เว้นว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"
         </div>
       </div>
+      <!-- v39: ของในห้องแต่ละประเภท — ติ๊กครั้งเดียว ห้องในผังที่เลือกประเภทนี้ดึงไปใช้เอง -->
+      <div class="form-field">
+        <label>ของในห้องแต่ละประเภท</label>
+        <div class="form-hint" style="margin-top:0">ติ๊กครั้งเดียว — ห้องในผังที่เลือกประเภทเป็นแอร์หรือพัดลม
+          จะได้ของในห้องชุดนี้อัตโนมัติ ไม่ต้องกรอกทีละห้อง</div>
+        ${ROOM_TYPE_ORDER.map(code=>`
+          <div class="op-ta-edit">
+            <div class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</div>
+            <div class="ra-quick" data-taquick="${code}"></div>
+            <div class="ef-row" style="margin-top:8px">
+              <input type="text" data-taother="${code}" placeholder="อื่น ๆ เช่น ตู้เสื้อผ้าบิลท์อิน">
+              <button type="button" class="btn btn-outline btn-sm" data-taadd="${code}">+ เพิ่ม</button>
+            </div>
+            <div class="ef-chips" data-tachips="${code}"></div>
+          </div>`).join('')}
+      </div>
       <div class="form-field">
         <label><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</label>
         <div class="form-hint" style="margin-left:22px">ติ๊กเมื่อตรวจสอบราคา ห้องว่าง และช่องทางติดต่อแล้ว (ต้องมีรูปและราคาก่อน)</div>
@@ -251,7 +267,7 @@ async function renderOwnerPage(){
           ${facs.length
             ? `<div class="amenity-grid">${amenityGridHtml(facs)}</div>`
             : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ระบุ — กด "＋ เพิ่มหรือแก้ไข" เพื่อเลือก หรือพิมพ์เพิ่มเองในช่อง "อื่น ๆ"</p>`}
-          <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ติ๊กครั้งเดียวตามประเภทห้องได้ที่การ์ด "ห้องพักและราคา"</p>
+          <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ติ๊กครั้งเดียวตามประเภทห้องได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุด</p>
         </div>
         <div class="op-inline" id="opFacEdit" style="display:none">
           <div class="fac-pick">
@@ -300,43 +316,6 @@ async function renderOwnerPage(){
              <p class="form-hint">แก้ราคาได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า</p>`
           : `<p class="muted" style="font-size:.88rem">ยังไม่ได้ใส่ราคาห้อง — นักศึกษาจะเห็นว่า "สอบถามราคากับหอโดยตรง"
                · ใส่ได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า</p>`}
-
-        <!-- v38: ของในห้องแยกตามประเภทห้อง — ติ๊กครั้งเดียว ห้องในผังดึงไปใช้เอง -->
-        <div class="op-typeamen">
-          <div class="opc-head">
-            <strong>ของในห้องแต่ละประเภท</strong>
-            <button type="button" class="btn btn-outline btn-sm" id="opTypeAmenToggle">✏️ ติ๊กของในห้อง</button>
-          </div>
-          <p class="form-hint" style="margin-top:2px">ติ๊กครั้งเดียว — ห้องในผังที่เลือกประเภทเป็นแอร์หรือพัดลม
-            จะได้ของในห้องชุดนี้อัตโนมัติ ไม่ต้องกรอกทีละห้อง</p>
-          <div id="opTypeAmenView">
-            ${ROOM_TYPE_ORDER.map(code=>{
-              const list = typeAmenFor(d, code);
-              return `<div class="op-ta-row">
-                <span class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</span>
-                ${list.length
-                  ? `<span class="op-ta-list">${list.map(a=>`<span class="op-ta-chip">${escapeHtml(a)}</span>`).join('')}</span>`
-                  : '<span class="muted" style="font-size:.85rem">ยังไม่ได้ติ๊ก</span>'}
-              </div>`;
-            }).join('')}
-          </div>
-          <div class="op-inline" id="opTypeAmenEdit" style="display:none">
-            ${ROOM_TYPE_ORDER.map(code=>`
-              <div class="op-ta-edit">
-                <div class="op-ta-type">${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</div>
-                <div class="ra-quick" data-taquick="${code}"></div>
-                <div class="ef-row" style="margin-top:8px">
-                  <input type="text" data-taother="${code}" placeholder="อื่น ๆ เช่น ตู้เสื้อผ้าบิลท์อิน">
-                  <button type="button" class="btn btn-outline btn-sm" data-taadd="${code}">+ เพิ่ม</button>
-                </div>
-                <div class="ef-chips" data-tachips="${code}"></div>
-              </div>`).join('')}
-            <div class="op-actions">
-              <button class="btn btn-primary btn-sm" id="opTypeAmenSave">บันทึก</button>
-              <button class="btn btn-ghost btn-sm" id="opTypeAmenCancel">ยกเลิก</button>
-            </div>
-          </div>
-        </div>
       </section>
 
       <!-- ---------- รอบ ๆ หอมีอะไรบ้าง ---------- -->
@@ -554,7 +533,12 @@ async function renderOwnerPage(){
     if(verified && !rooms.length){ toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาห้องพัดลมหรือห้องแอร์ก่อน','error'); return; }
     basicSave.disabled = true;
     try{
-      await updateDorm(d.id, { ...d, name, hallType: document.getElementById('opfHallType').value, rooms, verified });
+      // ของในห้องแต่ละประเภท เก็บรวมไว้ในผังห้อง (floor_plan.typeAmen)
+      const plan = normalizeFloorPlan(d.floorPlan);
+      const ta = Object.assign({}, plan.typeAmen);
+      ROOM_TYPE_ORDER.forEach(code=>{ ta[code] = cleanAmenList(taEdit[code]); });
+      plan.typeAmen = normalizeTypeAmen(ta);
+      await updateDorm(d.id, { ...d, name, hallType: document.getElementById('opfHallType').value, rooms, verified, floorPlan: plan });
       toast('บันทึกข้อมูลหอแล้ว','success');
       await renderOwnerPage(); renderStats(); renderListings();
     }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||''),'error'); }
@@ -654,26 +638,6 @@ async function renderOwnerPage(){
     document.querySelector(`[data-taother="${code}"]`)?.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter'){ e.preventDefault(); taAdd(code); }
     });
-  });
-  const taEditBox = document.getElementById('opTypeAmenEdit');
-  const taSetOpen = (on)=>{
-    if(taEditBox) taEditBox.style.display = on ? 'block' : 'none';
-    const view = document.getElementById('opTypeAmenView');
-    if(view) view.style.display = on ? 'none' : 'block';
-  };
-  document.getElementById('opTypeAmenToggle')?.addEventListener('click', ()=>{
-    taSetOpen(!(taEditBox && taEditBox.style.display === 'block'));
-  });
-  document.getElementById('opTypeAmenCancel')?.addEventListener('click', ()=>{
-    ROOM_TYPE_ORDER.forEach(code=>{ taEdit[code] = typeAmenFor(d, code); taRender(code); });
-    taSetOpen(false);
-  });
-  document.getElementById('opTypeAmenSave')?.addEventListener('click', async ()=>{
-    const plan = normalizeFloorPlan(d.floorPlan);
-    const next = Object.assign({}, plan.typeAmen);
-    ROOM_TYPE_ORDER.forEach(code=>{ next[code] = cleanAmenList(taEdit[code]); });
-    plan.typeAmen = normalizeTypeAmen(next);
-    await savePlan(d, plan, 'บันทึกของในห้องแล้ว — ห้องในผังที่เลือกประเภทนี้จะได้ของชุดนี้อัตโนมัติ');
   });
 
   const facSave = document.getElementById('opFacSave');
@@ -1137,11 +1101,11 @@ function updateRoomAmenHint(){
   const def = typeAmenFor(planRoomCtx.dorm, type);
   const label = ROOM_TYPE_META[type] ? ROOM_TYPE_META[type].label : '';
   if(!type){
-    el.innerHTML = 'เลือกประเภทห้องด้านบน ระบบจะดึงของในห้องที่ติ๊กไว้ในการ์ด "ห้องพักและราคา" มาใส่ให้';
+    el.innerHTML = 'เลือกประเภทห้องด้านบน ระบบจะดึงของในห้องที่ติ๊กไว้ในข้อมูลพื้นฐานของหอมาใส่ให้';
   }else if(!def.length){
-    el.innerHTML = `ยังไม่ได้ติ๊กของในห้องของห้อง${escapeHtml(label)} — ติ๊กครั้งเดียวได้ที่การ์ด "ห้องพักและราคา" ห้องอื่นจะได้ไม่ต้องกรอกซ้ำ`;
+    el.innerHTML = `ยังไม่ได้ติ๊กของในห้องของห้อง${escapeHtml(label)} — ติ๊กครั้งเดียวได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า ห้องอื่นจะได้ไม่ต้องกรอกซ้ำ`;
   }else if(sameAmenList(editRoomAmen, def)){
-    el.innerHTML = `✓ ใช้ของในห้องตามประเภท <strong>ห้อง${escapeHtml(label)}</strong> — แก้ที่การ์ด "ห้องพักและราคา" แล้วทุกห้องประเภทนี้เปลี่ยนตาม`;
+    el.innerHTML = `✓ ใช้ของในห้องตามประเภท <strong>ห้อง${escapeHtml(label)}</strong> — แก้ที่ "✏️ เพิ่มหรือแก้ไข" ด้านบนสุดของหน้า แล้วทุกห้องประเภทนี้เปลี่ยนตาม`;
   }else{
     el.innerHTML = `ห้องนี้ตั้งของในห้องเอง (ต่างจากชุดของห้อง${escapeHtml(label)}) · <a href="#" id="rmAmenReset">ใช้ชุดของห้อง${escapeHtml(label)}</a>`;
     document.getElementById('rmAmenReset')?.addEventListener('click', (e)=>{
@@ -1303,7 +1267,6 @@ function openRoomEditor(dorm, cellId){
   document.getElementById('roomModalTitle').textContent = cell.no ? ('ห้อง ' + cell.no) : 'ห้องใหม่';
   document.getElementById('roomModalSub').textContent = found.floor.name + ' · ' + dorm.name;
   document.getElementById('rmNo').value    = cell.no || '';
-  document.getElementById('rmPrice').value = (cell.price == null) ? '' : cell.price;
   document.getElementById('rmNote').value  = cell.note || '';
   // ห้องที่ยังไม่ได้กรอกของในห้องเอง = ดึงชุดของประเภทห้องมาใส่ให้เลย
   editRoomAmen = (cell.amen && cell.amen.length) ? cell.amen.slice() : typeAmenFor(dorm, cell.type);
@@ -1374,11 +1337,11 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   if(!target){ toast('ไม่พบห้องนี้ในผัง','error'); return; }
 
   const newStatus = (document.querySelector('#rmStatus .rm-st.on') || {}).dataset?.setst || 'vacant';
-  const priceRaw  = document.getElementById('rmPrice').value.trim();
 
   target.cell.no    = document.getElementById('rmNo').value.trim().slice(0,12);
   target.cell.type  = document.getElementById('rmType').value;
-  target.cell.price = priceRaw === '' ? null : Math.max(0, Number(priceRaw) || 0);
+  // v39: ไม่มีช่องราคารายห้องแล้ว — ทุกห้องใช้ราคาตามประเภทห้อง (ตั้งที่ข้อมูลพื้นฐานของหอ)
+  target.cell.price = null;
   target.cell.note  = document.getElementById('rmNote').value.trim().slice(0,120);
   // ของในห้องเหมือนชุดของประเภทห้องทุกอย่าง = เก็บเป็น "ใช้ตามประเภท" (ว่างไว้)
   // วันหลังเจ้าของหอแก้ชุดของประเภทห้อง ห้องนี้จะเปลี่ยนตามเอง

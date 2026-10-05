@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -1001,12 +1001,12 @@ function contactButtonsBlock(d){
     // v38: เบอร์โทรกับอีเมลแสดงไว้ให้ดูอย่างเดียว ไม่เป็นปุ่มกด
     btns.push(contactStaticHtml('📞', 'เบอร์โทร', d.phone));
   }
+  if(d.contactEmail){
+    btns.push(contactStaticHtml('✉️', 'อีเมล', d.contactEmail));
+  }
   if(d.lineId){
     const href = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-block" href="${href}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">💬 แชททาง LINE</a>`);
-  }
-  if(d.contactEmail){
-    btns.push(contactStaticHtml('✉️', 'อีเมล', d.contactEmail));
   }
   if(d.facebook){
     btns.push(`<a class="btn btn-outline btn-block" href="${d.facebook}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">📘 เปิดเพจ Facebook</a>`);
@@ -1027,11 +1027,11 @@ function hasContact(d){ return !!(d.phone || d.lineId || d.facebook || d.contact
 function contactButtonsHtml(d){
   const btns = [];
   if(d.phone) btns.push(`<span class="contact-static-sm">📞 ${escapeHtml(d.phone)}</span>`);
+  if(d.contactEmail) btns.push(`<span class="contact-static-sm">✉️ ${escapeHtml(d.contactEmail)}</span>`);
   if(d.lineId){
     const lineHref = d.lineId.startsWith('http') ? d.lineId : `https://line.me/R/ti/p/~${encodeURIComponent(d.lineId)}`;
     btns.push(`<a class="btn btn-outline btn-sm" href="${lineHref}" target="_blank" rel="noopener">💬 LINE</a>`);
   }
-  if(d.contactEmail) btns.push(`<span class="contact-static-sm">✉️ ${escapeHtml(d.contactEmail)}</span>`);
   if(d.facebook) btns.push(`<a class="btn btn-outline btn-sm" href="${d.facebook}" target="_blank" rel="noopener">📘 Facebook</a>`);
   if(btns.length === 0) return `<span class="muted" style="font-size:.85rem">ยังไม่มีช่องทางติดต่อ — รอเจ้าของหอยืนยันข้อมูล</span>`;
   return btns.join(' ');
