@@ -13,7 +13,7 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   location.href = 'login.html';
 });
 
-const DASH_SECTIONS = ['dashboard','overview','listings','bookings','messages','report','rental','dormreview','owners'];
+const DASH_SECTIONS = ['overview','dashboard','listings','bookings','messages','report','rental','dormreview','owners'];
 
 // ---------------------------------------------------------------------------
 // ช่องตัวเลขแบบพิมพ์เอง (v43)
@@ -3786,7 +3786,13 @@ async function renderOwners(){
       if(el) el.style.display = 'none';
     });
     // v45: แดชบอร์ดยังเปิดให้ผู้ดูแลระบบดูได้ เพราะเป็นภาพรวมของทั้งระบบ
-    // (ไม่ใช่การแก้ไขหอของคนอื่น) และยังเป็นหน้าแรกที่เปิดขึ้นมาเหมือนเจ้าของหอ
+    // (ไม่ใช่การแก้ไขหอของคนอื่น)
+    //
+    // v46: เมนูแรกของเจ้าของหอคือ "หน้าหอพักของฉัน" ซึ่งผู้ดูแลระบบไม่มี
+    // ผู้ดูแลระบบจึงเปิดมาที่แดชบอร์ดแทน และต้องย้ายแถบเมนูที่ไฮไลต์ไว้ตามไปด้วย
+    document.querySelectorAll('.side-link').forEach(b=> b.classList.remove('active'));
+    const dbBtn = document.querySelector('.side-link[data-sec="dashboard"]');
+    if(dbBtn) dbBtn.classList.add('active');
     const dbSec = document.getElementById('sec-dashboard');
     if(dbSec) dbSec.style.display = 'block';
   }

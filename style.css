@@ -92,11 +92,13 @@ button{ font-family: inherit; cursor:pointer; }
   overflow: hidden;
 }
 .hero .container{ display:grid; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 56px; align-items:center; }
-/* จอกว้างมาก: หัวเว็บไม่ต้องยืดเต็มเท่าส่วนรายการหอพัก
-   ไม่งั้นข้อความกับภาพประกอบจะห่างกันจนดูเป็นคนละชิ้น
-   (ส่วนกริดการ์ดหอพักด้านล่างยังใช้ความกว้างเต็มตามเดิม) */
+/* จอกว้างมาก: หัวเว็บใช้ความกว้างเต็มเท่ากับส่วนอื่นของหน้า
+   ข้อความจึงเริ่มตรงแนวเดียวกับช่องค้นหาและการ์ดหอพักด้านล่างพอดี
+   ส่วนภาพประกอบจำกัดความกว้างไว้ แล้วไปชิดขอบขวาของหน้าในแนวเดียวกัน */
 @media (min-width:1400px){
-  .hero .container{ max-width:1400px; grid-template-columns: minmax(0,1fr) 520px; }
+  .hero .container{ grid-template-columns: minmax(0,1fr) minmax(440px, 560px); gap: 48px; }
+  /* ชิดขอบขวาของหน้า ให้ตรงแนวกับขอบขวาของช่องค้นหาและการ์ดหอพัก */
+  .hero .hero-art{ max-width:560px; margin-left:auto; margin-right:0; }
 }
 .hero .eyebrow{
   display:inline-flex; align-items:center; gap:8px;
@@ -153,7 +155,9 @@ button{ font-family: inherit; cursor:pointer; }
 }
 
 /* ---------- Listing ---------- */
-.section{ padding: 44px 0; }
+/* v46: ใส่เฉพาะระยะบน-ล่าง ไม่เขียนทับระยะซ้าย-ขวาของ .container
+   ไม่งั้นการ์ดหอพักจะเยื้องออกไปทางซ้ายกว่าช่องค้นหาและหัวเว็บ 24px */
+.section{ padding-top: 44px; padding-bottom: 44px; }
 .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 20px; flex-wrap:wrap; gap:8px; }
 .section-head .count{ color: var(--ink-soft); font-size:.9rem; }
 
