@@ -50,7 +50,13 @@ img{ max-width:100%; display:block; }
 button{ font-family: inherit; cursor:pointer; }
 :focus-visible{ outline: 3px solid var(--gold); outline-offset: 2px; }
 
-.container{ max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+/* ---------------------------------------------------------------------------
+   v45: หน้าเว็บกว้างเต็มจอ
+   ของเดิมล็อกไว้ที่ 1180px บนจอ 1920px จึงเหลือขอบว่างข้างละเกือบ 400px
+   ตอนนี้ใช้พื้นที่จอเกือบทั้งหมด แต่ยังกันไม่ให้กว้างเกินไปบนจอใหญ่มาก (2560px+)
+   ส่วนบล็อกตัวหนังสือยาว ๆ ยังจำกัดความกว้างของตัวเองไว้ เพื่อให้อ่านง่ายเหมือนเดิม
+--------------------------------------------------------------------------- */
+.container{ width:100%; max-width: min(1760px, 95vw); margin: 0 auto; padding: 0 24px; }
 
 /* ---------- Topbar / Nav ---------- */
 .topbar{
@@ -85,15 +91,21 @@ button{ font-family: inherit; cursor:pointer; }
   position: relative;
   overflow: hidden;
 }
-.hero .container{ display:grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items:center; }
+.hero .container{ display:grid; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 56px; align-items:center; }
+/* จอกว้างมาก: หัวเว็บไม่ต้องยืดเต็มเท่าส่วนรายการหอพัก
+   ไม่งั้นข้อความกับภาพประกอบจะห่างกันจนดูเป็นคนละชิ้น
+   (ส่วนกริดการ์ดหอพักด้านล่างยังใช้ความกว้างเต็มตามเดิม) */
+@media (min-width:1400px){
+  .hero .container{ max-width:1400px; grid-template-columns: minmax(0,1fr) 520px; }
+}
 .hero .eyebrow{
   display:inline-flex; align-items:center; gap:8px;
   font-size:.82rem; letter-spacing:.04em; color: var(--gold);
   background: rgba(46,155,214,.14); border:1px solid rgba(46,155,214,.40);
   padding:5px 12px; border-radius:999px; margin-bottom: 14px;
 }
-.hero h1{ color: var(--white); font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
-.hero p.lead{ color: rgba(255,255,255,.82); max-width: 46ch; }
+.hero h1{ color: var(--white); font-size: clamp(1.8rem, 3.1vw, 3rem); max-width: 18ch; }
+.hero p.lead{ color: rgba(255,255,255,.82); max-width: 52ch; font-size:1.02rem; }
 
 
 /* ---------- Search / Filter panel ---------- */
@@ -145,7 +157,8 @@ button{ font-family: inherit; cursor:pointer; }
 .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 20px; flex-wrap:wrap; gap:8px; }
 .section-head .count{ color: var(--ink-soft); font-size:.9rem; }
 
-.dorm-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+/* v45: เติมคอลัมน์ตามความกว้างจอ — จอกว้างเห็นหอพักได้มากขึ้นโดยการ์ดไม่ยืดจนผิดสัดส่วน */
+.dorm-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; }
 
 .card-dorm{
   background: var(--white); border-radius: var(--radius); overflow:hidden;
@@ -296,7 +309,6 @@ footer a:hover{ color: var(--gold); }
 @media (max-width: 980px){
   .hero .container{ grid-template-columns: 1fr; }
   .search-grid{ grid-template-columns: repeat(2,1fr); }
-  .dorm-grid{ grid-template-columns: repeat(2,1fr); }
   .detail-layout{ grid-template-columns: 1fr; }
   .amenity-grid{ grid-template-columns: repeat(2,1fr); }
   .dash-shell{ grid-template-columns: 1fr; }
@@ -307,7 +319,6 @@ footer a:hover{ color: var(--gold); }
 @media (max-width: 640px){
   .nav-links{ display:none; }
   .hamburger{ display:block; }
-  .dorm-grid{ grid-template-columns: 1fr; }
   .search-grid{ grid-template-columns: 1fr; }
   .gallery{ grid-template-columns: 1fr; }
   .gallery .side-imgs{ grid-template-rows: 1fr 1fr; grid-auto-flow:column; }
@@ -394,7 +405,7 @@ footer a:hover{ color: var(--gold); }
    ========================================================================== */
 .site-contact-bar{ background:#092338; color: rgba(255,255,255,.82); padding: 18px 0 22px; }
 .site-contact-inner{
-  max-width:1180px; margin:0 auto; padding: 0 20px;
+  width:100%; max-width: min(1760px, 95vw); margin:0 auto; padding: 0 24px;
   display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
 }
 .site-contact-head strong{ display:block; font-family: var(--font-display); color: var(--gold); font-size:1rem; }
@@ -1008,6 +1019,114 @@ footer{ margin-bottom: 0; }
 .st-reserved-txt{ color:#9A6B06; }
 .st-booked-txt{ color:#C22A1E; }
 .st-closed-txt{ color:#5E6872; }
+
+/* ===========================================================================
+   แดชบอร์ด (v45)
+   กราฟทุกตัววาดด้วย SVG/HTML ธรรมดา ไม่ได้ใช้ไลบรารีจากภายนอก
+   =========================================================================== */
+.db-tiles{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
+  gap:14px; margin-bottom:20px;
+}
+.db-tile{
+  background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
+  padding:15px 16px; display:flex; flex-direction:column; gap:3px;
+}
+.db-tile.tone-warn{ border-color:#F0C98A; background:#FFFBF3; }
+.db-tile-label{ font-size:.82rem; color:var(--ink-soft); font-weight:600; }
+.db-tile-value{
+  font-family:var(--font-display); font-size:1.9rem; font-weight:700;
+  color:var(--forest); line-height:1.15;
+}
+.db-tile-unit{ font-size:.82rem; font-weight:600; color:var(--ink-soft); margin-left:5px; }
+.db-tile-note{ font-size:.78rem; color:var(--ink-soft); }
+
+.db-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:16px; }
+.db-card{
+  background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 20px 20px;
+}
+.db-card.db-span{ grid-column: 1 / -1; }
+.db-split{ display:grid; grid-template-columns:repeat(auto-fit, minmax(330px, 1fr)); gap:26px 34px; }
+.db-card h3{ margin:0 0 2px; font-size:1.02rem; }
+.db-split > div > h3{ margin-top:0; }
+.db-card > p.muted{ font-size:.84rem; margin:0 0 14px; }
+
+/* ---- แถบส่วนประกอบแนวนอน ---- */
+.db-stack{
+  display:flex; height:30px; border-radius:999px; overflow:hidden;
+  background:var(--sage-bg); gap:2px;      /* ช่องว่างสีพื้น 2px คั่นแต่ละช่วง */
+}
+.db-seg{ display:block; height:100%; }
+.db-legend{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:13px; font-size:.84rem; }
+.db-lg{ display:inline-flex; align-items:center; gap:6px; }
+.db-lg-label{ color:var(--ink-soft); }
+.db-lg strong{ font-family:var(--font-display); color:var(--ink); }
+.db-swatch{
+  width:11px; height:11px; border-radius:3px; display:inline-block; flex-shrink:0;
+  border:1px solid rgba(0,0,0,.12);
+}
+
+/* ---- กราฟแท่งรายเดือน ---- */
+.db-cols{ position:relative; }
+.db-cols-svg{ width:100%; height:150px; display:block; }
+/* ป้ายตัวเลขวางซ้อนอีกชั้น เพื่อไม่ให้ตัวหนังสือถูกยืดตามการ scale ของกราฟ */
+.db-cols-num{
+  position:absolute; inset:0; width:100%; height:150px;
+  pointer-events:none; overflow:visible;
+}
+.db-colnum{
+  font-family:var(--font-display); font-size:4.2px; font-weight:700;
+  fill:var(--ink-soft);
+}
+.db-colx{
+  display:flex; margin-top:7px; font-size:.78rem; color:var(--ink-soft); text-align:center;
+}
+.db-colx span{ flex:1 1 0; min-width:0; }
+
+/* ---- มาตรวัดความครบถ้วน ---- */
+.db-meter-track{
+  height:12px; border-radius:999px; background:var(--sage-bg);
+  border:1px solid var(--line); overflow:hidden;
+}
+.db-meter-track span{ display:block; height:100%; background:var(--forest); }
+.db-meter-txt{ margin-top:7px; font-size:.86rem; }
+.db-meter-txt strong{ font-family:var(--font-display); color:var(--forest); font-size:1.05rem; }
+
+/* ---- รายการตรวจสอบ ---- */
+.db-check{ list-style:none; margin:14px 0 0; padding:0; display:grid; gap:5px; font-size:.86rem; }
+.db-check li{ display:flex; align-items:flex-start; gap:8px; }
+.db-check .db-check-ic{ flex-shrink:0; font-weight:700; width:16px; }
+.db-check li.ok{ color:var(--ink); }
+.db-check li.ok .db-check-ic{ color:#1F6D3D; }
+.db-check li.no{ color:var(--ink-soft); }
+.db-check li.no .db-check-ic{ color:#9AA7B2; }
+
+/* ---- สิ่งที่ต้องจัดการ ---- */
+.db-todo{ list-style:none; margin:14px 0 0; padding:0; display:grid; gap:8px; align-content:start; }
+.db-todo li{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:10px 13px; border-radius:var(--radius-sm); font-size:.87rem;
+  background:var(--sage-bg); border:1px solid var(--line);
+}
+.db-todo li > span:nth-child(2){ flex:1 1 180px; }
+.db-todo li.tone-warn{ background:#FFFBF3; border-color:#F0C98A; }
+.db-todo li.tone-ok{ background:#E9F5EE; border-color:#BFE0CB; }
+.db-todo-ic{ flex-shrink:0; }
+
+/* ---- ตารางข้อมูลของกราฟ (กางดูได้) ---- */
+.db-table{ margin-top:14px; font-size:.84rem; }
+.db-table summary{ cursor:pointer; color:var(--gold-deep); font-weight:600; }
+.db-table table{ width:100%; border-collapse:collapse; margin-top:9px; }
+.db-table th, .db-table td{ padding:6px 9px; border-bottom:1px solid var(--line); text-align:left; }
+.db-table th{ color:var(--ink-soft); font-weight:600; font-size:.8rem; }
+.db-table td.num{ text-align:right; font-family:var(--font-display); }
+
+@media (max-width:640px){
+  .db-grid{ grid-template-columns:1fr; }
+  .db-tiles{ grid-template-columns:1fr 1fr; }
+  .db-tile-value{ font-size:1.5rem; }
+}
 
 /* pop up แก้รายละเอียดห้อง — v44 มี 4 สถานะ จึงจัดเป็น 2 คอลัมน์ 2 แถว */
 .rm-status{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }

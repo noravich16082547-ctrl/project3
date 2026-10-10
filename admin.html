@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=44">
+<link rel="stylesheet" href="style.css?v=45">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -36,7 +36,8 @@
 <div class="dash-shell" id="dashShell" style="display:none">
   <aside class="dash-side">
     <div class="side-title">เมนูจัดการ</div>
-    <button class="side-link active" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
+    <button class="side-link active" data-sec="dashboard">📈 แดชบอร์ด</button>
+    <button class="side-link" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
     <button class="side-link" data-sec="listings" id="listingsTabBtn" style="display:none">🏠 หอพักทั้งหมดในระบบ (ผู้ดูแลระบบ)</button>
     <button class="side-link" data-sec="bookings">📌 คำขอนัดหมาย<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
@@ -48,7 +49,19 @@
 
   <main class="dash-main">
     <!-- ================= หน้าหลัก = หน้าโปรไฟล์หอพักของเจ้าของหอ ================= -->
-    <div id="sec-overview">
+    <!-- ===================================================================
+         แดชบอร์ด (v45) — สรุปภาพรวมของหอพักในหน้าเดียว
+         เจ้าของหอเห็นตัวเลขของหอตัวเอง · ผู้ดูแลระบบเห็นภาพรวมทั้งระบบ
+         =================================================================== -->
+    <div id="sec-dashboard">
+      <div class="section-head">
+        <h2 id="dbTitle">แดชบอร์ด</h2>
+        <span class="muted" id="dbUpdated"></span>
+      </div>
+      <div id="dbBody"><div class="chat-empty">กำลังโหลดข้อมูล...</div></div>
+    </div>
+
+    <div id="sec-overview" style="display:none">
       <div id="ownerPage"><div class="chat-empty">กำลังโหลด...</div></div>
 
       <!-- ================= ฟอร์มเพิ่ม/แก้ไขหอพัก =================
@@ -485,9 +498,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=44"></script>
-<script src="app.js?v=44"></script>
-<script src="admin.js?v=44"></script>
+<script src="db.js?v=45"></script>
+<script src="app.js?v=45"></script>
+<script src="admin.js?v=45"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -824,11 +824,13 @@ function amenityGridHtml(codes){
 //
 // ห้องที่ไม่ใช่ "ว่าง" นักศึกษากดนัดหมายไม่ได้ทั้งหมด
 // ---------------------------------------------------------------------------
+// color = สีเดียวกับที่ใช้ในไฟล์ style.css เก็บไว้ที่นี่ด้วยเพื่อให้กราฟในแดชบอร์ด
+// ใช้สีชุดเดียวกับผังห้องพัก ผู้ใช้จะได้ไม่ต้องจำสองชุด (v45)
 const ROOM_STATUS_META = {
-  vacant:   { label:'ว่าง',             short:'ว่าง',       cls:'st-vacant'   },
-  reserved: { label:'มีผู้นัดหมายแล้ว', short:'มีผู้นัดหมาย', cls:'st-reserved' },
-  booked:   { label:'ไม่ว่าง',          short:'ไม่ว่าง',    cls:'st-booked'   },
-  closed:   { label:'ปิดปรับปรุง',      short:'ปิดปรับปรุง', cls:'st-closed'   }
+  vacant:   { label:'ว่าง',             short:'ว่าง',       cls:'st-vacant',   color:'#2E9E5B' },
+  reserved: { label:'มีผู้นัดหมายแล้ว', short:'มีผู้นัดหมาย', cls:'st-reserved', color:'#E8A317' },
+  booked:   { label:'ไม่ว่าง',          short:'ไม่ว่าง',    cls:'st-booked',   color:'#E03B2F' },
+  closed:   { label:'ปิดปรับปรุง',      short:'ปิดปรับปรุง', cls:'st-closed',   color:'#8C96A0' }
 };
 const ROOM_STATUS_ORDER = ['vacant','reserved','booked','closed'];
 const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด

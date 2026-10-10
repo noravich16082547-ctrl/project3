@@ -13,7 +13,7 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
   location.href = 'login.html';
 });
 
-const DASH_SECTIONS = ['overview','listings','bookings','messages','report','rental','dormreview','owners'];
+const DASH_SECTIONS = ['dashboard','overview','listings','bookings','messages','report','rental','dormreview','owners'];
 
 // ---------------------------------------------------------------------------
 // ช่องตัวเลขแบบพิมพ์เอง (v43)
@@ -71,6 +71,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
       const el = document.getElementById('sec-'+s);
       if(el) el.style.display = (s===btn.dataset.sec) ? 'block':'none';
     });
+    if(btn.dataset.sec === 'dashboard'){ renderDashboard(); }
     if(btn.dataset.sec === 'dormreview'){ renderPendingDorms(); }
     if(btn.dataset.sec === 'report'){ renderReport(); }
     if(btn.dataset.sec === 'rental'){ renderRental(); }
@@ -98,6 +99,357 @@ async function renderStats(){
   set('statVacant', dorms.reduce((s,d)=>s+totalVacancy(d),0));
   set('statContact', dorms.filter(d=>d.phone||d.lineId||d.facebook||d.contactEmail).length);
   set('statVerified', dorms.filter(d=>d.verified).length);
+}
+
+// ===========================================================================
+// แดชบอร์ด (v45)
+//
+// รวมตัวเลขที่เจ้าของหอต้องดูทุกวันไว้ในหน้าเดียว แทนที่จะต้องไล่เปิดทีละแท็บ
+// ผู้ดูแลระบบเปิดหน้านี้ได้เหมือนกัน แต่จะเห็นภาพรวมของทั้งระบบแทนของหอเดียว
+//
+// กราฟทั้งหมดวาดด้วย SVG ที่เขียนเอง ไม่ได้ดึงไลบรารีจากภายนอก
+// เพราะเว็บนี้เป็นไฟล์แบนราบ ไม่มีขั้นตอน build และต้องเปิดได้แม้เน็ตช้า
+//
+// หลักการที่ใช้กับกราฟทุกตัวในหน้านี้
+//   - สีของสถานะห้องใช้ชุดเดียวกับผังห้องพัก เพื่อไม่ให้ต้องจำสองชุด
+//   - ทุกกราฟมีทั้งป้ายกำกับบนตัวกราฟและตารางข้อมูลให้กางดู
+//     ผู้ที่แยกสีไม่ออกจึงยังอ่านได้ครบ ไม่ได้สื่อความหมายด้วยสีอย่างเดียว
+//   - เอาเมาส์ชี้ที่แท่งแล้วมีคำอธิบายขึ้น
+// ===========================================================================
+
+// สีแท่งกราฟรายเดือน — ฟ้าเข้มของเว็บ ผ่านเกณฑ์ความต่างจากพื้นขาว
+const DB_BAR = '#16709F';
+
+// จำนวนเดือนย้อนหลังที่แสดงในกราฟคำขอนัดหมาย
+const DB_MONTHS = 6;
+
+const DB_BOOKING_STATUS = {
+  pending:   { label:'รอดำเนินการ', color:'#E8A317' },
+  confirmed: { label:'ยืนยันแล้ว',  color:'#2E9E5B' },
+  cancelled: { label:'ปฏิเสธ/ยกเลิก', color:'#8C96A0' }
+};
+
+// ตัวเลขที่อ่านง่าย — คั่นหลักพันแบบไทย
+function dbNum(n){ return Number(n || 0).toLocaleString('th-TH'); }
+function dbPct(part, whole){ return whole > 0 ? Math.round(part / whole * 100) : 0; }
+
+// ---------------------------------------------------------------------------
+// การ์ดตัวเลขสรุป (stat tile)
+// ตัวเลขเดี่ยว ๆ ไม่ควรทำเป็นกราฟแท่งแท่งเดียว — ใช้ตัวเลขใหญ่ ๆ อ่านตรง ๆ ดีกว่า
+// ---------------------------------------------------------------------------
+function dbTileHtml({ icon, label, value, unit, note, tone }){
+  return `
+  <div class="db-tile${tone ? ' tone-' + tone : ''}">
+    <div class="db-tile-label">${icon ? icon + ' ' : ''}${escapeHtml(label)}</div>
+    <div class="db-tile-value">${escapeHtml(String(value))}${unit ? `<span class="db-tile-unit">${escapeHtml(unit)}</span>` : ''}</div>
+    ${note ? `<div class="db-tile-note">${note}</div>` : ''}
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// แถบส่วนประกอบแนวนอน (stacked bar) — ใช้กับ "ส่วนไหนเป็นส่วนไหนของทั้งหมด"
+// rows = [{ label, value, color }]
+// เว้นช่องว่างสีพื้น 2px ระหว่างแต่ละช่วง เพื่อให้ขอบของแต่ละช่วงชัดโดยไม่ต้องใช้เส้นขอบ
+// ---------------------------------------------------------------------------
+function dbStackHtml(rows, opts){
+  const o = opts || {};
+  const list = rows.filter(r => r.value > 0);
+  const total = rows.reduce((a, r)=> a + r.value, 0);
+  if(!total){
+    return `<p class="muted" style="font-size:.88rem;margin:10px 0 0">${escapeHtml(o.empty || 'ยังไม่มีข้อมูล')}</p>`;
+  }
+  const bar = list.map(r=>{
+    const pct = r.value / total * 100;
+    return `<span class="db-seg" style="flex:0 0 ${pct}%;background:${r.color}"
+                  title="${escapeAttr(r.label + ' ' + dbNum(r.value) + ' ' + (o.unit||'') + ' (' + dbPct(r.value,total) + '%)')}"></span>`;
+  }).join('');
+
+  // ป้ายกำกับใต้แถบ: บอกทั้งชื่อ จำนวน และเปอร์เซ็นต์ จึงไม่ได้ใช้สีสื่อความหมายอย่างเดียว
+  const legend = rows.map(r=>`
+    <span class="db-lg">
+      <i class="db-swatch" style="background:${r.color}"></i>
+      <span class="db-lg-label">${escapeHtml(r.label)}</span>
+      <strong>${dbNum(r.value)}</strong>
+      <span class="muted">(${dbPct(r.value, total)}%)</span>
+    </span>`).join('');
+
+  return `<div class="db-stack" role="img" aria-label="${escapeAttr(
+      rows.map(r=> `${r.label} ${r.value}`).join(', '))}">${bar}</div>
+    <div class="db-legend">${legend}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// กราฟแท่งรายเดือน (SVG) — ชุดข้อมูลชุดเดียว จึงใช้สีเดียวทั้งกราฟ ไม่ต้องมีคำอธิบายสี
+// points = [{ label, value, full }]
+// ---------------------------------------------------------------------------
+function dbColumnsHtml(points, opts){
+  const o = opts || {};
+  const max = Math.max(1, ...points.map(p=> p.value));
+  const W = 100, H = 46;                       // ใช้พิกัดสัมพัทธ์ แล้วยืดเต็มความกว้างการ์ด
+  const gap = 2.6;
+  const bw = (W - gap * (points.length - 1)) / points.length;
+
+  const bars = points.map((p, i)=>{
+    const x = i * (bw + gap);
+    const h = p.value > 0 ? Math.max(1.6, p.value / max * (H - 10)) : 0;
+    const y = H - h;
+    return h > 0
+      // ปลายแท่งมนเล็กน้อย ส่วนฐานยังชิดเส้นศูนย์ (ใช้ rx คู่กับสี่เหลี่ยมปิดฐาน)
+      ? `<g><rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="1.1" fill="${DB_BAR}"></rect>
+           <rect x="${x}" y="${y + Math.min(h, 1.1)}" width="${bw}" height="${h - Math.min(h, 1.1)}" fill="${DB_BAR}"></rect>
+           <title>${escapeAttr(p.full + ' — ' + dbNum(p.value) + ' ' + (o.unit || 'รายการ'))}</title></g>`
+      : `<g><rect x="${x}" y="${H - 0.6}" width="${bw}" height="0.6" fill="#D2E2EF"></rect>
+           <title>${escapeAttr(p.full + ' — ไม่มีรายการ')}</title></g>`;
+  }).join('');
+
+  // ป้ายตัวเลขเฉพาะแท่งที่มีค่า ไม่ใส่ทุกแท่งให้รก
+  const nums = points.map((p, i)=>{
+    if(!p.value) return '';
+    const x = i * (bw + gap) + bw / 2;
+    const h = Math.max(1.6, p.value / max * (H - 10));
+    return `<text class="db-colnum" x="${x}" y="${H - h - 2.4}" text-anchor="middle">${p.value}</text>`;
+  }).join('');
+
+  return `
+  <div class="db-cols">
+    <svg viewBox="0 0 ${W} ${H + 1}" preserveAspectRatio="none" class="db-cols-svg" role="img"
+         aria-label="${escapeAttr(points.map(p=> `${p.full} ${p.value}`).join(', '))}">
+      <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="#D2E2EF" stroke-width=".4"></line>
+      ${bars}
+    </svg>
+    <svg viewBox="0 0 ${W} ${H + 1}" preserveAspectRatio="none" class="db-cols-num" aria-hidden="true">${nums}</svg>
+    <div class="db-colx">${points.map(p=> `<span>${escapeHtml(p.label)}</span>`).join('')}</div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// มาตรวัดความครบถ้วน (meter) — อัตราส่วนเดียวเทียบกับเต็ม 100%
+// ---------------------------------------------------------------------------
+function dbMeterHtml(done, total){
+  const pct = dbPct(done, total);
+  return `
+  <div class="db-meter" role="img" aria-label="ความครบถ้วน ${pct} เปอร์เซ็นต์">
+    <div class="db-meter-track"><span style="width:${pct}%"></span></div>
+    <div class="db-meter-txt"><strong>${pct}%</strong> <span class="muted">(${done} จาก ${total} ข้อ)</span></div>
+  </div>`;
+}
+
+// ตารางข้อมูลของกราฟ — กางดูได้ เผื่อผู้ที่อ่านกราฟไม่สะดวก
+function dbTableHtml(head, rows){
+  return `
+  <details class="db-table">
+    <summary>ดูเป็นตาราง</summary>
+    <table><thead><tr>${head.map(h=> `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=> `<tr>${r.map((c, i)=>
+      `<td${i ? ' class="num"' : ''}>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>
+  </details>`;
+}
+
+// ---------------------------------------------------------------------------
+// นับคำขอนัดหมายย้อนหลังรายเดือน
+// ---------------------------------------------------------------------------
+function dbMonthlyBookings(list, months){
+  const now = new Date();
+  const out = [];
+  for(let i = months - 1; i >= 0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({
+      key: `${d.getFullYear()}-${d.getMonth()}`,
+      label: d.toLocaleDateString('th-TH', { month:'short' }),
+      full:  d.toLocaleDateString('th-TH', { month:'long', year:'numeric' }),
+      value: 0
+    });
+  }
+  const idx = Object.fromEntries(out.map((m, i)=> [m.key, i]));
+  list.forEach(b=>{
+    const d = new Date(b.createdAt);
+    const k = `${d.getFullYear()}-${d.getMonth()}`;
+    if(k in idx) out[idx[k]].value++;
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// ความครบถ้วนของข้อมูลหอพัก — เช็กทีละข้อว่ากรอกอะไรไปแล้วบ้าง
+// ---------------------------------------------------------------------------
+function dbChecklist(d){
+  if(!d) return [];
+  return [
+    { ok: (d.images || []).length > 0,        label:'มีรูปหอพักอย่างน้อย 1 รูป', sec:'overview' },
+    { ok: hasPrice(d),                        label:'ใส่ราคาห้องพักแล้ว',        sec:'overview' },
+    { ok: !!(d.desc || '').trim(),            label:'เขียนคำอธิบายหอพักแล้ว',     sec:'overview' },
+    { ok: d.lat != null && d.lng != null,     label:'ปักหมุดตำแหน่งหอพักแล้ว',    sec:'overview' },
+    { ok: (d.facilities || []).length > 0,    label:'ระบุสิ่งอำนวยความสะดวกแล้ว', sec:'overview' },
+    { ok: hasFloorPlan(d),                    label:'ทำผังห้องพักแล้ว',           sec:'overview' },
+    { ok: !!(d.phone || d.lineId || d.facebook || d.contactEmail), label:'มีช่องทางติดต่อ', sec:'overview' },
+    { ok: !!d.verified,                       label:'ยืนยันว่าข้อมูลเป็นปัจจุบัน', sec:'overview' }
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// วาดแดชบอร์ด
+// ---------------------------------------------------------------------------
+async function renderDashboard(){
+  const box = document.getElementById('dbBody');
+  if(!box || !ME) return;
+  const isAdmin = ME.role === 'admin';
+  document.getElementById('dbTitle').textContent = isAdmin ? 'แดชบอร์ดภาพรวมระบบ' : 'แดชบอร์ดหอพักของฉัน';
+
+  let dorms = [], bookings = [], ratings = {}, unread = 0;
+  try{
+    const vis = await loadVisibleDorms();
+    dorms = isAdmin ? vis.allDorms : vis.mine;
+    bookings = isAdmin ? await getAllBookings() : await getBookingsForOwner(ME.uid);
+    if(dorms.length) ratings = await getRatingsForDorms(dorms.map(x=> x.id));
+    if(!isAdmin) unread = await getUnreadCount();
+  }catch(err){
+    console.error(err);
+    box.innerHTML = `<div class="chat-empty">โหลดข้อมูลแดชบอร์ดไม่สำเร็จ: ${escapeHtml(err.message || '')}</div>`;
+    return;
+  }
+
+  document.getElementById('dbUpdated').textContent =
+    'ข้อมูล ณ ' + new Date().toLocaleString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) + ' น.';
+
+  if(!dorms.length){
+    box.innerHTML = `<div class="empty-state" style="padding:40px 10px">
+      <div class="emoji">📈</div>
+      <p>ยังไม่มีข้อมูลให้สรุป<br>
+      <small class="muted">${isAdmin ? 'ยังไม่มีหอพักในระบบ' : 'สร้างหน้าหอพักของคุณก่อน แล้วตัวเลขทั้งหมดจะขึ้นที่นี่'}</small></p>
+    </div>`;
+    return;
+  }
+
+  // ---------- รวมสถานะห้องจากผังของทุกหอ ----------
+  const st = { total:0 };
+  ROOM_STATUS_ORDER.forEach(k=> st[k] = 0);
+  let unsetRooms = 0;
+  dorms.forEach(d=>{
+    eachRoomCell(normalizeFloorPlan(d.floorPlan)).forEach(({ cell })=>{
+      st.total++;
+      st[normalizeRoomStatus(cell.status)]++;
+      if(!cell.editedAt) unsetRooms++;
+    });
+  });
+
+  const pending   = bookings.filter(b=> b.status === 'pending').length;
+  const confirmed = bookings.filter(b=> b.status === 'confirmed').length;
+  const cancelled = bookings.filter(b=> b.status === 'cancelled').length;
+
+  // คะแนนรีวิวเฉลี่ยถ่วงน้ำหนักตามจำนวนรีวิว
+  let rSum = 0, rCount = 0;
+  Object.values(ratings).forEach(r=>{ rSum += (r.avg || 0) * (r.count || 0); rCount += (r.count || 0); });
+  const avgRating = rCount ? Math.round(rSum / rCount * 10) / 10 : null;
+
+  // รายได้โดยประมาณต่อเดือน = ห้องที่มีผู้เช่าอยู่ × ราคาของประเภทห้องนั้น
+  let income = 0;
+  dorms.forEach(d=>{
+    eachRoomCell(normalizeFloorPlan(d.floorPlan)).forEach(({ cell })=>{
+      if(normalizeRoomStatus(cell.status) !== 'booked') return;
+      const t = roomTypes(d).find(r=> r.code === cell.type);
+      income += (t && t.price) || minPrice(d) || 0;
+    });
+  });
+
+  const occupied = st.booked + st.reserved;
+  const months   = dbMonthlyBookings(bookings, DB_MONTHS);
+  const focus    = isAdmin ? null : (dorms.find(d=> d.id === activeOwnerDormId) || dorms[0]);
+  const checks   = dbChecklist(focus);
+  const checkOk  = checks.filter(c=> c.ok).length;
+
+  // ---------- สิ่งที่ต้องจัดการ ----------
+  const todo = [];
+  if(pending)      todo.push({ icon:'📌', text:`มีคำขอนัดหมาย <strong>${dbNum(pending)}</strong> รายการที่ยังไม่ได้ตอบ`, sec:'bookings', tone:'warn' });
+  if(unread)       todo.push({ icon:'💬', text:`มีข้อความจากนักศึกษา <strong>${dbNum(unread)}</strong> ข้อความที่ยังไม่ได้อ่าน`, sec:'messages', tone:'warn' });
+  if(unsetRooms)   todo.push({ icon:'🧩', text:`มีห้องในผัง <strong>${dbNum(unsetRooms)}</strong> ห้องที่ยังไม่ได้ตั้งค่า`, sec:'overview', tone:'warn' });
+  if(st.closed)    todo.push({ icon:'🛠', text:`มีห้องปิดปรับปรุงอยู่ <strong>${dbNum(st.closed)}</strong> ห้อง`, sec:'overview', tone:'info' });
+  if(focus && checkOk < checks.length){
+    todo.push({ icon:'📝', text:`ข้อมูลหอพักยังกรอกไม่ครบ อีก <strong>${checks.length - checkOk}</strong> ข้อ`, sec:'overview', tone:'info' });
+  }
+  if(!todo.length) todo.push({ icon:'✅', text:'ไม่มีรายการค้างอยู่ ข้อมูลหอพักเรียบร้อยดีแล้ว', sec:'', tone:'ok' });
+
+  const statusRows = ROOM_STATUS_ORDER.map(k=>({
+    label: ROOM_STATUS_META[k].label, value: st[k], color: ROOM_STATUS_META[k].color
+  }));
+  const bkRows = ['pending','confirmed','cancelled'].map(k=>({
+    label: DB_BOOKING_STATUS[k].label, color: DB_BOOKING_STATUS[k].color,
+    value: k === 'pending' ? pending : (k === 'confirmed' ? confirmed : cancelled)
+  }));
+
+  box.innerHTML = `
+  <div class="db-tiles">
+    ${dbTileHtml({ icon:'🏠', label: isAdmin ? 'หอพักในระบบ' : 'หอพักของฉัน', value: dbNum(dorms.length), unit:'แห่ง' })}
+    ${dbTileHtml({ icon:'🚪', label:'ห้องพักทั้งหมด', value: dbNum(st.total), unit:'ห้อง',
+                   note: st.total ? `ว่าง ${dbNum(st.vacant)} ห้อง` : 'ยังไม่ได้ทำผังห้องพัก' })}
+    ${dbTileHtml({ icon:'📊', label:'อัตราการเข้าพัก', value: dbPct(occupied, st.total), unit:'%',
+                   note: st.total ? `มีผู้เช่าหรือผู้นัดหมาย ${dbNum(occupied)} จาก ${dbNum(st.total)} ห้อง` : '—' })}
+    ${dbTileHtml({ icon:'📌', label:'คำขอรอดำเนินการ', value: dbNum(pending), unit:'รายการ',
+                   tone: pending ? 'warn' : '', note:`คำขอทั้งหมด ${dbNum(bookings.length)} รายการ` })}
+    ${isAdmin ? '' : dbTileHtml({ icon:'💬', label:'ข้อความที่ยังไม่ได้อ่าน', value: dbNum(unread), unit:'ข้อความ',
+                   tone: unread ? 'warn' : '' })}
+    ${dbTileHtml({ icon:'⭐', label:'คะแนนรีวิวเฉลี่ย', value: avgRating == null ? '—' : avgRating,
+                   unit: avgRating == null ? '' : 'เต็ม 5',
+                   note: rCount ? `จาก ${dbNum(rCount)} รีวิว` : 'ยังไม่มีรีวิว' })}
+    ${dbTileHtml({ icon:'💰', label:'รายได้โดยประมาณ', value: dbNum(income), unit:'บาท/เดือน',
+                   note:'คิดจากห้องที่มีผู้เช่าอยู่ × ราคาห้อง' })}
+  </div>
+
+  <div class="db-grid">
+    <section class="db-card">
+      <h3>สถานะห้องพัก</h3>
+      <p class="muted">แบ่งตามสถานะที่ตั้งไว้ในผังห้องพัก — สีเดียวกับในผัง</p>
+      ${dbStackHtml(statusRows, { unit:'ห้อง', empty:'ยังไม่ได้ทำผังห้องพัก จึงยังไม่มีข้อมูลสถานะห้อง' })}
+      ${st.total ? dbTableHtml(['สถานะ','จำนวน (ห้อง)','สัดส่วน'],
+          statusRows.map(r=> [r.label, dbNum(r.value), dbPct(r.value, st.total) + '%'])) : ''}
+    </section>
+
+    <section class="db-card">
+      <h3>คำขอนัดหมาย ${DB_MONTHS} เดือนล่าสุด</h3>
+      <p class="muted">นับจากวันที่นักศึกษากดส่งคำขอ</p>
+      ${dbColumnsHtml(months, { unit:'รายการ' })}
+      ${dbTableHtml(['เดือน','จำนวนคำขอ'], months.map(m=> [m.full, dbNum(m.value)]))}
+    </section>
+
+    <section class="db-card">
+      <h3>ผลการตอบคำขอนัดหมาย</h3>
+      <p class="muted">คำขอทั้งหมดที่เคยเข้ามา แบ่งตามผลลัพธ์</p>
+      ${dbStackHtml(bkRows, { unit:'รายการ', empty:'ยังไม่มีคำขอนัดหมายเข้ามา' })}
+      ${bookings.length ? dbTableHtml(['ผลลัพธ์','จำนวน (รายการ)','สัดส่วน'],
+          bkRows.map(r=> [r.label, dbNum(r.value), dbPct(r.value, bookings.length) + '%'])) : ''}
+    </section>
+
+    <!-- การ์ดใบสุดท้ายกินความกว้างเต็มแถว ไม่งั้นจะเหลือที่ว่างข้าง ๆ เป็นแถบใหญ่ -->
+    <section class="db-card db-span">
+      <div class="db-split">
+        ${isAdmin ? '' : `
+        <div>
+          <h3>ความครบถ้วนของข้อมูลหอพัก</h3>
+          <p class="muted">${escapeHtml(focus ? focus.name : '')} — ข้อมูลที่ครบช่วยให้นักศึกษาตัดสินใจได้เร็วขึ้น</p>
+          ${dbMeterHtml(checkOk, checks.length)}
+          <ul class="db-check">${checks.map(c=>
+            `<li class="${c.ok ? 'ok' : 'no'}"><span class="db-check-ic">${c.ok ? '✓' : '○'}</span>${escapeHtml(c.label)}</li>`).join('')}</ul>
+        </div>`}
+        <div>
+          <h3>สิ่งที่ต้องจัดการ</h3>
+          <p class="muted">รายการที่ควรจัดการก่อน เรียงจากเรื่องที่นักศึกษารออยู่</p>
+          <ul class="db-todo">${todo.map(t=>
+            `<li class="tone-${t.tone}">
+              <span class="db-todo-ic">${t.icon}</span>
+              <span>${t.text}</span>
+              ${t.sec ? `<button type="button" class="btn btn-sm btn-outline" data-dbgo="${t.sec}">ไปจัดการ</button>` : ''}
+            </li>`).join('')}</ul>
+        </div>
+      </div>
+    </section>
+  </div>`;
+
+  // ปุ่ม "ไปจัดการ" — พาไปแท็บที่เกี่ยวข้องเลย ไม่ต้องไปหาเมนูเอง
+  box.querySelectorAll('[data-dbgo]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = document.querySelector(`.side-link[data-sec="${btn.dataset.dbgo}"]`);
+      if(target){ target.click(); window.scrollTo({ top:0, behavior:'smooth' }); }
+    });
+  });
 }
 
 // ===========================================================================
@@ -3433,11 +3785,10 @@ async function renderOwners(){
       const el = document.getElementById('sec-'+sec);
       if(el) el.style.display = 'none';
     });
-    // เปิดหน้า "หอพักทั้งหมดในระบบ" เป็นหน้าแรกแทน "หน้าหอพักของฉัน" ที่ถูกเอาออก
-    const first = document.getElementById('listingsTabBtn');
-    if(first) first.classList.add('active');
-    const listSec = document.getElementById('sec-listings');
-    if(listSec) listSec.style.display = 'block';
+    // v45: แดชบอร์ดยังเปิดให้ผู้ดูแลระบบดูได้ เพราะเป็นภาพรวมของทั้งระบบ
+    // (ไม่ใช่การแก้ไขหอของคนอื่น) และยังเป็นหน้าแรกที่เปิดขึ้นมาเหมือนเจ้าของหอ
+    const dbSec = document.getElementById('sec-dashboard');
+    if(dbSec) dbSec.style.display = 'block';
   }
 
   // (เอา QR โค้ดออกจากหน้าหลังบ้านแล้ว — QR ของเว็บยังมีอยู่ในหน้าฝั่งนักศึกษา)
@@ -3452,10 +3803,12 @@ async function renderOwners(){
       if(ov) ov.style.display = 'block';
       await renderListings();
       await renderOwners();
+      await renderDashboard();
       return;   // ไม่โหลดของฝั่งเจ้าของหอเลย (หน้าหอ/คำขอนัดหมาย/แชท)
     }
 
     await renderOwnerPage();
+    await renderDashboard();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
 
