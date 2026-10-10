@@ -121,7 +121,9 @@ async function renderStats(){
 const DB_BAR = '#16709F';
 
 // จำนวนเดือนย้อนหลังที่แสดงในกราฟคำขอนัดหมาย
-const DB_MONTHS = 6;
+// v47: ขยายเป็น 12 เดือน เพื่อให้เห็นรอบปีการศึกษาเต็มรอบ
+// (ช่วงเปิดเทอมคนหาหอเยอะ ช่วงปิดเทอมเงียบ — ดู 6 เดือนจะไม่เห็นรูปแบบนี้)
+const DB_MONTHS = 12;
 
 const DB_BOOKING_STATUS = {
   pending:   { label:'รอดำเนินการ', color:'#E8A317' },
@@ -185,40 +187,25 @@ function dbStackHtml(rows, opts){
 function dbColumnsHtml(points, opts){
   const o = opts || {};
   const max = Math.max(1, ...points.map(p=> p.value));
-  const W = 100, H = 46;                       // ใช้พิกัดสัมพัทธ์ แล้วยืดเต็มความกว้างการ์ด
-  const gap = 2.6;
-  const bw = (W - gap * (points.length - 1)) / points.length;
+  const dense = points.length > 8;
 
-  const bars = points.map((p, i)=>{
-    const x = i * (bw + gap);
-    const h = p.value > 0 ? Math.max(1.6, p.value / max * (H - 10)) : 0;
-    const y = H - h;
-    return h > 0
-      // ปลายแท่งมนเล็กน้อย ส่วนฐานยังชิดเส้นศูนย์ (ใช้ rx คู่กับสี่เหลี่ยมปิดฐาน)
-      ? `<g><rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="1.1" fill="${DB_BAR}"></rect>
-           <rect x="${x}" y="${y + Math.min(h, 1.1)}" width="${bw}" height="${h - Math.min(h, 1.1)}" fill="${DB_BAR}"></rect>
-           <title>${escapeAttr(p.full + ' — ' + dbNum(p.value) + ' ' + (o.unit || 'รายการ'))}</title></g>`
-      : `<g><rect x="${x}" y="${H - 0.6}" width="${bw}" height="0.6" fill="#D2E2EF"></rect>
-           <title>${escapeAttr(p.full + ' — ไม่มีรายการ')}</title></g>`;
-  }).join('');
-
-  // ป้ายตัวเลขเฉพาะแท่งที่มีค่า ไม่ใส่ทุกแท่งให้รก
-  const nums = points.map((p, i)=>{
-    if(!p.value) return '';
-    const x = i * (bw + gap) + bw / 2;
-    const h = Math.max(1.6, p.value / max * (H - 10));
-    return `<text class="db-colnum" x="${x}" y="${H - h - 2.4}" text-anchor="middle">${p.value}</text>`;
+  // แท่งสูงไม่เกิน 82% ของพื้นที่ เพื่อเว้นที่ให้ตัวเลขกำกับด้านบนเสมอ
+  const cols = points.map(p=>{
+    const h = p.value > 0 ? Math.max(4, p.value / max * 82) : 0;
+    const tip = p.full + ' — ' + (p.value ? dbNum(p.value) + ' ' + (o.unit || 'รายการ') : 'ไม่มีรายการ');
+    return `<div class="db-col" title="${escapeAttr(tip)}">
+      ${p.value ? `<span class="db-colnum">${dbNum(p.value)}</span>` : ''}
+      <span class="db-colbar${p.value ? '' : ' is-zero'}" style="height:${h}%"></span>
+    </div>`;
   }).join('');
 
   return `
-  <div class="db-cols">
-    <svg viewBox="0 0 ${W} ${H + 1}" preserveAspectRatio="none" class="db-cols-svg" role="img"
-         aria-label="${escapeAttr(points.map(p=> `${p.full} ${p.value}`).join(', '))}">
-      <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="#D2E2EF" stroke-width=".4"></line>
-      ${bars}
-    </svg>
-    <svg viewBox="0 0 ${W} ${H + 1}" preserveAspectRatio="none" class="db-cols-num" aria-hidden="true">${nums}</svg>
-    <div class="db-colx">${points.map(p=> `<span>${escapeHtml(p.label)}</span>`).join('')}</div>
+  <div class="db-cols" role="img"
+       aria-label="${escapeAttr(points.map(p=> `${p.full} ${p.value}`).join(', '))}">
+    <div class="db-colrow${dense ? ' is-dense' : ''}">${cols}</div>
+    <div class="db-colbase"></div>
+    <div class="db-colx${dense ? ' is-dense' : ''}">${points.map(p=>
+      `<span>${escapeHtml(p.label)}${p.yearMark ? `<small>${escapeHtml(p.yearMark)}</small>` : ''}</span>`).join('')}</div>
   </div>`;
 }
 
@@ -257,6 +244,11 @@ function dbMonthlyBookings(list, months){
       key: `${d.getFullYear()}-${d.getMonth()}`,
       label: d.toLocaleDateString('th-TH', { month:'short' }),
       full:  d.toLocaleDateString('th-TH', { month:'long', year:'numeric' }),
+      // ช่วง 12 เดือนคร่อม 2 ปี จึงกำกับปีไว้ที่ช่องแรกและทุกเดือนมกราคม
+      // ไม่งั้นดูไม่ออกว่าแท่งไหนเป็นของปีไหน
+      yearMark: (i === months - 1 || d.getMonth() === 0)
+        ? d.toLocaleDateString('th-TH', { year:'2-digit' }).replace(/\D/g, '')
+        : '',
       value: 0
     });
   }
@@ -404,18 +396,20 @@ async function renderDashboard(){
     </section>
 
     <section class="db-card">
-      <h3>คำขอนัดหมาย ${DB_MONTHS} เดือนล่าสุด</h3>
-      <p class="muted">นับจากวันที่นักศึกษากดส่งคำขอ</p>
-      ${dbColumnsHtml(months, { unit:'รายการ' })}
-      ${dbTableHtml(['เดือน','จำนวนคำขอ'], months.map(m=> [m.full, dbNum(m.value)]))}
-    </section>
-
-    <section class="db-card">
       <h3>ผลการตอบคำขอนัดหมาย</h3>
       <p class="muted">คำขอทั้งหมดที่เคยเข้ามา แบ่งตามผลลัพธ์</p>
       ${dbStackHtml(bkRows, { unit:'รายการ', empty:'ยังไม่มีคำขอนัดหมายเข้ามา' })}
       ${bookings.length ? dbTableHtml(['ผลลัพธ์','จำนวน (รายการ)','สัดส่วน'],
           bkRows.map(r=> [r.label, dbNum(r.value), dbPct(r.value, bookings.length) + '%'])) : ''}
+    </section>
+
+    <!-- v47: กราฟรายเดือนกินเต็มแถว เพราะ 12 แท่งต้องการความกว้าง
+         ถ้าบีบอยู่ในคอลัมน์เดียวกับการ์ดอื่น ชื่อเดือนจะชนกันจนอ่านไม่ออก -->
+    <section class="db-card db-span">
+      <h3>คำขอนัดหมายย้อนหลัง ${DB_MONTHS} เดือน</h3>
+      <p class="muted">นับจากวันที่นักศึกษากดส่งคำขอ — ครบรอบปี จึงเทียบช่วงเปิดเทอมกับปิดเทอมได้</p>
+      ${dbColumnsHtml(months, { unit:'รายการ' })}
+      ${dbTableHtml(['เดือน','จำนวนคำขอ'], months.map(m=> [m.full, dbNum(m.value)]))}
     </section>
 
     <!-- การ์ดใบสุดท้ายกินความกว้างเต็มแถว ไม่งั้นจะเหลือที่ว่างข้าง ๆ เป็นแถบใหญ่ -->
