@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -151,7 +151,8 @@ async function showSetupBannerIfNeeded(){
 
 const FACILITY_META = {
   wifi: { icon:'📶', label:'Wi-Fi ฟรี' },
-  parking: { icon:'🛵', label:'ที่จอดรถ' },
+  parking: { icon:'🛵', label:'ที่จอดรถมอเตอร์ไซค์' },
+  carpark: { icon:'🚗', label:'ที่จอดรถยนต์' },
   laundry: { icon:'🧺', label:'ซักผ้าหยอดเหรียญ' },
   keycard: { icon:'🔑', label:'คีย์การ์ด' },
   cctv: { icon:'📷', label:'กล้องวงจรปิด' },
@@ -183,7 +184,7 @@ function escapeAttr(s){
 //
 // เดิมระบบใส่รายชื่อหอพักเครือข่ายของมหาวิทยาลัยไว้ให้ก่อน พร้อมรูปสต็อกจาก Pexels
 // แต่หอเหล่านั้นไม่มีราคา ไม่มีห้องว่าง ไม่มีเจ้าของ และรูปก็ไม่ใช่ห้องจริง
-// ทำให้หน้าเว็บดูเหมือนมีข้อมูลเยอะแต่กดเข้าไปแล้วไม่มีอะไรให้ดู
+// ทำให้หน้าเว็บดูเหมือนมีข้อมูลมากแต่กดเข้าไปแล้วไม่มีอะไรให้ดู
 //
 // ตอนนี้หอพักในเว็บมาจาก "เจ้าของหอสมัครแล้วสร้างหน้าหอของตัวเอง" เท่านั้น
 // ทุกหอที่นักศึกษาเห็นจึงเป็นหอจริงที่มีคนดูแลและติดต่อได้จริง
@@ -204,14 +205,14 @@ function escapeAttr(s){
 // พิกัดมหาวิทยาลัยราชภัฏเชียงราย
 //
 // ⚠️ ของเดิมใส่ไว้ 19.9074, 99.8230 ซึ่ง "ผิด" — จุดนั้นคือ ต.เวียง ในเมืองเชียงราย
-//    ห่างจากมอจริงประมาณ 8.6 กม. ทำให้:
-//      - ตัวเลข "ห่างมอ ... ม." ที่โชว์ทุกที่ผิดหมด
+//    ห่างจากมหาวิทยาลัยจริงประมาณ 8.6 กม. ทำให้:
+//      - ตัวเลข "ห่างมหาวิทยาลัย ... ม." ที่โชว์ทุกที่ผิดหมด
 //      - เส้นทางที่ให้นักศึกษากด ตั้งต้นจากกลางเมือง ไม่ใช่จากมอ
 //    มอจริงอยู่เลขที่ 80 หมู่ 9 ต.บ้านดู่ อ.เมือง จ.เชียงราย 57100
 //    ตรวจสอบจาก 2 แหล่ง: Longdo Map (19.98082, 99.85114) และ uniRank (19.98038, 99.85029)
 // ---------------------------------------------------------------------------
 //
-// 🔒 v34: นี่คือ "หมุดมอ" จุดเดียวของทั้งเว็บ — ใช้คิดระยะ "ห่างมอ ... ม." ทุกที่
+// 🔒 v34: นี่คือ "หมุดมอ" จุดเดียวของทั้งเว็บ — ใช้คิดระยะ "ห่างมหาวิทยาลัย ... ม." ทุกที่
 //    และเป็นจุดกึ่งกลางเริ่มต้นของแผนที่ปักหมุดทุกอัน
 //    ทุกหอที่มีอยู่และหอที่เพิ่มใหม่ในอนาคตใช้ค่านี้ร่วมกันเสมอ ไม่มีใครตั้งเองได้
 //    ถ้าจะย้ายหมุดมอ ให้แก้ตัวเลข 2 ตัวตรงนี้ที่เดียว แล้วทั้งเว็บเปลี่ยนตามทันที
@@ -246,21 +247,28 @@ function distanceLabel(km){
   return km.toFixed(1) + ' กม.';
 }
 
-// เวลาขี่มอเตอร์ไซค์โดยประมาณ — นักศึกษาส่วนใหญ่ขี่มอไซต์ไปเรียน
-// ระยะถนนจริงมักยาวกว่าระยะเส้นตรงราว 1.3 เท่า และขี่ในเมือง/ในมอเฉลี่ยราว 25 กม./ชม.
+// เวลาเดินทางโดยประมาณจากหอพักถึงมหาวิทยาลัย
+// ระยะถนนจริงมักยาวกว่าระยะเส้นตรงราว 1.3 เท่า และเดินทางในเมือง/ในมหาวิทยาลัยเฉลี่ยราว 25 กม./ชม.
 // (เทียบกับ Google Maps แล้วใกล้เคียง เช่น เส้นตรง 410 ม. ≈ 2 นาที) — ใช้บอกคร่าว ๆ เท่านั้น
-function rideMinutes(km){
+function travelMinutes(km){
   if(km == null) return null;
   return Math.max(1, Math.ceil(km * 1.3 / 25 * 60));
 }
+// ป้ายข้อความเวลาเดินทาง เช่น "ใช้เวลาเดินทาง 2 นาที"
+function travelLabel(km){
+  const m = travelMinutes(km);
+  if(m == null) return null;
+  return `ใช้เวลาเดินทาง ${m} นาที`;
+}
 // เก็บชื่อเดิมไว้ เผื่อมีโค้ดส่วนอื่นเรียกใช้อยู่
-function walkMinutes(km){ return rideMinutes(km); }
+function rideMinutes(km){ return travelMinutes(km); }
+function walkMinutes(km){ return travelMinutes(km); }
 
-// ข้อความสรุปตำแหน่งหอ เช่น "ห่างมหาวิทยาลัย 410 ม. · ขี่มอไซต์ราว 2 นาที"
+// ข้อความสรุปตำแหน่งหอ เช่น "ห่างมหาวิทยาลัย 410 ม. · ใช้เวลาเดินทาง 2 นาที"
 function locationSummary(d){
   const km = distanceToCrru(d);
   if(km == null) return null;
-  return `ห่างมหาวิทยาลัย ${distanceLabel(km)} · ขี่มอไซต์ราว ${rideMinutes(km)} นาที`;
+  return `ห่างมหาวิทยาลัย ${distanceLabel(km)} · ${travelLabel(km)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -459,8 +467,8 @@ function nearestGate(dorm){
 //
 // ทำแบบนี้เพื่อไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล (ไม่ต้องรัน SQL)
 // แต่มันไม่ใช่ "ประเภทห้อง" จริง ๆ — เป็นแค่ตัวเลขราคาที่เอาไปโชว์บนการ์ด
-// เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้นัดพบ"
-// ต้องกรองตัวนี้ออกก่อนด้วย roomTypes() ไม่งั้นนักศึกษาจะเห็นห้องชื่อ "ราคาเริ่มต้น"
+// เพราะงั้นทุกที่ที่เอา rooms ไปใช้ในฐานะ "ประเภทห้องให้เลือก/ให้นัดหมาย"
+// ต้องกรองตัวนี้ออกก่อนด้วย roomTypes() มิฉะนั้นนักศึกษาจะเห็นห้องชื่อ "ราคาเริ่มต้น"
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ประเภทห้อง — ตายตัว 2 แบบ ไม่ต้องให้เจ้าของหอไปตั้งราคาก่อนถึงจะเลือกได้
@@ -509,21 +517,79 @@ function fanPriceValue(dorm){
   return roomPrice(dorm, BASE_PRICE_CODE);
 }
 function airPriceValue(dorm){ return roomPrice(dorm, 'air'); }
+
+// ---------------------------------------------------------------------------
+// จำนวนผู้เข้าพักต่อห้อง (v43)
+//
+// เจ้าของหอกำหนดเองได้ทีละประเภทห้อง เช่น ห้องพัดลมอยู่ได้ 1-2 คน
+// เก็บไว้ใน rooms[].capMin / rooms[].capMax ของ jsonb เดิม ไม่ต้องเพิ่มคอลัมน์
+// หอที่ยังไม่ได้กำหนด -> คืน null แล้วหน้าเว็บจะไม่แสดงบรรทัดนี้เลย
+// ---------------------------------------------------------------------------
+// v43: ช่องตัวเลขของเว็บเป็น <input type="text"> แล้ว (ไม่มีลูกศรขึ้น-ลง)
+// เลยต้องกรองให้เหลือแต่ตัวเลขก่อนนำไปคำนวณ — ตัดลูกน้ำ ช่องว่าง และเลขไทยให้ด้วย
+const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
+function plainNumber(v){
+  return String(v == null ? '' : v)
+    .replace(/[๐-๙]/g, ch => String(THAI_DIGITS.indexOf(ch)))
+    .replace(/[^0-9]/g, '');
+}
+
+const CAP_MAX = 20;                       // กันพิมพ์เลขเพี้ยน เช่น 999 คน
+function cleanCap(v){
+  if(v === '' || v == null) return null;
+  const n = Math.floor(Number(v));
+  return (isFinite(n) && n >= 1 && n <= CAP_MAX) ? n : null;
+}
+// คืน {min, max} จากรายการห้องหนึ่งรายการ — ข้างเดียวก็ได้ อีกข้างจะเท่ากัน
+function roomCapacity(room){
+  if(!room) return null;
+  let min = cleanCap(room.capMin), max = cleanCap(room.capMax);
+  if(min == null && max == null) return null;
+  if(min == null) min = max;
+  if(max == null) max = min;
+  if(min > max){ const t = min; min = max; max = t; }
+  return { min, max };
+}
+// ข้อความอ่านง่าย เช่น "1-2 คน" หรือ "2 คน"
+function capacityLabel(room){
+  const c = roomCapacity(room);
+  if(!c) return null;
+  return (c.min === c.max ? `${c.min}` : `${c.min}-${c.max}`) + ' คน';
+}
+// หาจากหอ + รหัสประเภทห้อง ('fan' / 'air')
+function dormCapacity(dorm, code){
+  return roomCapacity((dorm && dorm.rooms || []).find(r => r.code === code));
+}
+function dormCapacityLabel(dorm, code){
+  return capacityLabel((dorm && dorm.rooms || []).find(r => r.code === code));
+}
+
 // สร้างรายการ rooms จากราคา 2 ช่อง โดยคงจำนวนห้อง/ห้องว่างเดิมไว้
-function buildPriceRooms(dorm, fanPrice, airPrice){
+// caps = { fan:{min,max}, air:{min,max} } — ส่งมาหรือไม่ส่งก็ได้
+// ถ้าไม่ส่ง จะคงจำนวนผู้เข้าพักเดิมของหอไว้ ไม่ถูกล้างทิ้ง
+function buildPriceRooms(dorm, fanPrice, airPrice, caps){
   const prev = (dorm && dorm.rooms) || [];
   const old = (code)=> prev.find(r => r.code === code) || {};
   const out = [];
   [['fan', fanPrice], ['air', airPrice]].forEach(([code, price])=>{
     if(!(price > 0)) return;
     const o = old(code);
-    out.push({
+    const row = {
       code,
       label: ROOM_TYPE_META[code].label,
       price: price,
       total:  o.total  || 0,
       vacant: o.vacant || 0
-    });
+    };
+    // จำนวนผู้เข้าพัก: ใช้ค่าที่ส่งมา ถ้าไม่ส่งมาเลยก็ใช้ค่าเดิมของหอ
+    // รับได้ทั้ง {min,max} และ {capMin,capMax} เพื่อให้เรียกใช้ง่ายจากทั้ง 2 ฟอร์ม
+    const c = caps && caps[code];
+    const cap = caps
+      ? roomCapacity(c ? { capMin: c.capMin != null ? c.capMin : c.min,
+                           capMax: c.capMax != null ? c.capMax : c.max } : null)
+      : roomCapacity(o);
+    if(cap){ row.capMin = cap.min; row.capMax = cap.max; }
+    out.push(row);
   });
   return out;
 }
@@ -587,6 +653,55 @@ function priceLabel(dorm){
     (hasPriceRange(dorm) ? ' <small>บาท/เดือน</small>' : ' <small>บาท/เดือน เริ่มต้น</small>');
 }
 function fmtBaht(n){ return Number(n).toLocaleString('th-TH'); }
+
+// ---------------------------------------------------------------------------
+// "อัปเดตหอพักล่าสุดเมื่อ ..." (v43)
+//
+// เพิ่งแก้ไม่นาน -> บอกเป็นช่วงเวลา เช่น "3 ชั่วโมงที่แล้ว" อ่านง่ายกว่าเลขวันที่
+// นานกว่า 7 วัน  -> บอกเป็นวันที่แบบไทย เช่น "9 ต.ค. 2569"
+// ---------------------------------------------------------------------------
+function fmtThaiDate(ms){
+  if(!ms) return null;
+  return new Date(ms).toLocaleDateString('th-TH',
+    { day:'numeric', month:'short', year:'numeric' });
+}
+function fmtSince(ms){
+  if(!ms) return null;
+  const diff = Date.now() - ms;
+  if(diff < 0)             return fmtThaiDate(ms);      // เวลาในอนาคต = นาฬิกาเครื่องเพี้ยน
+  const min = Math.floor(diff / 60000);
+  if(min < 1)              return 'เมื่อสักครู่';
+  if(min < 60)             return `${min} นาทีที่แล้ว`;
+  const hr = Math.floor(min / 60);
+  if(hr < 24)              return `${hr} ชั่วโมงที่แล้ว`;
+  const day = Math.floor(hr / 24);
+  if(day === 1)            return 'เมื่อวาน';
+  if(day <= 7)             return `${day} วันที่แล้ว`;
+  return fmtThaiDate(ms);
+}
+// ---------------------------------------------------------------------------
+// วันและเวลาที่นักศึกษาสะดวกเข้าชมห้อง (v44)
+//
+// visitDate = 'YYYY-MM-DD'  ·  visitTime = 'HH:MM' (24 ชั่วโมง, ว่างได้)
+// คืนข้อความแบบ "10 ตุลาคม 2569 เวลา 10:10 น." หรือเหลือแค่วันที่ถ้าไม่ได้ระบุเวลา
+// ---------------------------------------------------------------------------
+function fmtVisitWhen(visitDate, visitTime){
+  if(!visitDate) return '';
+  let day;
+  try{
+    day = new Date(String(visitDate).slice(0,10) + 'T00:00:00')
+            .toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+  }catch(e){ day = String(visitDate); }
+  const t = String(visitTime || '').trim().slice(0,5);
+  return /^\d{1,2}:\d{2}$/.test(t) ? `${day} เวลา ${t} น.` : day;
+}
+
+// ข้อความเต็มพร้อมวันที่กำกับ ใช้ใน title ของ element ให้เอาเมาส์ชี้ดูเวลาเป๊ะ ๆ ได้
+function fmtUpdatedTitle(ms){
+  if(!ms) return '';
+  const d = new Date(ms);
+  return fmtThaiDate(ms) + ' ' + d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+}
 function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`; }
 
 // ---------------------------------------------------------------------------
@@ -606,7 +721,7 @@ function mapEmbedUrl(lat, lng){ return `https://maps.google.com/maps?q=${lat},${
 // 🔒 ล็อกหมุดมหาวิทยาลัยไว้ที่ "สำนักส่งเสริมวิชาการและงานทะเบียน" (v34)
 //
 // เดิมส่งแค่ชื่อ "มหาวิทยาลัยราชภัฏเชียงราย" ไปให้ Google
-// ซึ่ง Google เลือกจุดในมอให้เองและอาจเปลี่ยนได้เรื่อย ๆ
+// ซึ่ง Google เลือกจุดในมหาวิทยาลัยให้เองและอาจเปลี่ยนได้เรื่อย ๆ
 // ตอนนี้ระบุชื่ออาคารเจาะจง ทุกหอและหอที่เพิ่มใหม่จึงใช้จุดเดียวกันเสมอ
 //
 // ⚠️ แก้ที่เดียวตรงนี้ที่เดียว ทั้งเว็บเปลี่ยนตามหมด
@@ -685,27 +800,43 @@ function amenityGridHtml(codes){
 //   ทางเดิน   { k:'stair', id, label:'บันได' }   ใช้แทนบันได ลิฟต์ หรือช่องว่าง
 //
 // สถานะห้อง (status) — มี 2 แบบเท่านั้น ตรงกับสีที่แสดงในเว็บ
-//   vacant  เขียว  ว่าง     — นักศึกษากดนัดพบได้
-//   booked  แดง    ไม่ว่าง  — ห้องนี้มีคนแล้ว นัดพบไม่ได้
+//   vacant  เขียว  ว่าง     — นักศึกษากดนัดหมายได้
+//   booked  แดง    ไม่ว่าง  — ห้องนี้มีคนแล้ว นัดหมายไม่ได้
 //
 // ⚠️ v35 เปลี่ยน "จังหวะ" ที่ห้องเปลี่ยนเป็นสีแดง:
-//    เดิม  นักศึกษากดนัดพบ -> ห้องแดงทันที (ทั้งที่เจ้าของหอยังไม่ได้ตอบเลย)
+//    เดิม  นักศึกษากดนัดหมาย -> ห้องแดงทันที (ทั้งที่เจ้าของหอยังไม่ได้ตอบเลย)
 //          ห้องจึงถูกล็อกไว้ให้คนที่กดก่อน แม้เขาจะไม่มาดูห้องจริงก็ตาม
-//    ใหม่  นักศึกษากดนัดพบ -> ห้องยัง "ว่าง" (เขียว) เพราะนัดไปดูห้องไม่ใช่การเหมาห้อง
+//    ใหม่  นักศึกษากดนัดหมาย -> ห้องยัง "ว่าง" (เขียว) เพราะนัดหมายเข้าชมห้องไม่ใช่การเหมาห้อง
 //          เจ้าของหอกดยืนยัน -> ห้องเป็น "ไม่ว่าง" (แดง)
 //    ตัวที่เปลี่ยนสีจริง ๆ อยู่ฝั่งฐานข้อมูล ในไฟล์ fix-v35.sql
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// สถานะห้องพัก (v44 ขยายจาก 2 สถานะเป็น 4)
+//
+// เดิมมีแค่ "ว่าง" กับ "ไม่ว่าง" ซึ่งไม่พอกับการใช้งานจริง
+// ห้องที่กำลังซ่อม กับห้องที่มีนักศึกษานัดหมายเข้ามาดูแล้ว ถูกเหมารวมเป็น
+// "ไม่ว่าง" เหมือนกันหมด ทั้งที่ความหมายต่างกันมากสำหรับทั้งเจ้าของหอและนักศึกษา
+//
+//   vacant   ว่าง              เขียว  — นักศึกษากดนัดหมายได้
+//   reserved มีผู้นัดหมายแล้ว  เหลือง — เจ้าของหอยืนยันนัดหมายกับนักศึกษาคนหนึ่งไว้แล้ว
+//   booked   ไม่ว่าง           แดง    — มีผู้เช่าอยู่จริง
+//   closed   ปิดปรับปรุง       เทา    — ห้องยังไม่พร้อมปล่อยเช่า เช่น กำลังซ่อม
+//
+// ห้องที่ไม่ใช่ "ว่าง" นักศึกษากดนัดหมายไม่ได้ทั้งหมด
+// ---------------------------------------------------------------------------
 const ROOM_STATUS_META = {
-  vacant: { label:'ว่าง',    short:'ว่าง',    cls:'st-vacant' },   // เขียว
-  booked: { label:'ไม่ว่าง', short:'ไม่ว่าง', cls:'st-booked' }    // แดง
+  vacant:   { label:'ว่าง',             short:'ว่าง',       cls:'st-vacant'   },
+  reserved: { label:'มีผู้นัดหมายแล้ว', short:'มีผู้นัดหมาย', cls:'st-reserved' },
+  booked:   { label:'ไม่ว่าง',          short:'ไม่ว่าง',    cls:'st-booked'   },
+  closed:   { label:'ปิดปรับปรุง',      short:'ปิดปรับปรุง', cls:'st-closed'   }
 };
-const ROOM_STATUS_ORDER = ['vacant','booked'];
+const ROOM_STATUS_ORDER = ['vacant','reserved','booked','closed'];
 const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด
 
-// สถานะเก่าจากเวอร์ชันก่อน (4 แบบ) ให้ยุบมาเหลือ 2 แบบ
-// ห้องที่เคยเป็น "มีผู้เช่าอยู่" หรือ "ปิดปรับปรุง" = ห้องที่นัดพบไม่ได้ -> นัดพบแล้ว
-// ทำไว้ที่ฝั่งเว็บด้วย เผื่อยังไม่ได้รันไฟล์ fix-v21.sql จะได้ไม่แสดงห้องที่มีคนอยู่ว่าว่าง
-const LEGACY_ROOM_STATUS = { pending:'booked', occupied:'booked', closed:'booked' };
+// สถานะเก่าจากเวอร์ชันก่อน ๆ ที่ไม่ได้ใช้ชื่อเดียวกับตอนนี้
+// 'occupied' (มีผู้เช่าอยู่) = ไม่ว่าง · 'pending' (รอยืนยัน) = มีผู้นัดหมายแล้ว
+// ทำไว้ที่ฝั่งเว็บด้วย เผื่อหอที่ยังไม่ได้รันไฟล์ SQL รุ่นหลัง จะได้ไม่แสดงผิด
+const LEGACY_ROOM_STATUS = { occupied:'booked', pending:'reserved' };
 
 function normalizeRoomStatus(s){
   if(ROOM_STATUS_META[s]) return s;
@@ -744,7 +875,11 @@ function normalizeFloorPlan(plan){
             photos: Array.isArray(c.photos)
               ? c.photos.filter(u=>typeof u === 'string' && u.trim()).slice(0, MAX_ROOM_PHOTOS)
               : [],
-            bookingId: c.bookingId || null, userId: c.userId || null
+            bookingId: c.bookingId || null, userId: c.userId || null,
+            // v44: เวลาที่เจ้าของหอกดบันทึกห้องนี้ครั้งล่าสุด
+            // ใช้แยกให้เห็นว่าห้องไหนตั้งค่าแล้ว ห้องไหนยังเป็นห้องเปล่าที่เพิ่งกดเพิ่มมา
+            // *** ถ้าลืมใส่ตรงนี้ เครื่องหมายจะหายทุกครั้งที่บันทึกผัง ***
+            editedAt: Number(c.editedAt) > 0 ? Number(c.editedAt) : null
           };
         })
       }))
@@ -815,13 +950,17 @@ function eachRoomCell(plan){
   return out;
 }
 
-// สรุปจำนวนห้องตามสถานะ {total, vacant, pending, occupied, closed}
+// สรุปจำนวนห้องตามสถานะ เช่น {total:20, vacant:12, reserved:2, booked:5, closed:1}
+// v44: สร้างช่องนับจาก ROOM_STATUS_ORDER เพื่อให้เพิ่มสถานะใหม่ได้โดยไม่ต้องแก้ตรงนี้อีก
 function planSummary(plan){
-  const s = { total:0, vacant:0, booked:0 };
+  const s = { total:0 };
+  ROOM_STATUS_ORDER.forEach(k=> s[k] = 0);
   eachRoomCell(plan).forEach(({cell})=>{
     s.total++;
     s[normalizeRoomStatus(cell.status)]++;
   });
+  // ห้องที่ "ยังไม่ปล่อยเช่า" รวมกัน (ใช้ในข้อความสรุปใต้หัวข้อผังห้องพัก)
+  s.unavailable = s.total - s.vacant;
   return s;
 }
 
@@ -837,7 +976,7 @@ function planVacancyByType(plan){
   return map;
 }
 
-// รายการห้องว่างที่นัดพบได้จริง (เรียงตามชั้น/เลขห้อง) — ใช้เติมตัวเลือกในฟอร์มนัดพบ
+// รายการห้องว่างที่นัดหมายได้จริง (เรียงตามชั้น/เลขห้อง) — ใช้เติมตัวเลือกในฟอร์มนัดหมาย
 function vacantRoomCells(plan){
   const out = [];
   ((plan && plan.floors) || []).forEach(f=>{
@@ -854,14 +993,18 @@ function vacantRoomCells(plan){
 // วาดผังห้องพักเป็น HTML (ใช้ร่วมกันทั้งหน้าหลังบ้านและหน้าฝั่งนักศึกษา)
 //
 // opts.edit      true = โหมดแก้ไข (มีปุ่มเพิ่มห้อง/เพิ่มแถว/เพิ่มชั้น)
-// opts.bookable  true = กดห้องว่างเพื่อนัดพบได้ (ฝั่งนักศึกษา)
-// opts.myUserId  ใช้ทำเครื่องหมายห้องที่ "คุณนัดพบไว้เอง"
+// opts.bookable  true = กดห้องว่างเพื่อนัดหมายได้ (ฝั่งนักศึกษา)
+// opts.myUserId  ใช้ทำเครื่องหมายห้องที่ "คุณนัดหมายไว้เอง"
 // ---------------------------------------------------------------------------
-function floorPlanLegendHtml(){
-  return `<div class="fp-legend">${ROOM_STATUS_ORDER.map(s=>{
+function floorPlanLegendHtml(opts){
+  const o = opts || {};
+  const items = ROOM_STATUS_ORDER.map(s=>{
     const m = ROOM_STATUS_META[s];
     return `<span class="fp-lg"><i class="fp-swatch ${m.cls}"></i>${m.label}</span>`;
-  }).join('')}</div>`;
+  });
+  // v44: ในโหมดแก้ไข เพิ่มคำอธิบายช่องสีจางที่ยังไม่ได้ตั้งค่า
+  if(o.edit) items.push('<span class="fp-lg"><i class="fp-swatch st-unset"></i>ยังไม่ได้ตั้งค่า</span>');
+  return `<div class="fp-legend">${items.join('')}</div>`;
 }
 
 function planCellHtml(cell, opts){
@@ -875,27 +1018,36 @@ function planCellHtml(cell, opts){
   const st   = normalizeRoomStatus(cell.status);
   const meta = ROOM_STATUS_META[st];
   const mine = o.myUserId && cell.userId === o.myUserId;
-  // ห้องที่ "เรา" ส่งคำขอนัดพบไว้แต่เจ้าของหอยังไม่ยืนยัน — ห้องยังว่าง (เขียว) อยู่
+  // ห้องที่ "เรา" ส่งคำขอนัดหมายไว้แต่เจ้าของหอยังไม่ยืนยัน — ห้องยังว่าง (เขียว) อยู่
   // แต่ตีกรอบไว้ให้เจ้าตัวรู้ว่าเคยกดไปแล้ว จะได้ไม่กดซ้ำโดยไม่รู้ตัว
   const myPending = !mine && st === 'vacant' &&
                     Array.isArray(o.pendingCells) && o.pendingCells.includes(cell.id);
   const canBook = o.bookable && st === 'vacant';
   const amen = (cell.amen && cell.amen.length) ? cell.amen.filter(Boolean)
              : ((o.typeAmen && o.typeAmen[cell.type]) || []);
+  // v44: ห้องที่เจ้าของหอยังไม่เคยกดบันทึก = ห้องเปล่าที่เพิ่งกด "+ เพิ่มห้อง" มา
+  // ขึ้นเป็นช่องสีจาง ๆ มีเส้นประ เพื่อให้เจ้าของหอรู้ว่าเหลือห้องไหนที่ยังไม่ได้ตั้งค่า
+  // (ฝั่งนักศึกษาไม่ใช้เครื่องหมายนี้ — เห็นสถานะปกติเหมือนเดิม)
+  const unset = !!o.edit && !cell.editedAt;
   // ฝั่งนักศึกษา: กดห้องไหนก็ดูรายละเอียดห้องนั้นได้ ไม่ใช่เฉพาะห้องว่าง
   const clickable = o.bookable || o.edit;
   const tag = clickable ? 'button' : 'div';
   // ราคา/ของในห้องไม่ได้พิมพ์ลงบนช่องแล้ว แต่ยังอยู่ใน tooltip ตอนเอาเมาส์ชี้
   const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
               (cell.price ? ' · ' + fmtBaht(cell.price) + ' บาท/เดือน' : '') +
-              (myPending ? ' · คุณส่งคำขอนัดพบห้องนี้ไว้แล้ว รอเจ้าของหอยืนยัน' : '') +
+              (myPending ? ' · คุณส่งคำขอนัดหมายห้องนี้ไว้แล้ว รอเจ้าของหอพักยืนยัน' : '') +
+              (unset ? ' · ยังไม่ได้ตั้งค่าห้องนี้ — กดเพื่อกรอกเลขห้องและสถานะ'
+                     : (o.edit && cell.editedAt ? ' · ตั้งค่าล่าสุด ' + fmtSince(cell.editedAt) : '')) +
               (amen.length ? ' · ' + amen.join(', ') : '');
-  return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''} ${myPending?'is-waiting':''}"
+  return `<${tag} type="button" class="fp-cell fp-room ${meta.cls} ${canBook?'is-bookable':''} ${mine?'is-mine':''} ${myPending?'is-waiting':''} ${unset?'is-unset':''}"
       ${o.edit ? `data-cell="${escapeAttr(cell.id)}"` : ''}
       ${o.bookable ? `data-roominfo="${escapeAttr(cell.id)}"` : ''}
       title="${escapeAttr(tip)}">
     <span class="fp-no">${escapeAttr(cell.no || 'ห้อง')}</span>
-    <span class="fp-st">${mine ? 'คุณนัดพบไว้' : (myPending ? 'ว่าง · คุณนัดไว้' : meta.short)}</span>
+    <span class="fp-st">${
+      mine ? 'คุณนัดหมายไว้'
+           : (myPending ? 'ว่าง · คุณนัดหมายไว้'
+           : (unset ? 'ยังไม่ตั้งค่า' : meta.short))}</span>
     <!-- v37: ช่องห้องเหลือแค่ "เลขห้อง + ว่าง/ไม่ว่าง"
          ราคาและของในห้องถูกเอาออก เพราะช่องมันเล็ก ตัวหนังสือเลยโดนตัดกลางคำ
          ("แอร์ · เครื่องทำน้ำอุ่...") อ่านไม่รู้เรื่องและทำให้ผังดูรก
@@ -916,7 +1068,7 @@ function roomPhotosHtml(photos){
 
 // ป้ายสิ่งอำนวยความสะดวกในห้อง
 //
-// v36: เอาออกจากหน้าต่างรายละเอียดห้องฝั่งนักศึกษาแล้ว (ป้ายเยอะจนบังเนื้อหาอื่น)
+// v36: เอาออกจากหน้าต่างรายละเอียดห้องฝั่งนักศึกษาแล้ว (ป้ายมากจนบังเนื้อหาอื่น)
 // ของในห้องยังเห็นได้จากบรรทัดเล็ก ๆ บนช่องห้องในผัง และยังใช้ฟังก์ชันนี้
 // ในหน้าหลังบ้านตอนเจ้าของหอติ๊กของในห้องอยู่
 function roomAmenChipsHtml(list){
@@ -936,15 +1088,15 @@ function floorPlanHtml(plan, opts){
     return o.edit
       ? `<div class="fp-empty">
            <strong>ยังไม่ได้ทำผังห้องพัก</strong>
-           <p class="muted">วาดผังหอของคุณได้เลย — บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง
-           นักศึกษาจะเห็นว่าห้องไหนว่าง ห้องไหนมีคนนัดพบแล้ว และกดนัดพบห้องที่ต้องการได้โดยตรง</p>
+           <p class="muted">วาดผังหอของคุณได้ทันที — บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง
+           นักศึกษาจะเห็นว่าห้องไหนว่าง ห้องไหนมีคนนัดหมายแล้ว และกดนัดหมายห้องที่ต้องการได้โดยตรง</p>
            <button type="button" class="btn btn-primary" data-addfloor="1">+ เพิ่มชั้นแรก</button>
          </div>`
       : '';
   }
   return `
   <div class="fp-wrap">
-    ${floorPlanLegendHtml()}
+    ${floorPlanLegendHtml(o)}
     ${p.floors.map((f,fi)=>`
       <div class="fp-floor" data-floor="${escapeAttr(f.id)}">
         <div class="fp-floor-head">
@@ -978,9 +1130,9 @@ function floorPlanHtml(plan, opts){
 
 function statusPill(status){
   const map = {
-    pending: ['status-pending','รอหอติดต่อกลับ/ยืนยันนัด'],
+    pending: ['status-pending','รอเจ้าของหอพักติดต่อกลับเพื่อยืนยันนัดหมาย'],
     confirmed: ['status-confirmed','ยืนยันแล้ว รอทำสัญญา'],
-    cancelled: ['status-cancelled','ยกเลิกการนัดพบ']
+    cancelled: ['status-cancelled','ยกเลิกการนัดหมาย']
   };
   const [cls,label] = map[status] || ['status-pending', status];
   return `<span class="status-pill ${cls}">${label}</span>`;
@@ -1065,7 +1217,11 @@ function mapDormRow(row){
     reviewNote: row.review_note || '',
     floorPlan: normalizeFloorPlan(row.floor_plan),
     nearby: normalizeNearby(row.nearby_places),
-    verified: !!row.verified
+    verified: !!row.verified,
+    // v43: เวลาที่หอนี้ถูกแก้ไขครั้งล่าสุด (ฐานข้อมูลตั้งให้เองด้วย trigger)
+    // หอที่ยังไม่ได้รัน fix-v43.sql จะไม่มีคอลัมน์นี้ -> เป็น null แล้วหน้าเว็บจะไม่แสดงบรรทัดนี้
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null
   };
 }
 function mapBookingRow(row){
@@ -1076,6 +1232,9 @@ function mapBookingRow(row){
     slipUrl: row.slip_url, contactPhone: row.contact_phone || '', note: row.note || '',
     status: row.status,
     visitDate: row.visit_date || '', ownerEmail: row.owner_email || '',
+    // v44: เวลาที่นักศึกษาสะดวก และเหตุผลที่เจ้าของหอปฏิเสธ
+    // หอที่ยังไม่ได้รัน fix-v44.sql จะไม่มี 2 คอลัมน์นี้ -> เป็นค่าว่าง ไม่พัง
+    visitTime: row.visit_time || '', ownerNote: row.owner_note || '',
     contractUrl: row.contract_url || '',
     notifiedAt: row.notified_at ? new Date(row.notified_at).getTime() : null,
     ownerReadAt: row.owner_read_at ? new Date(row.owner_read_at).getTime() : null,
@@ -1100,7 +1259,7 @@ async function getProfile(uid){
   if(error || !data) return null;
   return {
     uid: data.id, role: data.role, name: data.name, email: data.email, phone: data.phone,
-    sid: data.sid, orgName: data.org_name, approved: data.approved, wishlist: data.wishlist || []
+    orgName: data.org_name, approved: data.approved, wishlist: data.wishlist || []
   };
 }
 async function currentProfile(){
@@ -1111,14 +1270,17 @@ async function currentProfile(){
 function requireSupabase(){
   if(!sb) throw new Error('ยังไม่ได้ตั้งค่า Supabase — แก้ SUPABASE_URL/SUPABASE_ANON_KEY ใน db.js ก่อน (ดู SETUP-SUPABASE.md)');
 }
-async function registerStudent({ name, sid, email, phone, password }){
+// v44: ไม่ขอเลขประจำตัวนักศึกษาตอนสมัครแล้ว
+// เป็นข้อมูลส่วนตัวที่เว็บไม่ได้เอาไปใช้ทำอะไรเลย และการเก็บไว้โดยไม่จำเป็น
+// มีแต่ความเสี่ยง — บัญชีนักศึกษาใช้อีเมลเป็นตัวระบุตัวตนอยู่แล้ว
+async function registerStudent({ name, email, phone, password }){
   requireSupabase();
   const { data, error } = await sb.auth.signUp({ email, password });
   if(error) throw error;
   if(!data.session){
     throw new Error('สมัครสำเร็จแต่ยังไม่ได้ล็อกอินอัตโนมัติ — ต้องปิด "Confirm email" ใน Supabase Auth Settings ก่อน (ดู SETUP-SUPABASE.md)');
   }
-  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'student', name, sid, email, phone, wishlist: [] });
+  const { error: e2 } = await sb.from('profiles').insert({ id: data.user.id, role:'student', name, email, phone, wishlist: [] });
   if(e2) throw e2;
   return data.user;
 }
@@ -1173,7 +1335,7 @@ async function sendPasswordReset(email){
   const { error } = await sb.auth.resetPasswordForEmail(mail, {
     redirectTo: passwordResetRedirect()
   });
-  // ตั้งใจไม่บอกว่า "ไม่พบอีเมลนี้" — ไม่งั้นคนอื่นเอาไปไล่เดาได้ว่าใครสมัครไว้บ้าง
+  // ตั้งใจไม่บอกว่า "ไม่พบอีเมลนี้" — มิฉะนั้นคนอื่นเอาไปไล่เดาได้ว่าใครสมัครไว้บ้าง
   // ฝั่ง Supabase เองก็ไม่ฟ้องอยู่แล้วถ้าอีเมลไม่มีในระบบ
   if(error){
     // Supabase จำกัดความถี่การขอลิงก์ แต่ข้อความที่ส่งกลับมามีหลายแบบ
@@ -1228,7 +1390,7 @@ async function hasRecoverySession(){
 //   1) #access_token=...&type=recovery      (แบบเดิม supabase-js อ่านเองอัตโนมัติ)
 //   2) ?code=...                            (แบบ PKCE ต้องเรียก exchangeCodeForSession)
 //   3) ?token_hash=...&type=recovery        (แบบใหม่ ต้องเรียก verifyOtp)
-// ต้องรองรับให้ครบ ไม่งั้นบางคนกดลิงก์แล้วหน้าเว็บบอกว่า "ลิงก์ใช้ไม่ได้"
+// ต้องรองรับให้ครบ มิฉะนั้นบางคนกดลิงก์แล้วหน้าเว็บบอกว่า "ลิงก์ใช้ไม่ได้"
 // ทั้งที่ลิงก์ยังดีอยู่ แค่คนละรูปแบบเท่านั้น
 // ---------------------------------------------------------------------------
 async function exchangeRecoveryUrl(){
@@ -1379,11 +1541,11 @@ async function deleteDorm(id){
   requireSupabase();
   const { error } = await sb.from('dorms').delete().eq('id', id);
   if(error){
-    // ฐานข้อมูลกันไม่ให้ลบหอที่ยังมีใบนัดพบ/ข้อความผูกอยู่
+    // ฐานข้อมูลกันไม่ให้ลบหอที่ยังมีใบนัดหมายหมาย/ข้อความผูกอยู่
     // ข้อความดิบที่ได้มาอ่านไม่รู้เรื่องเลยสำหรับคนใช้งาน ต้องแปลให้
     if(/foreign key|violates/i.test(error.message || '')){
       throw new Error(
-        'ลบไม่ได้เพราะหอนี้ยังมีใบนัดพบ/ข้อความผูกอยู่ในฐานข้อมูล — ' +
+        'ลบไม่ได้เพราะหอนี้ยังมีใบนัดหมายหมาย/ข้อความผูกอยู่ในฐานข้อมูล — ' +
         'ต้องรันไฟล์ fix-v32.sql ใน Supabase SQL Editor ก่อน (รันครั้งเดียวพอ) แล้วลองลบใหม่'
       );
     }
@@ -1541,8 +1703,8 @@ async function deleteContractImage(path){
 // ---------------------------------------------------------------------------
 // สรุปการเช่า — เจ้าของหอกรอกรายการเองทั้งหมด (ตาราง rentals)
 //
-// ไม่ได้ดึงมาจากใบนัดพบในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดพบผ่านเว็บ
-// (เดินมาที่หอเลย / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดพบอย่างเดียว
+// ไม่ได้ดึงมาจากใบนัดหมายหมายในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดหมายผ่านเว็บ
+// (เดินมาที่หอเลย / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดหมายหมายอย่างเดียว
 // ตารางจะไม่ตรงกับความจริงของหอ
 // ---------------------------------------------------------------------------
 const RENTAL_SETUP_MSG = 'ยังไม่มีตารางสรุปการเช่าในฐานข้อมูล — ไปรันไฟล์ fix-v29.sql ใน Supabase SQL Editor ก่อน';
@@ -1690,7 +1852,7 @@ async function rejectDorm(dormId, reason){
 }
 
 // หมายเหตุ: ระบบ "รับช่วงดูแลหอ" (dorm_claims) ถูกถอดออกจากเว็บแล้ว
-// เพราะตอนนี้เจ้าของหอสร้างหอของตัวเองได้เลย ไม่ต้องไปขอรับช่วงหอที่ระบบใส่ไว้ก่อน
+// เพราะตอนนี้เจ้าของหอสร้างหอของตัวเองได้ทันที ไม่ต้องไปขอรับช่วงหอที่ระบบใส่ไว้ก่อน
 // ตารางเดิมในฐานข้อมูลยังอยู่ (ไม่ลบข้อมูลเก่าทิ้ง) แต่ไม่มีหน้าไหนเรียกใช้แล้ว
 
 
@@ -1803,6 +1965,35 @@ async function getRatingsForDorms(dormIds){
 // ---------------------------------------------------------------------------
 // Bookings
 // ---------------------------------------------------------------------------
+
+// คอลัมน์ของตาราง bookings ที่เพิ่มมาทีหลัง — หอที่ยังไม่ได้รันไฟล์ SQL นั้นจะยังไม่มี
+// ใช้หลักการเดียวกับ OPTIONAL_DORM_COLUMNS คือ "ขาดคอลัมน์ไหนก็ตัดออกแล้วบันทึกต่อ"
+// เพื่อไม่ให้การนัดหมายทั้งใบล้มเพราะคอลัมน์เสริมเพียงคอลัมน์เดียว
+const OPTIONAL_BOOKING_COLUMNS = {
+  visit_time: 'fix-v44.sql',
+  owner_note: 'fix-v44.sql'
+};
+
+async function saveBookingRow(row, runQuery){
+  let attempt = { ...row };
+  for(let i = 0; i < 4; i++){
+    const res = await runQuery(attempt);
+    if(!res.error) return res;
+
+    const col = missingColumnFrom(res.error);
+    if(col && col in attempt && OPTIONAL_BOOKING_COLUMNS[col]){
+      delete attempt[col];
+      console.warn(`ฐานข้อมูลยังไม่มีคอลัมน์ "${col}" — ข้ามไปก่อน (ไปรันไฟล์ ${OPTIONAL_BOOKING_COLUMNS[col]} ใน Supabase SQL Editor)`);
+      if(typeof toast === 'function'){
+        toast(`บันทึกแล้ว แต่ยังใช้ช่อง "${col}" ไม่ได้ — ต้องรันไฟล์ ${OPTIONAL_BOOKING_COLUMNS[col]} ใน Supabase ก่อน`, 'error');
+      }
+      continue;   // ลองใหม่โดยไม่มีคอลัมน์นั้น
+    }
+    return res;   // error อื่น ๆ ส่งกลับให้ผู้เรียกจัดการเอง
+  }
+  return { data:null, error:new Error('บันทึกคำขอนัดหมายไม่สำเร็จ') };
+}
+
 async function uploadSlip(uid, file){
   requireSupabase();
   const path = `${uid}/${Date.now()}_${file.name}`;
@@ -1811,10 +2002,10 @@ async function uploadSlip(uid, file){
   const { data } = sb.storage.from('slips').getPublicUrl(path);
   return data.publicUrl;
 }
-// สร้างคำขอนัดพบ แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
-async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, roomUid, user, profile }){
+// สร้างคำขอนัดหมาย แล้วคืนแถวที่เพิ่งสร้าง (ต้องได้ id กลับมาเพื่อส่งต่อให้ระบบอีเมล)
+async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, contactPhone, note, visitDate, visitTime, roomUid, user, profile }){
   requireSupabase();
-  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังนัดพบผ่านเว็บไม่ได้');
+  if(!dorm.ownerId) throw new Error('หอพักนี้ยังไม่มีเจ้าของหอในระบบ จึงยังนัดหมายผ่านเว็บไม่ได้');
 
   // ขออีเมลเจ้าของหอจากฐานข้อมูล (ฟังก์ชันนี้คืนเฉพาะอีเมลของเจ้าของหอนั้นเท่านั้น)
   let ownerEmail = null;
@@ -1823,23 +2014,26 @@ async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, cont
     ownerEmail = data || null;
   }catch(err){ console.error('ดึงอีเมลเจ้าของหอไม่สำเร็จ:', err); }
 
-  const { data, error } = await sb.from('bookings').insert({
+  // visit_time เป็นคอลัมน์ที่เพิ่มใน fix-v44.sql — หอที่ยังไม่ได้รันไฟล์นั้น
+  // จะไม่มีคอลัมน์นี้ saveBookingRow() จะตัดออกแล้วบันทึกใหม่ให้เอง
+  // นักศึกษาจึงยังส่งคำขอนัดหมายได้ตามปกติ แค่ไม่มีเวลานัดหมายติดไปด้วย
+  const { data, error } = await saveBookingRow({
     dorm_id: dorm.id, dorm_name: dorm.name, owner_id: dorm.ownerId,
     room_code: roomCode || null, room_label: roomLabel || null, deposit: deposit || 0,
     slip_url: slipUrl || null, contact_phone: contactPhone || null, note: note || null,
-    visit_date: visitDate || null, owner_email: ownerEmail,
+    visit_date: visitDate || null, visit_time: visitTime || null, owner_email: ownerEmail,
     status: 'pending', user_id: user.id, user_name: profile.name, user_email: profile.email
-  }).select().single();
+  }, r => sb.from('bookings').insert(r).select().single());
   if(error) throw error;
 
-  // ถ้าเลือกห้องเจาะจงจากผังห้องพัก ให้นัดพบช่องห้องนั้นไว้ด้วย (ห้องจะเปลี่ยนเป็นสีแดง)
-  // ทำหลังจากสร้างใบนัดพบแล้ว เพราะฟังก์ชันฝั่งฐานข้อมูลต้องอ้างอิงเลขที่ใบนัดพบ
+  // ถ้าเลือกห้องเจาะจงจากผังห้องพัก ให้นัดหมายช่องห้องนั้นไว้ด้วย (ห้องจะเปลี่ยนเป็นสีแดง)
+  // ทำหลังจากสร้างใบนัดหมายหมายแล้ว เพราะฟังก์ชันฝั่งฐานข้อมูลต้องอ้างอิงเลขที่ใบนัดหมายหมาย
   if(roomUid){
     try{
       await reserveRoomUnit(data.id, roomUid);
     }catch(err){
-      // นัดพบช่องห้องไม่สำเร็จ (เช่น มีคนตัดหน้าไปแล้ว) — ยกเลิกใบนัดพบที่เพิ่งสร้าง
-      // ไม่งั้นนักศึกษาจะได้ใบนัดพบที่ไม่ผูกกับห้องไหนเลย
+      // นัดหมายช่องห้องไม่สำเร็จ (เช่น มีคนตัดหน้าไปแล้ว) — ยกเลิกใบนัดหมายหมายที่เพิ่งสร้าง
+      // มิฉะนั้นนักศึกษาจะได้ใบนัดหมายหมายที่ไม่ผูกกับห้องไหนเลย
       try{ await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id); }catch(e){ console.error(e); }
       throw err;
     }
@@ -1847,13 +2041,13 @@ async function createBooking({ dorm, roomCode, roomLabel, deposit, slipUrl, cont
   return mapBookingRow(data);
 }
 
-// นัดพบช่องห้องเจาะจงในผัง — ฝั่งฐานข้อมูลจะกันไม่ให้นัดพบห้องที่ไม่ว่าง
+// นัดหมายช่องห้องเจาะจงในผัง — ฝั่งฐานข้อมูลจะกันไม่ให้นัดหมายห้องที่ไม่ว่าง
 async function reserveRoomUnit(bookingId, cellId){
   const { error } = await sb.rpc('book_room_unit', { p_booking_id: bookingId, p_cell_id: cellId });
   if(!error) return;
   if(isMissingFunction(error)){
     console.warn('ยังไม่มีฟังก์ชัน book_room_unit — ไปรันไฟล์ fix-v17.sql ใน Supabase');
-    return;   // ยังนัดพบได้ตามปกติ แค่ผังห้องไม่เปลี่ยนสี
+    return;   // ยังนัดหมายได้ตามปกติ แค่ผังห้องไม่เปลี่ยนสี
   }
   throw error;
 }
@@ -1861,7 +2055,7 @@ async function reserveRoomUnit(bookingId, cellId){
 // ---------------------------------------------------------------------------
 // แจ้งเตือนเจ้าของหอทางอีเมล — ยิงไปที่ Vercel Serverless Function /api/notify-booking
 // ถ้ายังไม่ได้ตั้งค่าอีเมล (หรือรันแบบเปิดไฟล์ตรง ๆ) จะคืน {ok:false} เฉย ๆ
-// ไม่ throw error เพราะการนัดพบต้องสำเร็จอยู่ดี แม้เมลจะส่งไม่ออก
+// ไม่ throw error เพราะการนัดหมายต้องสำเร็จอยู่ดี แม้เมลจะส่งไม่ออก
 // ---------------------------------------------------------------------------
 async function notifyOwnerByEmail(bookingId){
   try{
@@ -1917,7 +2111,7 @@ async function sendTestNotifyEmail(dormId, channel){
   }
 }
 
-// คำขอนัดพบที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
+// คำขอนัดหมายที่เจ้าของหอยังไม่ได้เปิดอ่าน (ใช้แสดงจุดแดงบนเมนูหลังบ้าน)
 async function getUnreadBookingCount(ownerId){
   if(!sb || !ownerId) return 0;
   const { count, error } = await sb.from('bookings')
@@ -1927,14 +2121,14 @@ async function getUnreadBookingCount(ownerId){
   return count || 0;
 }
 
-// ทำเครื่องหมายว่าเจ้าของหอเปิดอ่านคำขอนัดพบแล้ว
+// ทำเครื่องหมายว่าเจ้าของหอเปิดอ่านคำขอนัดหมายแล้ว
 async function markBookingsRead(ownerId){
   if(!sb || !ownerId) return;
   await sb.from('bookings').update({ owner_read_at: new Date().toISOString() })
     .eq('owner_id', ownerId).is('owner_read_at', null);
 }
 
-// ติดตามคำขอนัดพบใหม่แบบเรียลไทม์ (ฝั่งเจ้าของหอ)
+// ติดตามคำขอนัดหมายใหม่แบบเรียลไทม์ (ฝั่งเจ้าของหอ)
 function watchBookings(ownerId, callback){
   if(!sb || !ownerId){ callback([]); return ()=>{}; }
   let active = true;
@@ -1956,9 +2150,9 @@ async function getMyBookings(uid){
   return data.map(mapBookingRow);
 }
 // ---------------------------------------------------------------------------
-// แจ้งเตือน "การนัดพบของฉัน" (v40) — เจ้าของหอกดยืนยัน/ปฏิเสธแล้วขึ้นตัวเลขบนปุ่ม
+// แจ้งเตือน "การนัดหมายของฉัน" (v40) — เจ้าของหอกดยืนยัน/ปฏิเสธแล้วขึ้นตัวเลขบนปุ่ม
 // เหมือน "ข้อความของฉัน" จำไว้ในเบราว์เซอร์ว่านักศึกษาเห็นสถานะไหนไปแล้ว
-// (ไม่ต้องรัน SQL เพิ่ม) — เปิดหน้าต่างการนัดพบของฉันเมื่อไหร่ ตัวเลขหายเอง
+// (ไม่ต้องรัน SQL เพิ่ม) — เปิดหน้าต่างการนัดหมายของฉันเมื่อไหร่ ตัวเลขหายเอง
 // ---------------------------------------------------------------------------
 function bookingSeenKey(uid){ return 'dormcru_bk_seen_' + uid; }
 function getSeenBookingStatuses(uid){
@@ -1974,14 +2168,14 @@ function markBookingsSeen(uid, list){
     localStorage.setItem(bookingSeenKey(uid), JSON.stringify(map));
   }catch(e){ /* เบราว์เซอร์ปิด localStorage ไว้ — ไม่เป็นไร แค่ไม่มีตัวเลขแจ้งเตือน */ }
 }
-// จำนวนการนัดพบที่สถานะเปลี่ยน (หอรับนัดแล้ว / ถูกยกเลิก) ตั้งแต่เปิดดูครั้งล่าสุด
+// จำนวนการนัดหมายที่สถานะเปลี่ยน (หอรับนัดหมายแล้ว / ถูกยกเลิก) ตั้งแต่เปิดดูครั้งล่าสุด
 async function countBookingUpdates(uid){
   if(!sb || !uid) return 0;
   const list = await getMyBookings(uid);
   const seen = getSeenBookingStatuses(uid);
   return list.filter(b=>{
     if(b.status === 'pending') return false;
-    if(!seen) return b.status === 'confirmed';   // ครั้งแรก นับเฉพาะที่หอรับนัดแล้ว
+    if(!seen) return b.status === 'confirmed';   // ครั้งแรก นับเฉพาะที่หอรับนัดหมายแล้ว
     return seen[b.id] !== b.status;
   }).length;
 }
@@ -2004,7 +2198,7 @@ function isMissingFunction(error){
   return error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
 }
 
-// นักศึกษายกเลิกการนัดพบของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
+// นักศึกษายกเลิกการนัดหมายของตัวเอง — ยกเลิกได้ทั้งที่ยังรอหอตอบ และที่หอยืนยันไปแล้ว
 // (ถ้าหอยืนยันไปแล้ว ฝั่งฐานข้อมูลจะคืนจำนวนห้องว่างให้หออัตโนมัติ)
 async function cancelMyBooking(bookingId){
   requireSupabase();
@@ -2014,8 +2208,8 @@ async function cancelMyBooking(bookingId){
   if(!isMissingFunction(error)) throw error;
 
   // ---- วิธีสำรอง: ฐานข้อมูลยังไม่ได้รันไฟล์ fix-open-listing.sql ----
-  // การนัดพบที่ "ยังรอหอตอบ" ยกเลิกด้วยวิธีนี้ได้ผลถูกต้อง เพราะยังไม่เคยหักห้องว่าง
-  // ส่วนการนัดพบที่ "หอยืนยันแล้ว" ต้องใช้ฟังก์ชันเท่านั้น ไม่งั้นห้องว่างจะไม่ถูกคืน
+  // การนัดหมายที่ "ยังรอหอตอบ" ยกเลิกด้วยวิธีนี้ได้ผลถูกต้อง เพราะยังไม่เคยหักห้องว่าง
+  // ส่วนการนัดหมายที่ "หอยืนยันแล้ว" ต้องใช้ฟังก์ชันเท่านั้น มิฉะนั้นห้องว่างจะไม่ถูกคืน
   console.warn('ยังไม่มีฟังก์ชัน cancel_my_booking ในฐานข้อมูล — ใช้วิธีสำรอง (ควรไปรันไฟล์ fix-open-listing.sql ใน Supabase)');
 
   const user = await waitForSession();
@@ -2030,20 +2224,24 @@ async function cancelMyBooking(bookingId){
     throw new Error(
       'ยกเลิกไม่สำเร็จ — ฐานข้อมูลยังไม่ได้อัปเดต\n' +
       'กรุณาเปิด Supabase → SQL Editor แล้วรันไฟล์ fix-open-listing.sql ก่อน ' +
-      '(การนัดพบที่หอยืนยันแล้วต้องใช้ไฟล์นี้เพื่อคืนห้องว่างให้หอ)'
+      '(การนัดหมายที่หอยืนยันแล้วต้องใช้ไฟล์นี้เพื่อคืนห้องว่างให้หอ)'
     );
   }
 }
 
-async function updateBookingStatus(bookingId, status){
+// เปลี่ยนสถานะคำขอนัดหมาย
+// ownerNote = ข้อความจากเจ้าของหอถึงนักศึกษา (v44) ใช้ตอนปฏิเสธเพื่อบอกเหตุผล
+async function updateBookingStatus(bookingId, status, ownerNote){
   requireSupabase();
   if(status === 'confirmed'){
     const { error } = await sb.rpc('confirm_booking', { p_booking_id: bookingId, p_new_status: status });
     if(error) throw error;
-  }else{
-    const { error } = await sb.from('bookings').update({ status }).eq('id', bookingId);
-    if(error) throw error;
+    return;
   }
+  const row = { status };
+  if(typeof ownerNote === 'string') row.owner_note = ownerNote.trim().slice(0, 300) || null;
+  const res = await saveBookingRow(row, r => sb.from('bookings').update(r).eq('id', bookingId));
+  if(res.error) throw res.error;
 }
 
 // ---------------------------------------------------------------------------
@@ -2162,7 +2360,7 @@ async function sendMessage({ dorm, studentId, studentName, body, profile }){
     dorm_id: dorm.id, dorm_name: dorm.name,
     student_id: studentId, student_name: studentName || (profile && profile.name) || '',
     owner_id: dorm.ownerId,
-    sender_id: user.id,          // ต้องตรงกับ auth.uid() ไม่งั้น RLS จะปฏิเสธ
+    sender_id: user.id,          // ต้องตรงกับ auth.uid() มิฉะนั้น RLS จะปฏิเสธ
     body: text
   });
   if(error) throw error;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>เข้าสู่ระบบ / สมัครสมาชิก — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=42">
+<link rel="stylesheet" href="style.css?v=44">
 </head>
 <body>
 <header class="topbar"><div class="container" id="site-nav">
@@ -25,7 +25,7 @@
     <!-- เข้าสู่ระบบ -->
     <div id="pane-login">
       <h2 style="margin-top:0">เข้าสู่ระบบ</h2>
-      <p class="muted" style="margin-top:-8px">ใช้ได้ทั้งนักศึกษาและเจ้าของหอพัก ระบบพาไปหน้าที่ถูกต้องให้อัตโนมัติ</p>
+      <p class="muted" style="margin-top:-8px">ใช้ได้ทั้งนักศึกษาและเจ้าของหอพัก ระบบจะนำไปยังหน้าที่ถูกต้องโดยอัตโนมัติ</p>
       <form id="loginForm">
         <div class="form-field"><label>อีเมล</label><input type="email" id="loginEmail" required></div>
         <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="loginPassword" required>
@@ -72,10 +72,16 @@
       <h2 style="margin-top:0">สมัครสมาชิกนักศึกษา</h2>
       <form id="studentForm">
         <div class="form-field"><label>ชื่อ-นามสกุล</label><input type="text" id="stName" required></div>
-        <div class="form-field"><label>รหัสนักศึกษา</label><input type="text" id="stSid" required></div>
         <div class="form-field"><label>อีเมล</label><input type="email" id="stEmail" required></div>
         <div class="form-field"><label>เบอร์โทรศัพท์</label><input type="tel" id="stPhone" required></div>
-        <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="stPassword" required minlength="6">
+        <div class="form-field"><label>รหัสผ่าน</label>
+          <input type="password" id="stPassword" required minlength="6" autocomplete="new-password">
+          <div class="form-hint">อย่างน้อย 6 ตัวอักษร</div>
+        </div>
+        <!-- v43: ใส่รหัสผ่าน 2 ชั้น — กันพิมพ์รหัสผิดตอนสมัครครั้งแรกแล้วเข้าระบบไม่ได้ -->
+        <div class="form-field"><label>ยืนยันรหัสผ่าน</label>
+          <input type="password" id="stPassword2" required minlength="6" autocomplete="new-password">
+          <label class="tick" style="margin-top:8px"><input type="checkbox" class="pw-eye" data-pw="stPassword stPassword2"> <span>แสดงรหัสผ่าน</span></label>
           <div class="form-error" id="stErr">สมัครไม่สำเร็จ</div>
         </div>
         <button class="btn btn-primary btn-block" type="submit">สมัครสมาชิก</button>
@@ -85,13 +91,20 @@
     <!-- สมัครเจ้าของหอพัก -->
     <div id="pane-owner" style="display:none">
       <h2 style="margin-top:0">สมัครเป็นเจ้าของหอพัก</h2>
-      <p class="muted" style="margin-top:-8px">สมัครแล้วใช้งานได้ทันที ไม่ต้องรออนุมัติ — เพิ่มหอพัก แก้ราคา ปรับห้องว่าง และรับคำขอนัดพบจากนักศึกษาได้เลย</p>
+      <p class="muted" style="margin-top:-8px">สมัครแล้วใช้งานได้ทันที ไม่ต้องรอการอนุมัติ — เพิ่มหอพัก แก้ไขราคา ปรับจำนวนห้องว่าง และรับคำขอนัดหมายจากนักศึกษาได้ทันที</p>
       <form id="ownerForm">
         <div class="form-field"><label>ชื่อ-นามสกุลผู้ติดต่อ</label><input type="text" id="ownName" required></div>
         <div class="form-field"><label>ชื่อกิจการ/หอพัก</label><input type="text" id="ownOrg" required></div>
         <div class="form-field"><label>อีเมล</label><input type="email" id="ownEmail" required></div>
         <div class="form-field"><label>เบอร์โทรศัพท์</label><input type="tel" id="ownPhone" required></div>
-        <div class="form-field"><label>รหัสผ่าน</label><input type="password" id="ownPassword" required minlength="6">
+        <div class="form-field"><label>รหัสผ่าน</label>
+          <input type="password" id="ownPassword" required minlength="6" autocomplete="new-password">
+          <div class="form-hint">อย่างน้อย 6 ตัวอักษร</div>
+        </div>
+        <!-- v43: ใส่รหัสผ่าน 2 ชั้น -->
+        <div class="form-field"><label>ยืนยันรหัสผ่าน</label>
+          <input type="password" id="ownPassword2" required minlength="6" autocomplete="new-password">
+          <label class="tick" style="margin-top:8px"><input type="checkbox" class="pw-eye" data-pw="ownPassword ownPassword2"> <span>แสดงรหัสผ่าน</span></label>
           <div class="form-error" id="ownErr">สมัครไม่สำเร็จ</div>
         </div>
         <button class="btn btn-primary btn-block" type="submit">ส่งคำขอสมัคร</button>
@@ -105,8 +118,8 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=42"></script>
-<script src="app.js?v=42"></script>
+<script src="db.js?v=44"></script>
+<script src="app.js?v=44"></script>
 <script>
 (async ()=>{
   await showSetupBannerIfNeeded();
@@ -191,13 +204,40 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   }
 });
 
+// ---------------------------------------------------------------------------
+// v43: รหัสผ่าน 2 ชั้นตอนสมัครครั้งแรก
+//
+// ของเดิมมีช่องรหัสผ่านช่องเดียว พิมพ์ผิดแล้วไม่รู้ตัว สมัครผ่านแต่เข้าระบบไม่ได้
+// ตอนนี้ต้องพิมพ์ตรงกันทั้ง 2 ช่อง และมีปุ่ม "แสดงรหัสผ่าน" ให้ตรวจด้วยตาได้
+// ---------------------------------------------------------------------------
+document.querySelectorAll('.pw-eye').forEach(cb=>{
+  cb.addEventListener('change', ()=>{
+    cb.dataset.pw.split(' ').forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.type = cb.checked ? 'text' : 'password';
+    });
+  });
+});
+
+// คืน true ถ้ารหัสผ่านใช้ได้ — ไม่ผ่านจะขึ้นข้อความในช่อง error ให้เอง
+function checkPasswordPair(id1, id2, errId){
+  const err = document.getElementById(errId);
+  const p1 = document.getElementById(id1).value;
+  const p2 = document.getElementById(id2).value;
+  const fail = (msg)=>{ err.textContent = msg; err.style.display = 'block';
+                        document.getElementById(id2).focus(); return false; };
+  if(p1.length < 6)  return fail('รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร');
+  if(p1 !== p2)      return fail('รหัสผ่านทั้งสองช่องไม่ตรงกัน — กรุณาพิมพ์ใหม่ให้ตรงกัน');
+  return true;
+}
+
 document.getElementById('studentForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   document.getElementById('stErr').style.display='none';
+  if(!checkPasswordPair('stPassword','stPassword2','stErr')) return;
   try{
     await registerStudent({
       name: document.getElementById('stName').value.trim(),
-      sid: document.getElementById('stSid').value.trim(),
       email: document.getElementById('stEmail').value.trim().toLowerCase(),
       phone: document.getElementById('stPhone').value.trim(),
       password: document.getElementById('stPassword').value
@@ -214,6 +254,7 @@ document.getElementById('studentForm').addEventListener('submit', async (e)=>{
 document.getElementById('ownerForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   document.getElementById('ownErr').style.display='none';
+  if(!checkPasswordPair('ownPassword','ownPassword2','ownErr')) return;
   try{
     await registerOwner({
       name: document.getElementById('ownName').value.trim(),

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=42">
+<link rel="stylesheet" href="style.css?v=44">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -38,7 +38,7 @@
     <div class="side-title">เมนูจัดการ</div>
     <button class="side-link active" data-sec="overview">🏡 หน้าหอพักของฉัน</button>
     <button class="side-link" data-sec="listings" id="listingsTabBtn" style="display:none">🏠 หอพักทั้งหมดในระบบ (ผู้ดูแลระบบ)</button>
-    <button class="side-link" data-sec="bookings">📌 คำขอนัดพบ<span id="bookingBadge"></span></button>
+    <button class="side-link" data-sec="bookings">📌 คำขอนัดหมาย<span id="bookingBadge"></span></button>
     <button class="side-link" data-sec="messages">💬 ข้อความจากนักศึกษา<span id="ownerUnread"></span></button>
     <button class="side-link" data-sec="report">📊 รายงาน</button>
     <button class="side-link" data-sec="rental">📁 สรุปการเช่า</button>
@@ -110,13 +110,14 @@
       <div class="form-field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
       <div class="form-field">
         <label>สิ่งอำนวยความสะดวกส่วนกลาง (ของทั้งหอ)</label>
-        <div style="display:flex;flex-wrap:wrap;gap:10px">
-          <label><input type="checkbox" value="wifi" class="fFacility"> Wi-Fi</label>
-          <label><input type="checkbox" value="parking" class="fFacility"> ที่จอดรถ</label>
-          <label><input type="checkbox" value="laundry" class="fFacility"> ซักผ้าหยอดเหรียญ</label>
-          <label><input type="checkbox" value="keycard" class="fFacility"> คีย์การ์ด</label>
-          <label><input type="checkbox" value="cctv" class="fFacility"> กล้องวงจรปิด</label>
-          <label><input type="checkbox" value="guard" class="fFacility"> รปภ.</label>
+        <div class="tick-pick">
+          <label class="tick"><input type="checkbox" value="wifi" class="fFacility"> <span>📶 Wi-Fi ฟรี</span></label>
+          <label class="tick"><input type="checkbox" value="parking" class="fFacility"> <span>🛵 ที่จอดรถมอเตอร์ไซค์</span></label>
+          <label class="tick"><input type="checkbox" value="carpark" class="fFacility"> <span>🚗 ที่จอดรถยนต์</span></label>
+          <label class="tick"><input type="checkbox" value="laundry" class="fFacility"> <span>🧺 ซักผ้าหยอดเหรียญ</span></label>
+          <label class="tick"><input type="checkbox" value="keycard" class="fFacility"> <span>🔑 คีย์การ์ด</span></label>
+          <label class="tick"><input type="checkbox" value="cctv" class="fFacility"> <span>📷 กล้องวงจรปิด</span></label>
+          <label class="tick"><input type="checkbox" value="guard" class="fFacility"> <span>🛡️ รปภ. 24 ชม.</span></label>
         </div>
   
         <!-- อื่น ๆ: เจ้าของหอพิมพ์เองได้ ไม่จำกัดอยู่แค่ 6 อย่างด้านบน -->
@@ -136,21 +137,38 @@
            (จำนวนห้อง/ห้องว่าง ดูจากผังห้องพักเป็นหลักอยู่แล้ว)
            หอที่มีทั้งสองแบบ การ์ดฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา เช่น 2,600 - 4,000 -->
       <div class="form-field">
-        <label>ราคาห้องพัก (บาท/เดือน)</label>
+        <label>ราคาและจำนวนผู้เข้าพักของแต่ละประเภทห้อง (บาท/เดือน)</label>
         <div class="price-two">
-          <label class="pt-box">
+          <div class="pt-box">
             <span>🌀 ห้องพัดลม</span>
-            <input type="number" id="fPriceFan" min="0" step="50" placeholder="เช่น 2600">
-          </label>
-          <label class="pt-box">
+            <!-- v43: พิมพ์ราคาเองได้ทันที ไม่มีลูกศรขึ้น-ลง -->
+            <input type="text" inputmode="numeric" id="fPriceFan" class="num-plain" placeholder="เช่น 2600">
+            <div class="pt-cap">
+              <span class="pt-cap-lb">เข้าพักได้</span>
+              <input type="text" inputmode="numeric" id="fCapMinFan" class="num-plain cap-in" placeholder="1">
+              <span class="pt-cap-dash">–</span>
+              <input type="text" inputmode="numeric" id="fCapMaxFan" class="num-plain cap-in" placeholder="2">
+              <span class="pt-cap-lb">คน</span>
+            </div>
+          </div>
+          <div class="pt-box">
             <span>❄️ ห้องแอร์</span>
-            <input type="number" id="fPriceAir" min="0" step="50" placeholder="เช่น 4000">
-          </label>
+            <input type="text" inputmode="numeric" id="fPriceAir" class="num-plain" placeholder="เช่น 4000">
+            <div class="pt-cap">
+              <span class="pt-cap-lb">เข้าพักได้</span>
+              <input type="text" inputmode="numeric" id="fCapMinAir" class="num-plain cap-in" placeholder="1">
+              <span class="pt-cap-dash">–</span>
+              <input type="text" inputmode="numeric" id="fCapMaxAir" class="num-plain cap-in" placeholder="2">
+              <span class="pt-cap-lb">คน</span>
+            </div>
+          </div>
         </div>
         <div class="form-hint">
           กรอกเฉพาะแบบที่หอมี — มีทั้งสองแบบ หน้าหอฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา
           เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
-          เว้นว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
+          ช่อง "เข้าพักได้" คือจำนวนคนที่อยู่ห้องแบบนั้นได้ เช่น <strong>1 – 2</strong> นักศึกษาจะเห็นว่า "เข้าพักได้ 1-2 คน"
+          — เว้นว่างได้ถ้ายังไม่อยากระบุ<br>
+          เว้นราคาว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
         </div>
       </div>
       <!-- ของในห้องแต่ละประเภท (v41) — ติ๊กครั้งเดียว ห้องในผังที่เลือกประเภทนี้ดึงไปใช้เอง -->
@@ -188,16 +206,17 @@
       </div>
       <div class="form-field"><label>ลิงก์เพจ Facebook</label><input type="text" id="fFacebook" placeholder="https://facebook.com/..."></div>
       <div class="form-field">
-        <label>📧 อีเมลรับแจ้งเตือนการนัดพบ</label>
+        <label>📧 อีเมล</label>
         <input type="email" id="fContactEmail" placeholder="เช่น dorm.banfai@gmail.com">
         <div class="form-hint">
-          เมื่อมีนักศึกษากดนัดพบห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
+          เมื่อมีนักศึกษากดนัดหมายห้อง ระบบจะส่งอีเมลแจ้งมาที่นี่ —
           เว้นว่างไว้ได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน
         </div>
       </div>
       <div class="form-field" id="verifiedWrap" style="display:none">
-        <label><input type="checkbox" id="fVerified"> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการนัดพบเต็มรูปแบบ<br>
-        <small class="muted" style="margin-left:22px">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></label>
+        <label class="tick tick-wide"><input type="checkbox" id="fVerified">
+          <span>ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน — เปิดให้แสดงจำนวนห้องว่างจริงและรับการนัดหมายเต็มรูปแบบ
+          <small class="muted">ติ๊กเมื่อคุณเป็นเจ้าของหอนี้และตรวจสอบราคา/ห้องว่าง/ช่องทางติดต่อแล้ว</small></span></label>
       </div>
       <button class="btn btn-primary btn-block" id="saveEdit">บันทึกหอพัก</button>
       </section>
@@ -237,11 +256,11 @@
 
     <div id="sec-bookings" style="display:none">
       <div class="section-head">
-        <h2>คำขอนัดพบ</h2>
+        <h2>คำขอนัดหมาย</h2>
         <span class="count" id="bookingCount"></span>
       </div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        เมื่อนักศึกษากดปุ่ม "นัดพบห้องนี้" ในหน้าหอของคุณ คำขอจะเด้งขึ้นที่นี่ทันที
+        เมื่อนักศึกษากดปุ่ม "นัดหมายห้องนี้" ในหน้าหอของคุณ คำขอจะเด้งขึ้นที่นี่ทันที
         พร้อมส่งอีเมลแจ้งเตือนไปที่อีเมลที่คุณใช้สมัครสมาชิก
       </p>
       <div id="bookingList"><div class="chat-empty">กำลังโหลด...</div></div>
@@ -253,14 +272,14 @@
       <div id="ownerThreads"><div class="chat-empty">กำลังโหลด...</div></div>
     </div>
 
-    <!-- ================= รายงานการนัดพบปะ ================= -->
+    <!-- ================= รายงานการนัดหมาย ================= -->
     <div id="sec-report" style="display:none">
       <div class="section-head">
-        <h2>รายงานการนัดพบปะ</h2>
+        <h2>รายงานการนัดหมาย</h2>
         <span class="count" id="reportCount"></span>
       </div>
       <p class="muted" style="font-size:.88rem;margin-top:-8px">
-        รายการนัดที่คุณ<strong>กดยืนยันรับนัดแล้ว</strong> — เลือกช่วงวันที่เพื่อดูเฉพาะช่วงที่ต้องการ
+        รายการนัดหมายที่คุณ<strong>กดยืนยันรับนัดหมายแล้ว</strong> — เลือกช่วงวันที่เพื่อดูเฉพาะช่วงที่ต้องการ
       </p>
 
       <div class="report-bar">
@@ -272,7 +291,7 @@
 
       <div class="table-wrap">
         <table class="report-table">
-          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้นัด</th><th>เวลา</th></tr></thead>
+          <thead><tr><th>วันที่</th><th>ห้อง</th><th>ผู้นัดหมาย</th><th>เวลา</th></tr></thead>
           <tbody id="reportTable"></tbody>
         </table>
       </div>
@@ -408,6 +427,34 @@
   </div>
 </div>
 
+<!-- ===== หน้าต่างปฏิเสธคำขอนัดหมาย (v44) =====
+     เดิมใช้ confirm() ของเบราว์เซอร์ซึ่งถามได้อย่างเดียวว่า "ตกลง/ยกเลิก"
+     นักศึกษาจึงเห็นแค่คำว่า "ถูกปฏิเสธ" ลอย ๆ ไม่รู้สาเหตุและไม่รู้ว่าควรทำอย่างไรต่อ -->
+<div class="modal-backdrop" id="rejectModal">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" id="closeRejectModal">✕</button>
+    <h3 style="margin-top:0">ปฏิเสธคำขอนัดหมาย</h3>
+    <p class="muted" id="rejectWho" style="margin-top:-4px;font-size:.9rem"></p>
+
+    <div class="form-field">
+      <label>เหตุผลที่ปฏิเสธ <span style="color:var(--coral)">*</span></label>
+      <div class="rj-quick" id="rejectQuick"></div>
+      <textarea id="rejectNote" rows="3" maxlength="300"
+                placeholder="เช่น ห้องนี้มีผู้เช่าแล้ว แต่ยังมีห้อง 203 ว่างอยู่ สนใจแจ้งกลับได้"></textarea>
+      <div class="form-hint">
+        ข้อความนี้จะแสดงให้นักศึกษาเห็นในเมนู "การนัดหมายของฉัน" —
+        การแจ้งเหตุผลช่วยให้นักศึกษาวางแผนหาหอพักต่อได้ และลดการสอบถามซ้ำ
+      </div>
+      <div class="form-error" id="rejectErr"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-reject" id="rejectConfirm" style="flex:1">ยืนยันการปฏิเสธ</button>
+      <button class="btn btn-ghost" id="rejectCancel">ย้อนกลับ</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== หน้าต่างดูข้อมูลหอแบบอ่านอย่างเดียว (ผู้ดูแลระบบใช้ดูหอของคนอื่น) ===== -->
 <div class="modal-backdrop" id="viewModal">
   <div class="modal" style="max-width:720px">
@@ -438,9 +485,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=42"></script>
-<script src="app.js?v=42"></script>
-<script src="admin.js?v=42"></script>
+<script src="db.js?v=44"></script>
+<script src="app.js?v=44"></script>
+<script src="admin.js?v=44"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

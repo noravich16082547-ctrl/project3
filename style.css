@@ -504,6 +504,10 @@ footer{ margin-bottom: 0; }
 .ts-text strong{ display:block; font-family: var(--font-display); color: var(--forest); font-size:1rem; }
 .ts-text .muted{ font-size:.84rem; }
 .ts-note{ grid-column:1/-1; margin:4px 0 0; font-size:.84rem; color: var(--ink-soft); }
+/* v43: อัปเดตหอพักล่าสุดเมื่อ */
+.ts-updated{ grid-column:1/-1; margin:8px 0 0; font-size:.84rem; color:var(--ink-soft); }
+.ts-updated strong{ color:var(--forest); }
+.card-updated{ font-size:.78rem; color:var(--ink-soft); margin:2px 0 6px; }
 
 /* ---- บริเวณโดยรอบ ---- */
 .td-nearby{ display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; }
@@ -525,6 +529,16 @@ footer{ margin-bottom: 0; }
 .pc-ask{ font-size:1rem; color: var(--forest); }
 .pc-note{ font-size:.8rem; margin-top:8px; padding:7px 10px; border-radius: var(--radius-sm); background:#FDF1DC; color:#946A0E; }
 .pc-note.ok{ background:#E4F2E7; color:#1F6D3D; }
+/* v43: จำนวนผู้เข้าพักต่อห้อง — ขึ้นเฉพาะหอที่เจ้าของหอกำหนดไว้ */
+.pc-caps{ list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; }
+.pc-caps li{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font-size:.84rem; padding:7px 11px; border-radius:var(--radius-sm);
+  background:var(--sage-bg); border:1px solid var(--line);
+}
+.pc-caps strong{ color:var(--forest); white-space:nowrap; }
+.td-room-empty .pc-caps{ max-width:380px; margin:12px auto 0; text-align:left; }
+.ri-cap{ font-size:.9rem; color:var(--forest); font-weight:600; margin:-4px 0 10px; }
 .pc-list{ list-style:none; padding:0; margin:14px 0; display:flex; flex-direction:column; gap:6px; font-size:.85rem; color: var(--forest); }
 .pc-cta{ margin-bottom:12px; }
 .pc-nochat{
@@ -727,6 +741,15 @@ footer{ margin-bottom: 0; }
 .op-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
 .op-head h1{ font-size:1.45rem; margin:0 0 6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .op-sub{ font-size:.88rem; color:var(--ink-soft); }
+/* v43: อัปเดตหอพักล่าสุดเมื่อ (ฝั่งเจ้าของหอ) */
+.op-updated{
+  margin-top:7px; font-size:.84rem; color:var(--ink-soft);
+  display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;
+  background:var(--sage-bg); border:1px solid var(--line);
+  border-radius:999px; padding:5px 12px;
+}
+.op-updated strong{ color:var(--forest); }
+.op-updated .muted{ font-size:.78rem; }
 .op-head-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 
 /* ---- การ์ดเนื้อหา ---- */
@@ -880,7 +903,11 @@ footer{ margin-bottom: 0; }
 .fp-lg{ display:inline-flex; align-items:center; gap:6px; }
 .fp-swatch{ width:13px; height:13px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.12); }
 .fp-swatch.st-vacant{ background:#2E9E5B; }
+/* v44: สถานะห้องเพิ่มเป็น 4 แบบ */
+.fp-swatch.st-reserved{ background:#E8A317; }
 .fp-swatch.st-booked{ background:#E03B2F; }
+.fp-swatch.st-closed{ background:#8C96A0; }
+.fp-swatch.st-unset{ background:#fff; border:1px dashed #9AA7B2; }
 
 .fp-floor{ border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; background:var(--cream); }
 .fp-floor-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
@@ -907,18 +934,33 @@ footer{ margin-bottom: 0; }
 .fp-price{ font-size:.68rem; opacity:.8; }
 
 .fp-room.st-vacant{ background:#2E9E5B; color:#fff; }
+.fp-room.st-reserved{ background:#E8A317; color:#fff; }
 .fp-room.st-booked{ background:#E03B2F; color:#fff; }
+.fp-room.st-closed{ background:#8C96A0; color:#fff; }
+
+/* ---------------------------------------------------------------------------
+   v44: ห้องที่เจ้าของหอยังไม่เคยกดบันทึก (ผังโหมดแก้ไขเท่านั้น)
+   ช่องเปล่าที่เพิ่งกด "+ เพิ่มห้อง" มาจะเป็นสีจาง เส้นประ
+   พอกดบันทึกห้องนั้นแล้ว ช่องจะเปลี่ยนเป็นสีตามสถานะทันที เจ้าของหอจะได้
+   เห็นชัดว่าทำถึงห้องไหนแล้ว ไม่ต้องไล่เปิดทีละห้องเพื่อตรวจ
+--------------------------------------------------------------------------- */
+.fp-room.is-unset{
+  background:var(--white) !important; color:var(--ink-soft) !important;
+  border:1px dashed #9AA7B2; box-shadow:none;
+}
+.fp-room.is-unset .fp-no{ color:var(--ink-soft); }
+.fp-room.is-unset .fp-st{ font-style:italic; opacity:.85; }
 
 /* กดได้ = ห้องว่างในฝั่งนักศึกษา */
 .fp-room.is-bookable{ cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
 .fp-room.is-bookable:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(31,58,46,.22); outline:2px solid var(--gold); }
 .fp-room.is-bookable::after{
-  content:'กดเพื่อนัดพบ'; position:absolute; bottom:3px; left:0; right:0;
+  content:'กดเพื่อนัดหมาย'; position:absolute; bottom:3px; left:0; right:0;
   font-size:.62rem; opacity:0; transition:opacity .12s ease;
 }
 .fp-room.is-bookable:hover::after{ opacity:.75; }
 .fp-room.is-mine{ outline:3px solid var(--gold); outline-offset:-3px; }
-/* ห้องที่เราส่งคำขอนัดพบไว้ แต่เจ้าของหอยังไม่ยืนยัน — ยังว่างอยู่ (เขียว) แค่ตีกรอบไข่ปลาไว้ (v35) */
+/* ห้องที่เราส่งคำขอนัดหมายไว้ แต่เจ้าของหอยังไม่ยืนยัน — ยังว่างอยู่ (เขียว) แค่ตีกรอบไข่ปลาไว้ (v35) */
 .fp-room.is-waiting{ outline:3px dashed rgba(255,255,255,.85); outline-offset:-4px; }
 
 /* โหมดแก้ไข: กดห้องเพื่อเปิด pop up */
@@ -963,15 +1005,34 @@ footer{ margin-bottom: 0; }
 .op-plan-sum{ display:flex; gap:14px; flex-wrap:wrap; font-size:.84rem; white-space:nowrap; }
 .op-plan-sum strong{ font-family:var(--font-display); }
 .st-vacant-txt{ color:#1F6D3D; }
+.st-reserved-txt{ color:#9A6B06; }
 .st-booked-txt{ color:#C22A1E; }
+.st-closed-txt{ color:#5E6872; }
 
-/* pop up แก้รายละเอียดห้อง */
+/* pop up แก้รายละเอียดห้อง — v44 มี 4 สถานะ จึงจัดเป็น 2 คอลัมน์ 2 แถว */
 .rm-status{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .rm-st{
   display:flex; align-items:center; gap:8px; padding:9px 12px; font-size:.86rem;
   border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--white); text-align:left;
 }
 .rm-st.on{ border-color:var(--forest); border-width:2px; background:var(--sage-bg); font-weight:600; }
+
+/* ---------------------------------------------------------------------------
+   v44: วัน-เวลานัดหมาย และข้อความเหตุผลการปฏิเสธ
+--------------------------------------------------------------------------- */
+.bk-when{ display:grid; grid-template-columns:1.6fr 1fr; gap:10px; }
+@media (max-width:520px){ .bk-when{ grid-template-columns:1fr; } }
+
+/* ปุ่มเหตุผลสำเร็จรูปในหน้าต่างปฏิเสธ */
+.rj-quick{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+
+/* กล่องข้อความจากเจ้าของหอ — ใช้ทั้งฝั่งเจ้าของหอและฝั่งนักศึกษา */
+.bk-ownernote, .mybk-ownernote{
+  margin-top:10px; padding:10px 13px; border-radius:var(--radius-sm);
+  background:#FDF1DC; border-left:4px solid #E8A317; font-size:.88rem;
+}
+.bk-ownernote strong, .mybk-ownernote strong{ display:block; color:#946A0E; font-size:.82rem; margin-bottom:3px; }
+.bk-ownernote p, .mybk-ownernote p{ margin:0; overflow-wrap:anywhere; }
 
 /* แถบ "กำลังจองห้องนี้" ในฟอร์มจอง */
 .bk-picked{
@@ -1091,7 +1152,7 @@ footer{ margin-bottom: 0; }
 /* ป้ายที่เจ้าของหอติ๊กไว้ — ใช้สีเดียวกับปุ่มที่ติ๊กแล้วในหลังบ้าน จะได้เห็นตรงกัน */
 .ra-chip.on{ background:var(--forest); color:#fff; border-color:var(--forest); font-weight:600; }
 
-/* ปุ่มท้ายหน้าต่างรายละเอียดห้อง (นัดพบ / ข้อความ) */
+/* ปุ่มท้ายหน้าต่างรายละเอียดห้อง (นัดหมาย / ข้อความ) */
 .ri-h{ margin:16px 0 8px; font-size:.95rem; }
 .ri-actions{ display:flex; gap:8px; margin-top:18px; }
 .ri-actions .btn{ flex:1; }
@@ -1124,7 +1185,9 @@ footer{ margin-bottom: 0; }
   vertical-align:middle; margin-left:6px; color:#fff;
 }
 .ri-pill.st-vacant{ background:#2E9E5B; }
+.ri-pill.st-reserved{ background:#E8A317; }
 .ri-pill.st-booked{ background:#E03B2F; }
+.ri-pill.st-closed{ background:#8C96A0; }
 .ri-price{
   font-family:var(--font-display); font-size:1.7rem; font-weight:700;
   color:var(--gold-deep); margin-top:10px;
@@ -1260,7 +1323,7 @@ footer{ margin-bottom: 0; }
     ที่ใช้ position:sticky ค้างไม่ติดขอบจอ) */
 .td-main, .td-side, .op-card, .modal{ overflow-wrap:anywhere; }
 
-/* ---------- หน้ารายงานการนัดพบปะ ---------- */
+/* ---------- หน้ารายงานการนัดหมาย ---------- */
 .report-bar{
   display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
   background:var(--sage-bg); border:1px solid var(--line);
@@ -1411,17 +1474,44 @@ footer{ margin-bottom: 0; }
 }
 .op-inline-card{ border:2px solid var(--gold); }
 .op-inline .form-field:last-of-type{ margin-bottom:0; }
-.fac-pick{
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;
+/* ---------------------------------------------------------------------------
+   v43: ช่องติ๊กมาตรฐานของเว็บ (.tick)
+   ใช้หน้าตาเดียวกับป้าย "✓ ระเบียง" ในผังห้อง (.ra-q) เพื่อให้ทุกหน้าเหมือนกัน
+   ข้างในยังเป็น <input type="checkbox"> จริง ๆ แค่ซ่อนไว้
+   โค้ด JS เดิมที่อ่านค่าด้วย .checked / :checked จึงใช้ได้ต่อโดยไม่ต้องแก้
+--------------------------------------------------------------------------- */
+.tick-pick{ display:flex; flex-wrap:wrap; gap:8px; }
+.tick{
+  position:relative; display:inline-flex; align-items:center; gap:7px;
+  cursor:pointer; border:1px solid var(--line); background:var(--white);
+  border-radius:999px; padding:7px 14px;
+  font-size:.86rem; font-family:var(--font-body); color:var(--ink); line-height:1.35;
+  transition:background .15s, border-color .15s, color .15s;
 }
-.fac-opt{
-  display:flex; align-items:center; gap:8px; cursor:pointer;
-  border:1px solid var(--line); border-radius:var(--radius-sm);
-  padding:9px 11px; font-size:.86rem; background:var(--white);
+.tick:hover{ border-color:var(--gold); }
+.tick input{ position:absolute; opacity:0; width:0; height:0; margin:0; }
+.tick::before{ content:'+'; font-weight:700; opacity:.5; flex-shrink:0; }
+.tick:has(input:checked){ background:var(--forest); color:#fff; border-color:var(--forest); }
+.tick:has(input:checked)::before{ content:'✓'; opacity:1; }
+.tick:has(input:focus-visible){ outline:2px solid var(--gold); outline-offset:2px; }
+.tick > span{ overflow-wrap:anywhere; }
+/* .form-field label{display:block} มีน้ำหนักมากกว่า .tick จึงต้องเขียนทับให้ชัด
+   ไม่งั้นป้ายจะยืดเต็มความกว้างของฟอร์มจนดูเหมือนปุ่ม */
+.form-field label.tick, label.tick{
+  display:inline-flex; width:auto; max-width:100%;
+  font-weight:400; color:var(--ink); margin-bottom:0;
 }
-.fac-opt:hover{ border-color:var(--gold); background:var(--cream); }
-.fac-opt input{ flex-shrink:0; }
-.fac-opt span{ overflow-wrap:anywhere; }
+.form-field label.tick:has(input:checked), label.tick:has(input:checked){ color:#fff; }
+/* แบบยาว — มีคำอธิบายต่อท้าย เลยใช้มุมโค้งน้อยลงให้อ่านง่าย */
+.form-field label.tick-wide, label.tick-wide{
+  align-items:flex-start; border-radius:var(--radius-sm);
+  padding:10px 14px; text-align:left;
+}
+.tick-wide small{ display:block; margin-top:3px; }
+.tick:has(input:checked) small,
+.tick:has(input:checked) .muted{ color:rgba(255,255,255,.82); }
+
+.fac-pick{ display:flex; flex-wrap:wrap; gap:8px; }
 /* แผนที่ย่อในการ์ด — เตี้ยกว่าในฟอร์มใหญ่ เพราะอยู่ในคอลัมน์แคบ */
 .near-pick .loc-map,
 #opLocMap{ height:260px; }
@@ -1434,6 +1524,18 @@ footer{ margin-bottom: 0; }
 }
 .pt-box > span{ font-size:.84rem; color:var(--ink-soft); font-weight:600; }
 .pt-box input{ width:100%; }
+/* v43: แถว "เข้าพักได้ _ – _ คน" ใต้ช่องราคาของแต่ละประเภทห้อง */
+.pt-cap{
+  display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
+  margin-top:2px; padding-top:8px; border-top:1px dashed var(--line);
+}
+.pt-cap-lb{ font-size:.8rem; color:var(--ink-soft); font-weight:600; white-space:nowrap; }
+.pt-cap-dash{ color:var(--ink-soft); }
+.pt-box input.cap-in{ width:52px; text-align:center; padding-left:6px; padding-right:6px; }
+/* ช่องตัวเลขแบบพิมพ์เอง — เผื่อเบราว์เซอร์ยังขึ้นลูกศรให้ (v43) */
+.num-plain{ appearance:textfield; -moz-appearance:textfield; }
+.num-plain::-webkit-outer-spin-button,
+.num-plain::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 @media (max-width:520px){ .price-two{ grid-template-columns:1fr; } }
 .loc-pin-shop{ border-color:#2E9BD6; cursor:grab; }
 .loc-pin-shop:active{ cursor:grabbing; }

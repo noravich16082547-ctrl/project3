@@ -15,6 +15,49 @@ document.getElementById('logoutBtn').addEventListener('click', async (e)=>{
 
 const DASH_SECTIONS = ['overview','listings','bookings','messages','report','rental','dormreview','owners'];
 
+// ---------------------------------------------------------------------------
+// ช่องตัวเลขแบบพิมพ์เอง (v43)
+//
+// ของเดิมเป็น <input type="number"> ซึ่งมีลูกศรขึ้น-ลงอยู่มุมขวา กดโดนง่าย
+// และเลื่อนเมาส์ทับช่องก็เปลี่ยนเลขได้เอง เจ้าของหอเลยบันทึกราคาผิดบ่อย
+// v43 เปลี่ยนเป็นช่องพิมพ์ธรรมดา แล้วกรองให้พิมพ์ได้แต่ตัวเลขด้วยตัวดักนี้
+// ใช้ event delegation ที่ document เพราะช่องพวกนี้ถูกสร้างใหม่ทุกครั้งที่ render
+// ---------------------------------------------------------------------------
+document.addEventListener('input', (e)=>{
+  const el = e.target;
+  if(!el || !el.classList || !el.classList.contains('num-plain')) return;
+  const clean = plainNumber(el.value);
+  if(el.value !== clean) el.value = clean;
+}, true);
+// กันพิมพ์ตัวอักษรตั้งแต่แรก (เบราว์เซอร์บางตัวไม่ยิง input ถ้าค่าไม่เปลี่ยน)
+document.addEventListener('keypress', (e)=>{
+  const el = e.target;
+  if(!el || !el.classList || !el.classList.contains('num-plain')) return;
+  if(e.key && e.key.length === 1 && !/[0-9๐-๙]/.test(e.key)) e.preventDefault();
+}, true);
+
+// อ่านช่อง "เข้าพักได้ _ – _ คน" ของทั้งห้องพัดลมและห้องแอร์
+// prefix คือคำนำหน้า id เช่น 'opfCap' -> opfCapMinFan / opfCapMaxFan / opfCapMinAir ...
+// คืน { fan:{min,max}|null, air:{min,max}|null } หรือ null ถ้าเจ้าของหอกรอกเลขเพี้ยน
+function readCapInputs(prefix){
+  const out = {};
+  for(const [code, C, th] of [['fan','Fan','ห้องพัดลม'], ['air','Air','ห้องแอร์']]){
+    const lo = document.getElementById(`${prefix}Min${C}`);
+    const hi = document.getElementById(`${prefix}Max${C}`);
+    const rawLo = lo ? plainNumber(lo.value) : '';
+    const rawHi = hi ? plainNumber(hi.value) : '';
+    if(rawLo === '' && rawHi === ''){ out[code] = null; continue; }
+    const cap = roomCapacity({ capMin: rawLo === '' ? null : +rawLo,
+                               capMax: rawHi === '' ? null : +rawHi });
+    if(!cap){
+      toast(`จำนวนผู้เข้าพัก${th}ต้องเป็นตัวเลข 1-${CAP_MAX} คน`, 'error');
+      return null;
+    }
+    out[code] = cap;
+  }
+  return out;
+}
+
 // เมนูที่ "บัญชีผู้ดูแลระบบ" ไม่ต้องเห็น — เป็นงานของเจ้าของหอทั้งหมด (v34)
 const ADMIN_HIDDEN_SECTIONS = ['overview','bookings','messages','report','rental','dormreview'];
 function isAdminAccount(){ return !!(ME && ME.role === 'admin'); }
@@ -32,7 +75,7 @@ document.querySelectorAll('.side-link').forEach(btn=>{
     if(btn.dataset.sec === 'report'){ renderReport(); }
     if(btn.dataset.sec === 'rental'){ renderRental(); }
     if(btn.dataset.sec === 'overview'){ renderOwnerPage(); }
-    // เปิดแท็บคำขอนัดพบ = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
+    // เปิดแท็บคำขอนัดหมาย = ถือว่าเจ้าของหออ่านแล้ว (ลบจุดแดง)
     if(btn.dataset.sec === 'bookings'){
       markBookingsRead(ME && ME.uid).then(refreshBookingBadge).catch(console.error);
     }
@@ -108,7 +151,7 @@ async function renderOwnerPage(){
         <div class="emoji">🏡</div>
         <h2>ยังไม่มีหน้าหอพักของคุณ</h2>
         <p class="muted">
-          สร้างหน้าหอพักของคุณเองได้เลย ไม่ต้องรอผู้ดูแลระบบอนุมัติ —
+          สร้างหน้าหอพักของคุณเองได้ทันที ไม่ต้องรอผู้ดูแลระบบอนุมัติ —
           ใส่ชื่อหอ ราคา รูปห้อง แล้วหอของคุณจะขึ้นให้นักศึกษาเห็นทันที
         </p>
         <button class="btn btn-primary" id="opCreate">+ สร้างหน้าหอพักของฉัน</button>
@@ -176,6 +219,13 @@ async function renderOwnerPage(){
             ? ` · ${starsHtml(sum.avg)} <strong>${sum.avg}</strong> <span class="muted">(${sum.count} รีวิว)</span>`
             : ' · <span class="muted">ยังไม่มีรีวิว</span>'}
         </div>
+        <!-- v43: บอกเจ้าของหอว่าตัวเองอัปเดตหอนี้ครั้งล่าสุดเมื่อไหร่ -->
+        ${d.updatedAt
+          ? `<div class="op-updated" title="${escapeAttr(fmtUpdatedTitle(d.updatedAt))}">
+               🕒 อัปเดตหอพักล่าสุดเมื่อ <strong>${escapeHtml(fmtSince(d.updatedAt))}</strong>
+               <span class="muted">(${escapeHtml(fmtUpdatedTitle(d.updatedAt))})</span>
+             </div>`
+          : ''}
       </div>
       <div class="op-head-actions">
         <button class="btn btn-primary btn-sm" id="opEdit">✏️ เพิ่มหรือแก้ไข</button>
@@ -197,23 +247,37 @@ async function renderOwnerPage(){
         </select>
       </div>
       <div class="form-field">
-        <label>ราคาห้องพัก (บาท/เดือน)</label>
+        <label>ราคาและจำนวนผู้เข้าพักของแต่ละประเภทห้อง</label>
         <div class="price-two">
-          <label class="pt-box">
-            <span>🌀 ห้องพัดลม</span>
-            <input type="number" id="opfPriceFan" min="0" step="50" placeholder="เช่น 2600"
-                   value="${fanPriceValue(d) || ''}">
-          </label>
-          <label class="pt-box">
-            <span>❄️ ห้องแอร์</span>
-            <input type="number" id="opfPriceAir" min="0" step="50" placeholder="เช่น 4000"
-                   value="${airPriceValue(d) || ''}">
-          </label>
+          ${['fan','air'].map(code=>{
+            const cap   = dormCapacity(d, code) || {};
+            const price = code === 'fan' ? fanPriceValue(d) : airPriceValue(d);
+            const ph    = code === 'fan' ? 'เช่น 2600' : 'เช่น 4000';
+            const C     = code === 'fan' ? 'Fan' : 'Air';
+            return `
+          <div class="pt-box">
+            <span>${ROOM_TYPE_META[code].icon} ห้อง${escapeHtml(ROOM_TYPE_META[code].label)}</span>
+            <!-- v43: พิมพ์ราคาเองได้ทันที ไม่มีลูกศรขึ้น-ลงให้กดพลาด -->
+            <input type="text" inputmode="numeric" id="opfPrice${C}" class="num-plain"
+                   placeholder="${ph}" value="${price || ''}">
+            <div class="pt-cap">
+              <span class="pt-cap-lb">เข้าพักได้</span>
+              <input type="text" inputmode="numeric" class="num-plain cap-in"
+                     id="opfCapMin${C}" placeholder="1" value="${cap.min || ''}">
+              <span class="pt-cap-dash">–</span>
+              <input type="text" inputmode="numeric" class="num-plain cap-in"
+                     id="opfCapMax${C}" placeholder="2" value="${cap.max || ''}">
+              <span class="pt-cap-lb">คน</span>
+            </div>
+          </div>`;
+          }).join('')}
         </div>
         <div class="form-hint">
           กรอกเฉพาะแบบที่หอมี — หอที่มีทั้งสองแบบ การ์ดฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา
           เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
-          เว้นว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"
+          ช่อง "เข้าพักได้" คือจำนวนคนที่อยู่ห้องแบบนั้นได้ เช่น <strong>1 – 2</strong> จะขึ้นให้นักศึกษาเห็นว่า "เข้าพักได้ 1-2 คน"
+          — อยู่ได้คนเดียวก็กรอกช่องแรกช่องเดียว หรือเว้นว่างทั้งคู่ถ้ายังไม่อยากระบุ<br>
+          เว้นราคาว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"
         </div>
       </div>
       <!-- v39: ของในห้องแต่ละประเภท — ติ๊กครั้งเดียว ห้องในผังที่เลือกประเภทนี้ดึงไปใช้เอง -->
@@ -224,8 +288,9 @@ async function renderOwnerPage(){
         ${typeAmenEditorHtml()}
       </div>
       <div class="form-field">
-        <label><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}> ✓ ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</label>
-        <div class="form-hint" style="margin-left:22px">ติ๊กเมื่อตรวจสอบราคา ห้องว่าง และช่องทางติดต่อแล้ว (ต้องมีรูปและราคาก่อน)</div>
+        <label class="tick"><input type="checkbox" id="opfVerified" ${d.verified?'checked':''}>
+          <span>ยืนยันว่าข้อมูลนี้เป็นปัจจุบัน</span></label>
+        <div class="form-hint">ติ๊กเมื่อตรวจสอบราคา ห้องว่าง และช่องทางติดต่อแล้ว (ต้องมีรูปและราคาก่อน)</div>
       </div>
       <div class="op-actions">
         <button class="btn btn-primary btn-sm" id="opBasicSave">บันทึก</button>
@@ -238,9 +303,9 @@ async function renderOwnerPage(){
       <section class="op-card">
         <h3>เกี่ยวกับหอพักนี้</h3>
         <p class="muted" style="font-size:.85rem;margin-top:-6px">
-          เล่าให้น้อง ๆ ฟังว่าหอเป็นยังไง อยู่ตรงไหน มีอะไรใกล้ ๆ บ้าง เขียนแล้วกดบันทึกได้เลย
+          อธิบายให้นักศึกษาทราบว่าหอพักเป็นอย่างไร ตั้งอยู่บริเวณใด มีอะไรอยู่ใกล้เคียงบ้าง เขียนเสร็จแล้วกดบันทึก
         </p>
-        <textarea id="opDesc" rows="6" placeholder="เช่น หอพักหญิงล้วน 3 ชั้น ห่างประตู 1 เดิน 5 นาที มีร้านสะดวกซื้อหน้าหอ ห้องมีเฟอร์นิเจอร์ครบ...">${escapeHtml(d.desc||'')}</textarea>
+        <textarea id="opDesc" rows="6" placeholder="เช่น หอพักหญิงล้วน 3 ชั้น ห่างจากประตู 1 โดยการเดินประมาณ 5 นาที มีร้านสะดวกซื้ออยู่หน้าหอพัก ภายในห้องมีเตียง ตู้เสื้อผ้า และโต๊ะเขียนหนังสือ...">${escapeHtml(d.desc||'')}</textarea>
         <div class="op-actions">
           <button class="btn btn-primary btn-sm" id="opSaveDesc">บันทึกคำอธิบาย</button>
           <span class="op-saved" id="opDescSaved"></span>
@@ -261,9 +326,9 @@ async function renderOwnerPage(){
           <p class="form-hint">ของส่วนกลางที่ทั้งหอใช้ร่วมกัน — ส่วน "ของในห้อง" (แอร์ ตู้เย็น เตียง) ติ๊กครั้งเดียวตามประเภทห้องได้ที่ปุ่ม "✏️ เพิ่มหรือแก้ไข" ด้านบนสุด</p>
         </div>
         <div class="op-inline" id="opFacEdit" style="display:none">
-          <div class="fac-pick">
+          <div class="tick-pick">
             ${Object.keys(FACILITY_META).map(code=>`
-              <label class="fac-opt">
+              <label class="tick">
                 <input type="checkbox" class="opFac" value="${code}" ${facs.includes(code)?'checked':''}>
                 <span>${FACILITY_META[code].icon} ${escapeHtml(FACILITY_META[code].label)}</span>
               </label>`).join('')}
@@ -294,6 +359,7 @@ async function renderOwnerPage(){
                   <div class="muted" style="font-size:.82rem">${r.total > 0
                     ? `ทั้งหมด ${r.total} ห้อง`
                     : 'จำนวนห้องดูจากผังห้องพักด้านล่าง'}</div>
+                  ${capacityLabel(r) ? `<div class="muted" style="font-size:.82rem">👥 เข้าพักได้ ${capacityLabel(r)}</div>` : ''}
                 </div>
                 <div class="op-room-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
                 ${r.total > 0 ? `
@@ -313,7 +379,7 @@ async function renderOwnerPage(){
       <section class="op-card op-nearby">
         <h3>รอบ ๆ หอมีอะไรบ้าง</h3>
         <p class="muted" style="font-size:.85rem;margin-top:-6px">
-          บอกน้อง ๆ ว่าใกล้หอมีอะไร เช่น เซเว่น ร้านอาหาร ร้านทำเล็บ ตลาด ตู้ ATM —
+          ระบุสถานที่ใกล้หอพัก เช่น ร้านสะดวกซื้อ ร้านอาหาร ตลาด ตู้ ATM —
           เรื่องนี้เป็นสิ่งที่นักศึกษาถามบ่อยที่สุดตอนเลือกหอ
         </p>
         ${hasLocation(d) ? '' : `<p class="form-hint" style="color:#946A0E">
@@ -364,16 +430,16 @@ async function renderOwnerPage(){
         <div class="op-loc" id="opLoc">
           ${hasLocation(d)
             ? `<span class="ok">📍 ปักหมุดแล้ว · ${escapeHtml(locationSummary(d))}</span>
-               <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทางจากมอ</a>`
+               <a href="${mapDirectionsLink(d)}" target="_blank" rel="noopener">ดูเส้นทางจากมหาวิทยาลัย</a>`
             : `<span class="warn">📍 ยังไม่ได้ปักหมุดหอ — กด "เพิ่มหรือแก้ไข" แล้วแตะตำแหน่งหอบนแผนที่
-               นักศึกษาจะได้กดนำทางมาหอได้ และเว็บจะบอกได้ว่าหอห่างมอเท่าไหร่</span>`}
+               นักศึกษาจะได้กดนำทางมาหอได้ และเว็บจะบอกได้ว่าหอห่างมหาวิทยาลัยเท่าไหร่</span>`}
         </div>
         <div id="opConView">
           <div class="op-contact">
             <div><span class="k">เบอร์โทร</span> ${d.phone ? escapeHtml(d.phone) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
             <div><span class="k">LINE</span> ${d.lineId ? escapeHtml(d.lineId) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
             <div><span class="k">Facebook</span> ${d.facebook ? escapeHtml(d.facebook) : '<span class="muted">ยังไม่ได้ใส่</span>'}</div>
-            <div><span class="k">อีเมลรับแจ้งเตือน</span> ${d.contactEmail ? escapeHtml(d.contactEmail) : '<span class="muted">ใช้อีเมลที่สมัครสมาชิก</span>'}</div>
+            <div><span class="k">อีเมล</span> ${d.contactEmail ? escapeHtml(d.contactEmail) : '<span class="muted">ใช้อีเมลที่สมัครสมาชิก</span>'}</div>
           </div>
         </div>
 
@@ -384,7 +450,7 @@ async function renderOwnerPage(){
             <input type="text" id="opfLine" placeholder="@dormcru หรือ https://line.me/..." value="${escapeAttr(d.lineId||'')}"></div>
           <div class="form-field"><label>ลิงก์เพจ Facebook</label>
             <input type="text" id="opfFacebook" placeholder="https://facebook.com/..." value="${escapeAttr(d.facebook||'')}"></div>
-          <div class="form-field"><label>📧 อีเมลรับแจ้งเตือนการนัดพบ</label>
+          <div class="form-field"><label>📧 อีเมล</label>
             <input type="email" id="opfEmail" placeholder="เช่น dorm.banfai@gmail.com" value="${escapeAttr(d.contactEmail||'')}">
             <div class="form-hint">เว้นว่างได้ ระบบจะใช้อีเมลที่คุณใช้สมัครสมาชิกแทน</div>
           </div>
@@ -428,15 +494,15 @@ async function renderOwnerPage(){
         <div>
           <h3>ผังห้องพัก</h3>
           <p class="muted" style="font-size:.85rem;margin:0">
-            บอกว่าหอมีกี่ชั้น แต่ละชั้นมีห้องอะไรบ้าง — นักศึกษาจะเห็นผังนี้ในหน้าหอของคุณ
-            และกดนัดพบห้องที่ต้องการได้โดยตรง กดที่ช่องห้องเพื่อแก้เลขห้อง ราคา และสถานะ
+            ระบุว่าหอพักมีกี่ชั้น แต่ละชั้นมีห้องใดบ้าง — นักศึกษาจะเห็นผังนี้ในหน้าหอพักของคุณ
+            และกดนัดหมายห้องที่ต้องการได้โดยตรง กดที่ช่องห้องเพื่อแก้ไขเลขห้อง ประเภทห้อง และสถานะ
           </p>
         </div>
         ${(()=>{ const s = planSummary(d.floorPlan); return s.total ? `
           <div class="op-plan-sum">
             <span><strong>${s.total}</strong> ห้อง</span>
-            <span class="st-vacant-txt">ว่าง <strong>${s.vacant}</strong></span>
-            <span class="st-booked-txt">ไม่ว่าง <strong>${s.booked}</strong></span>
+            ${ROOM_STATUS_ORDER.map(k=>
+              `<span class="${ROOM_STATUS_META[k].cls}-txt">${ROOM_STATUS_META[k].label} <strong>${s[k]}</strong></span>`).join('')}
           </div>` : ''; })()}
       </div>
       <div id="opPlan">${floorPlanHtml(d.floorPlan, { edit:true })}</div>
@@ -507,8 +573,9 @@ async function renderOwnerPage(){
   if(basicSave) basicSave.addEventListener('click', async ()=>{
     const name = document.getElementById('opfName').value.trim();
     if(!name){ toast('กรุณาใส่ชื่อหอพัก','error'); return; }
+    // v43: ช่องราคาเป็นช่องพิมพ์ธรรมดา เลยต้องกรองให้เหลือแต่ตัวเลขก่อนคิด
     const readPrice = (id, name)=>{
-      const raw = document.getElementById(id).value.trim();
+      const raw = plainNumber(document.getElementById(id).value);
       if(raw === '') return 0;
       const n = +raw;
       if(isNaN(n) || n < 0){ toast(`ราคา${name}ต้องเป็นตัวเลขที่ไม่ติดลบ`,'error'); return null; }
@@ -517,8 +584,13 @@ async function renderOwnerPage(){
     const fanPrice = readPrice('opfPriceFan', 'ห้องพัดลม');
     const airPrice = readPrice('opfPriceAir', 'ห้องแอร์');
     if(fanPrice === null || airPrice === null) return;
+    // จำนวนผู้เข้าพักต่อห้อง (v43) — เจ้าของหอกำหนดเองทีละประเภทห้อง
+    const caps = readCapInputs('opfCap');
+    if(caps === null) return;
+    if(!(fanPrice > 0) && caps.fan){ toast('กรอกจำนวนผู้เข้าพักห้องพัดลมไว้ แต่ยังไม่ได้ใส่ราคา — กรุณาใส่ราคาห้องพัดลมด้วย','error'); return; }
+    if(!(airPrice > 0) && caps.air){ toast('กรอกจำนวนผู้เข้าพักห้องแอร์ไว้ แต่ยังไม่ได้ใส่ราคา — กรุณาใส่ราคาห้องแอร์ด้วย','error'); return; }
     // เก็บเป็นรายการห้องพัดลม/ห้องแอร์ คงจำนวนห้อง-ห้องว่างเดิมไว้ให้
-    const rooms = buildPriceRooms(d, fanPrice, airPrice);
+    const rooms = buildPriceRooms(d, fanPrice, airPrice, caps);
     const verified = document.getElementById('opfVerified').checked;
     if(verified && !(d.images||[]).length){ toast('ถ้าจะยืนยันข้อมูล กรุณาเพิ่มรูปหอพักอย่างน้อย 1 รูปก่อน','error'); return; }
     if(verified && !rooms.length){ toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาห้องพัดลมหรือห้องแอร์ก่อน','error'); return; }
@@ -598,7 +670,7 @@ async function renderOwnerPage(){
   const delBtn = document.getElementById('opDelete');
   if(delBtn) delBtn.addEventListener('click', async ()=>{
     if(!confirm(`ลบหอ "${d.name}" ออกจากระบบ?\n\n` +
-                'ผังห้อง รูปภาพ รีวิว และประวัติการนัดพบของหอนี้จะหายไปทั้งหมด\nลบแล้วกู้คืนไม่ได้')) return;
+                'ผังห้อง รูปภาพ รีวิว และประวัติการนัดหมายของหอนี้จะหายไปทั้งหมด\nลบแล้วกู้คืนไม่ได้')) return;
     if(!confirm('ยืนยันอีกครั้ง — ลบหอนี้ถาวรใช่ไหม')) return;
     try{
       await deleteDorm(d.id);
@@ -1029,8 +1101,11 @@ function bindPlanEditor(box, d){
 // สิ่งอำนวยความสะดวกในห้อง (ของที่มีในห้องนั้น ๆ)
 // ต่างจาก "สิ่งอำนวยความสะดวกของหอ" ตรงที่อันนี้เป็นของในห้อง แต่ละห้องไม่เหมือนกันได้
 // ---------------------------------------------------------------------------
+// v44: ตัดตัวเลือกที่รวมทุกอย่างไว้เป็นคำเดียวออก เพราะซ้ำซ้อนกับรายการอื่นในชุดนี้
+// (เตียง ตู้เสื้อผ้า โต๊ะเขียนหนังสือ ก็คือเฟอร์นิเจอร์อยู่แล้ว) และคำว่า "ครบ"
+// ก็ไม่ได้บอกว่าครบแค่ไหน นักศึกษาตีความไม่ตรงกัน
 const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่องทำน้ำอุ่น','ตู้เย็น','ทีวี','ระเบียง',
-                           'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต','เฟอร์นิเจอร์ครบ'];
+                           'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต'];
 // ---------------------------------------------------------------------------
 // ตัวเลือก "ของในห้องแต่ละประเภท" (แอร์/พัดลม) — ใช้ทั้งในฟอร์มข้อมูลพื้นฐานของหอ
 // และฟอร์ม "เพิ่มหอพักใหม่" (v41) ทำงานในกล่อง root ของตัวเองเท่านั้น จะได้ไม่ชนกัน
@@ -1323,19 +1398,35 @@ function openRoomEditor(dorm, cellId){
   document.getElementById('roomModal').classList.add('open');
 }
 
+// คำอธิบายใต้ปุ่มเลือกสถานะห้อง — v44 มี 4 สถานะ จึงแยกข้อความของแต่ละสถานะไว้ที่เดียว
+const ROOM_STATUS_HINT = {
+  vacant:
+    'ห้องว่างพร้อมให้เช่า นักศึกษาสามารถกดนัดหมายห้องนี้ได้จากผังในหน้าหอพักของคุณ<br>' +
+    '<strong>ห้องจะยังคงเป็นสีเขียวแม้มีผู้กดนัดหมายแล้ว</strong> — จะเปลี่ยนเป็น ' +
+    '"มีผู้นัดหมายแล้ว" ก็ต่อเมื่อคุณกด "ยืนยันรับนัดหมาย" ในเมนูคำขอนัดหมาย',
+  reserved:
+    'มีนักศึกษานัดหมายเข้ามาดูห้องนี้แล้ว แต่ยังไม่ได้ทำสัญญาเช่า<br>' +
+    'นักศึกษาคนอื่นจะเห็นเป็นสีเหลืองและกดนัดหมายห้องนี้ไม่ได้ — ' +
+    'หากนักศึกษาไม่มาตามนัดหมาย ให้เปลี่ยนกลับเป็น "ว่าง" เพื่อเปิดรับนัดหมายอีกครั้ง',
+  booked:
+    'ห้องนี้มีผู้เช่าอยู่แล้ว นักศึกษาจะเห็นเป็นสีแดงและกดนัดหมายไม่ได้',
+  closed:
+    'ห้องยังไม่พร้อมปล่อยเช่า เช่น กำลังซ่อมแซมหรือปรับปรุง<br>' +
+    'นักศึกษาจะเห็นว่าห้องนี้ปิดปรับปรุงอยู่ และกดนัดหมายไม่ได้ — ' +
+    'เมื่อซ่อมเสร็จแล้วเปลี่ยนกลับเป็น "ว่าง" ได้ทันที'
+};
 function updateRoomStatusHint(status, cell){
   const el = document.getElementById('rmStatusHint');
   if(!el) return;
-  if(status === 'booked'){
-    el.innerHTML = (cell && cell.bookingId)
-      ? 'ห้องนี้ไม่ว่างเพราะคุณกด <strong>"ยืนยันรับนัด"</strong> ในเมนู "คำขอนัดพบ" ไปแล้ว'
-      : 'ห้องไม่ว่าง — ใช้กับห้องที่มีคนอยู่แล้ว หรือห้องที่ยังไม่ปล่อยเช่า เช่น กำลังซ่อม ' +
-        'นักศึกษาจะเห็นเป็นสีแดงและกดนัดพบไม่ได้';
-  }else{
-    el.innerHTML = 'ห้องว่างพร้อมให้เช่า นักศึกษากดนัดพบห้องนี้ได้จากผังในหน้าหอของคุณ<br>' +
-      '<strong>ห้องจะยังเป็นสีเขียวแม้มีคนกดนัดพบแล้ว</strong> — จะเปลี่ยนเป็น "ไม่ว่าง" ' +
-      'ก็ต่อเมื่อคุณกด "ยืนยันรับนัด" ในเมนูคำขอนัดพบ';
+  const st = normalizeRoomStatus(status);
+  // ห้องที่ไม่ว่างเพราะระบบตั้งให้เองจากการยืนยันนัดหมาย ต้องบอกที่มาให้ชัด
+  if((st === 'reserved' || st === 'booked') && cell && cell.bookingId){
+    el.innerHTML = 'ห้องนี้ถูกตั้งเป็น <strong>"' + escapeHtml(ROOM_STATUS_META[st].label) + '"</strong> ' +
+      'เนื่องจากคุณกด <strong>"ยืนยันรับนัดหมาย"</strong> ในเมนู "คำขอนัดหมาย" ไปแล้ว<br>' +
+      'หากเปลี่ยนสถานะเองที่นี่ ห้องจะถูกตัดออกจากคำขอนัดหมายนั้น';
+    return;
   }
+  el.innerHTML = ROOM_STATUS_HINT[st] || ROOM_STATUS_HINT.vacant;
 }
 
 document.getElementById('closeRoomModal')?.addEventListener('click',
@@ -1364,15 +1455,22 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
   target.cell.amen  = (typeDef.length && sameAmenList(editRoomAmen, typeDef)) ? [] : cleanAmenList(editRoomAmen);
   target.cell.photos = editRoomPhotos.slice(0, MAX_ROOM_PHOTOS);
 
-  // เปลี่ยนสถานะจาก "ไม่ว่าง" เป็นอย่างอื่นด้วยมือ = ปล่อยห้องนั้นจากใบนัดพบเดิม
+  // เปลี่ยนสถานะด้วยมือจากห้องที่ผูกกับใบนัดหมายหมายอยู่ = ตัดห้องออกจากใบนัดหมายหมายนั้น
   if(newStatus !== target.cell.status){
-    if(target.cell.status === 'booked' && target.cell.bookingId){
-      if(!confirm('ห้องนี้ผูกอยู่กับนัดที่คุณยืนยันไปแล้ว\n\nเปลี่ยนสถานะเองตรงนี้จะเป็นการตัดห้องออกจากคำขอนัดพบนั้น\n' +
-                  '(คำขอนัดพบยังอยู่ในเมนู "คำขอนัดพบ" ให้คุณตอบกลับนักศึกษา)\n\nยืนยันหรือไม่')) return;
+    if(target.cell.bookingId && (target.cell.status === 'booked' || target.cell.status === 'reserved')){
+      if(!confirm('ห้องนี้ผูกอยู่กับนัดหมายที่คุณยืนยันไปแล้ว\n\n' +
+                  'การเปลี่ยนสถานะด้วยตนเองที่นี่ จะเป็นการตัดห้องออกจากคำขอนัดหมายนั้น\n' +
+                  '(คำขอนัดหมายยังคงอยู่ในเมนู "คำขอนัดหมาย" เพื่อให้คุณตอบกลับนักศึกษา)\n\n' +
+                  'ยืนยันการเปลี่ยนแปลงหรือไม่')) return;
     }
     target.cell.status = newStatus;
-    if(newStatus === 'vacant'){ target.cell.bookingId = null; target.cell.userId = null; }
+    if(newStatus !== 'booked' && newStatus !== 'reserved'){
+      target.cell.bookingId = null; target.cell.userId = null;
+    }
   }
+
+  // v44: ประทับเวลาที่ตั้งค่าห้องนี้ ผังจะได้แยกห้องที่ตั้งค่าแล้วออกจากห้องเปล่า
+  target.cell.editedAt = Date.now();
 
   document.getElementById('roomModal').classList.remove('open');
   await savePlan(dorm, p, 'บันทึกห้องแล้ว');
@@ -1383,7 +1481,7 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   const { dorm, cellId } = planRoomCtx;
   const found = eachRoomCell(dorm.floorPlan).find(x=>x.cell.id === cellId);
   if(found && found.cell.status === 'booked' && found.cell.bookingId){
-    if(!confirm('ห้องนี้มีคนกดนัดพบไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
+    if(!confirm('ห้องนี้มีคนกดนัดหมายไว้อยู่ ยืนยันลบห้องนี้ออกจากผัง?')) return;
   }else if(!confirm('ลบห้องนี้ออกจากผัง?')) return;
 
   const p = normalizeFloorPlan(dorm.floorPlan);
@@ -1391,7 +1489,7 @@ document.getElementById('rmDelete')?.addEventListener('click', async ()=>{
   p.floors.forEach(f=> f.rows.forEach(r=>{ r.cells = r.cells.filter(c=>c.id !== cellId); }));
   document.getElementById('roomModal').classList.remove('open');
   await savePlan(dorm, p, 'ลบห้องแล้ว');
-  // ลบไฟล์รูปของห้องที่ถูกลบออกจากที่เก็บด้วย ไม่งั้นรูปจะค้างกินพื้นที่ไปเรื่อย ๆ
+  // ลบไฟล์รูปของห้องที่ถูกลบออกจากที่เก็บด้วย มิฉะนั้นรูปจะค้างกินพื้นที่ไปเรื่อย ๆ
   gonePhotos.forEach(u=> deleteDormPhoto(u));
 });
 
@@ -1499,7 +1597,7 @@ async function renderListings(){
   document.getElementById('listingTable').innerHTML = dorms.map(d=>{
     // ผู้ดูแลระบบ "ดู" และ "ลบ" หอของคนอื่นได้ แต่แก้ไขข้อมูลไม่ได้
     // (ฝั่งฐานข้อมูลก็ปิดไว้อีกชั้นในไฟล์ fix-v15.sql — ปุ่มนี้แค่ไม่หลอกให้กด)
-    // v34: บัญชีผู้ดูแลระบบแก้ข้อมูลหอไม่ได้เลย แม้แต่หอที่ผูกกับบัญชีตัวเอง
+    // v34: บัญชีผู้ดูแลระบบแก้ข้อมูลหอไม่ได้ทันที แม้แต่หอที่ผูกกับบัญชีตัวเอง
     const isMine = d.ownerId === ME.uid;
     const canEdit = isMine && !isAdminAccount();
     return `
@@ -1613,7 +1711,8 @@ function openViewDorm(d){
     <h4 style="margin:14px 0 6px">ห้องพักและราคา</h4>
     ${hasRoomTypes(d)
       ? `<ul style="margin:0;padding-left:18px;font-size:.9rem">${roomTypes(d).map(r=>
-          `<li>${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน · ว่าง ${r.vacant}/${r.total}</li>`).join('')}</ul>`
+          `<li>${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน · ว่าง ${r.vacant}/${r.total}${
+            capacityLabel(r) ? ` · เข้าพักได้ ${capacityLabel(r)}` : ''}</li>`).join('')}</ul>`
       : (hasPrice(d)
           ? `<p style="font-size:.9rem">ราคาเริ่มต้น ${fmtBaht(minPrice(d))} บาท/เดือน${hasFloorPlan(d)?' · จำนวนห้องดูได้จากผังห้อง':''}</p>`
           : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>')}
@@ -1715,6 +1814,12 @@ function openEdit(dorm){
   // ให้ยกราคานั้นมาใส่ช่องห้องพัดลมให้ จะได้ไม่ต้องกรอกใหม่และราคาไม่หาย
   document.getElementById('fPriceFan').value = dorm ? (fanPriceValue(dorm) || '') : '';
   document.getElementById('fPriceAir').value = dorm ? (airPriceValue(dorm) || '') : '';
+  // จำนวนผู้เข้าพักต่อห้อง (v43)
+  [['fan','Fan'], ['air','Air']].forEach(([code, C])=>{
+    const cap = dorm ? (dormCapacity(dorm, code) || {}) : {};
+    document.getElementById('fCapMin'+C).value = cap.min || '';
+    document.getElementById('fCapMax'+C).value = cap.max || '';
+  });
   // ของในห้องแต่ละประเภท (v41) — ฟอร์มเพิ่มหอใหม่ก็ติ๊กได้เลย
   const taBox = document.getElementById('fTypeAmen');
   if(taBox){
@@ -1757,9 +1862,9 @@ function openEditPanel(){
   if(!panel) return;
   gotoOverviewTab();
   panel.style.display = 'block';
-  // เลื่อนหน้าจอมาที่แผงให้เลย ไม่งั้นกดแก้ไขแล้วดูเหมือนไม่มีอะไรเกิดขึ้น
+  // เลื่อนหน้าจอมาที่แผงให้เลย มิฉะนั้นกดแก้ไขแล้วดูเหมือนไม่มีอะไรเกิดขึ้น
   setTimeout(()=> panel.scrollIntoView({ behavior:'smooth', block:'start' }), 20);
-  // แผนที่ต้องสร้าง "หลัง" แผงแสดงแล้ว ไม่งั้น Leaflet วัดขนาดกล่องได้ 0 แล้วแผนที่จะเพี้ยน
+  // แผนที่ต้องสร้าง "หลัง" แผงแสดงแล้ว มิฉะนั้น Leaflet วัดขนาดกล่องได้ 0 แล้วแผนที่จะเพี้ยน
   setTimeout(openLocMap, 80);
 }
 function closeEditPanel(){
@@ -1894,7 +1999,7 @@ function stopOwnerGps(){
 }
 
 function ownerGpsPick(onOk, onMsg){
-  if(!navigator.geolocation){ onMsg('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง — แตะบนแผนที่เองได้เลย','warn'); return; }
+  if(!navigator.geolocation){ onMsg('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง — กรุณาแตะเลือกตำแหน่งบนแผนที่ด้วยตนเอง','warn'); return; }
   if(window.isSecureContext === false){
     onMsg('⚠️ เบราว์เซอร์ยอมให้หาตำแหน่งเฉพาะเว็บที่เป็น https เท่านั้น — แตะบนแผนที่แทนได้','warn'); return;
   }
@@ -1944,7 +2049,7 @@ function ownerGpsPick(onOk, onMsg){
       if(err && err.code === 1) m = 'คุณยังไม่ได้อนุญาตให้เว็บนี้เข้าถึงตำแหน่ง — กดไอคอนรูปกุญแจ/หมุดข้างช่อง URL แล้วเปิดสิทธิ์ "ตำแหน่ง" ให้เว็บนี้ก่อน';
       else if(err && err.code === 2) m = 'เครื่องหาตำแหน่งไม่เจอ (อาจอยู่ในอาคารหรือปิด GPS อยู่)';
       else if(err && err.code === 3) m = 'หาตำแหน่งนานเกินไป';
-      onMsg(`⚠️ ${m} — ระหว่างนี้แตะบนแผนที่ตรงหอเองได้เลย ได้ผลเหมือนกัน`,'warn');
+      onMsg(`⚠️ ${m} — ระหว่างนี้แตะบนแผนที่ตรงหอเองได้ทันที ได้ผลเหมือนกัน`,'warn');
     },
     { enableHighAccuracy:true, timeout:GPS_WATCH_MS, maximumAge:0 }
   );
@@ -1965,7 +2070,7 @@ function openLocMap(){
       fb.textContent = 'โหลดแผนที่ไม่สำเร็จ — ใช้วิธีวางลิงก์ Google Maps หรือกรอกพิกัดเองด้านล่างได้';
     }
     // สำคัญ: ต้องกางช่องกรอกสำรองให้เห็นด้วย
-    // ไม่งั้นแผนที่ก็ไม่ขึ้น ช่องกรอกก็ยังพับอยู่ = เจ้าของหอปักหมุดไม่ได้เลย
+    // มิฉะนั้นแผนที่ก็ไม่ขึ้น ช่องกรอกก็ยังพับอยู่ = เจ้าของหอปักหมุดไม่ได้เลย
     // ต้องระบุ #editPanel ด้วย เพราะตอนนี้การ์ด "ช่องทางติดต่อ" ก็มี .loc-adv ของตัวเอง
     document.querySelector('#editPanel .loc-adv')?.setAttribute('open', '');
     renderLocDeviceHint();
@@ -2015,7 +2120,7 @@ function openLocMap(){
     }catch(e){}
   }, 40);
 
-  // ล้างผลค้นหาของหอก่อนหน้า ไม่งั้นเปิดหออื่นมาแล้วยังเห็นผลเก่าค้างอยู่
+  // ล้างผลค้นหาของหอก่อนหน้า มิฉะนั้นเปิดหออื่นมาแล้วยังเห็นผลเก่าค้างอยู่
   const res = document.getElementById('locResults');
   if(res){ res.style.display = 'none'; res.innerHTML = ''; }
   const sq = document.getElementById('locSearch');
@@ -2202,7 +2307,7 @@ async function runLocSearch(){
       return `<button type="button" class="lr-item" data-lr="${i}">
         <span class="lr-name">${escapeHtml(p.short || p.name)}</span>
         <span class="lr-sub">${escapeHtml(p.name)}</span>
-        <span class="lr-dist">ห่างมอ ${escapeHtml(distanceLabel(km))}</span>
+        <span class="lr-dist">ห่างมหาวิทยาลัย ${escapeHtml(distanceLabel(km))}</span>
       </button>`;
     }).join('');
     box.querySelectorAll('[data-lr]').forEach(b=>{
@@ -2248,7 +2353,7 @@ document.getElementById('btnClearLoc')?.addEventListener('click', clearLocation)
 // เก็บอันที่แม่นที่สุดไว้ พร้อมบอกค่าความแม่นยำ (± กี่เมตร) ให้เจ้าของหอเห็นตรง ๆ
 // และวาดวงกลมความแม่นยำบนแผนที่ ถ้ามันหยาบก็ให้ลากหมุดแก้เองได้
 // ---------------------------------------------------------------------------
-const GPS_GOOD_M = 30;    // แม่นระดับนี้ = พอใช้ได้เลย หยุดรอได้
+const GPS_GOOD_M = 30;    // แม่นระดับนี้ = พอใช้ได้ทันที หยุดรอได้
 const GPS_OK_M   = 100;   // ยังพอไหว แต่ควรลากหมุดตรวจอีกที
 const GPS_WATCH_MS = 12000;   // รอไม่เกินเท่านี้ แล้วเอาค่าที่ดีที่สุดเท่าที่ได้
 let gpsWatchId = null, gpsBest = null, gpsTimer = null;
@@ -2298,7 +2403,7 @@ function finishGps(){
   }else if(acc && acc > GPS_GOOD_M){
     showLocationState(`✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว (ความแม่นยำ ${accTxt}) —
       ${locationSummary({lat,lng})}<br>
-      ซูมแผนที่เข้าไปดูอีกนิด ถ้าหมุดยังไม่ตรงตัวอาคาร ลากปรับได้เลย`, 'ok');
+      กรุณาขยายแผนที่เพื่อตรวจสอบ หากหมุดยังไม่ตรงกับตัวอาคาร สามารถลากปรับได้`, 'ok');
   }else{
     showLocationState(`✓ ปักหมุดจากตำแหน่งปัจจุบันแล้ว ความแม่นยำดี (${accTxt}) —
       ${locationSummary({lat,lng})}`, 'ok');
@@ -2308,7 +2413,7 @@ function finishGps(){
 
 document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
   if(!navigator.geolocation){
-    showLocationState('เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง — ลากหมุดบนแผนที่เองได้เลย','warn');
+    showLocationState('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง — กรุณาลากหมุดบนแผนที่ด้วยตนเอง','warn');
     return;
   }
   // เบราว์เซอร์ยอมให้ขอตำแหน่งเฉพาะหน้าที่ปลอดภัย (https หรือ localhost)
@@ -2346,7 +2451,7 @@ document.getElementById('btnHereLoc')?.addEventListener('click', ()=>{
       if(err && err.code === 1) m = 'คุณยังไม่ได้อนุญาตให้เว็บนี้เข้าถึงตำแหน่ง — กดไอคอนรูปกุญแจ/หมุด ข้างช่อง URL แล้วเปิดสิทธิ์ "ตำแหน่ง" ให้เว็บนี้ก่อน';
       else if(err && err.code === 2) m = 'เครื่องหาตำแหน่งไม่เจอ (อาจอยู่ในอาคารหรือปิด GPS อยู่)';
       else if(err && err.code === 3) m = 'หาตำแหน่งนานเกินไป';
-      showLocationState(`⚠️ ${m} — ระหว่างนี้ลากหมุดบนแผนที่ไปวางตรงหอเองได้เลย ได้ผลเหมือนกัน`,'warn');
+      showLocationState(`⚠️ ${m} — ระหว่างนี้ลากหมุดบนแผนที่ไปวางตรงหอเองได้ทันที ได้ผลเหมือนกัน`,'warn');
     },
     { enableHighAccuracy:true, timeout:GPS_WATCH_MS, maximumAge:0 }
   );
@@ -2427,7 +2532,7 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   // ---- ราคาห้องพัดลม / ห้องแอร์ (v34) ----
   // เก็บเป็น 2 รายการใน rooms (code 'fan' / 'air') ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล
   const readEditPrice = (id, name)=>{
-    const raw = document.getElementById(id).value.trim();
+    const raw = plainNumber(document.getElementById(id).value);
     if(raw === '') return 0;
     const n = +raw;
     if(isNaN(n) || n < 0){ toast(`ราคา${name}ต้องเป็นตัวเลขที่ไม่ติดลบ`,'error'); return null; }
@@ -2436,9 +2541,14 @@ document.getElementById('saveEdit').addEventListener('click', async ()=>{
   const fanPrice = readEditPrice('fPriceFan', 'ห้องพัดลม');
   const airPrice = readEditPrice('fPriceAir', 'ห้องแอร์');
   if(fanPrice === null || airPrice === null) return;
+  // จำนวนผู้เข้าพักต่อห้อง (v43)
+  const caps = readCapInputs('fCap');
+  if(caps === null) return;
+  if(!(fanPrice > 0) && caps.fan){ toast('กรอกจำนวนผู้เข้าพักห้องพัดลมไว้ แต่ยังไม่ได้ใส่ราคา — กรุณาใส่ราคาห้องพัดลมด้วย','error'); return; }
+  if(!(airPrice > 0) && caps.air){ toast('กรอกจำนวนผู้เข้าพักห้องแอร์ไว้ แต่ยังไม่ได้ใส่ราคา — กรุณาใส่ราคาห้องแอร์ด้วย','error'); return; }
   const editing = editingId ? myDorms.find(x=>x.id===editingId) : null;
-  const rooms = buildPriceRooms(editing, fanPrice, airPrice);
-  // ติ๊ก "ยืนยันข้อมูล" ต้องมีราคาก่อน ไม่งั้นการ์ดจะขึ้น "สอบถามกับหอโดยตรง" ทั้งที่บอกว่ายืนยันแล้ว
+  const rooms = buildPriceRooms(editing, fanPrice, airPrice, caps);
+  // ติ๊ก "ยืนยันข้อมูล" ต้องมีราคาก่อน มิฉะนั้นการ์ดจะขึ้น "สอบถามกับหอโดยตรง" ทั้งที่บอกว่ายืนยันแล้ว
   if(rooms.length===0 && document.getElementById('fVerified').checked){
     toast('ถ้าจะยืนยันข้อมูล กรุณาใส่ราคาห้องพัดลมหรือห้องแอร์ก่อน','error'); return;
   }
@@ -2563,7 +2673,7 @@ async function renderOwnerThreads(){
 }
 
 // ---------------------------------------------------------------------------
-// คำขอนัดพบ (ฝั่งเจ้าของหอ)
+// คำขอนัดหมาย (ฝั่งเจ้าของหอ)
 // ---------------------------------------------------------------------------
 function fmtBookingDate(s){
   if(!s) return '';
@@ -2588,21 +2698,99 @@ function bookingItemHtml(b){
     <div class="bk-grid">
       ${row('เบอร์ติดต่อ', b.contactPhone)}
       ${row('อีเมล', b.userEmail)}
-      ${row('วันที่สะดวกดูห้อง', fmtBookingDate(b.visitDate))}
+      ${row('สะดวกเข้าชมห้อง', fmtVisitWhen(b.visitDate, b.visitTime))}
       ${row('ส่งคำขอเมื่อ', fmtChatTime(b.createdAt))}
     </div>
 
     ${b.note ? `<div class="bk-note">💬 ${escapeHtml(b.note)}</div>` : ''}
+    ${b.ownerNote ? `<div class="bk-ownernote">
+      <strong>เหตุผลที่คุณแจ้งนักศึกษา</strong>
+      <p>${escapeHtml(b.ownerNote)}</p>
+    </div>` : ''}
 
     <div class="bk-actions">
-      <button class="btn btn-sm btn-outline" data-bkchat="${b.dormId}|${b.userId}|${escapeHtml(b.userName||'')}">💬 ตอบในแชท</button>
+      <button class="btn btn-sm btn-outline" data-bkchat="${b.dormId}|${b.userId}|${escapeHtml(b.userName||'')}">💬 ตอบกลับข้อความ</button>
       ${b.status === 'pending' ? `
-        <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับนัด</button>
+        <button class="btn btn-sm btn-approve" data-bkok="${b.id}">✓ ยืนยันรับนัดหมาย</button>
         <button class="btn btn-sm btn-reject" data-bkno="${b.id}">✕ ปฏิเสธ</button>` : ''}
       <span class="bk-mailstate">${b.notifiedAt ? '✉️ ส่งอีเมลแจ้งแล้ว' : '✉️ ยังไม่ได้ส่งอีเมล'}</span>
     </div>
   </div>`;
 }
+
+// ---------------------------------------------------------------------------
+// หน้าต่างปฏิเสธคำขอนัดหมาย (v44)
+//
+// บังคับให้เจ้าของหอพิมพ์เหตุผลก่อนปฏิเสธ พร้อมปุ่มเหตุผลสำเร็จรูปให้กดเลือก
+// เพราะเหตุผลที่พบบ่อยมีไม่กี่แบบ การให้กดเลือกเร็วกว่าพิมพ์เอง
+// แต่ยังแก้ข้อความต่อได้ ไม่ได้ล็อกไว้แค่ตัวเลือกสำเร็จรูป
+// ---------------------------------------------------------------------------
+const REJECT_PRESETS = [
+  'ห้องนี้มีผู้เช่าแล้ว',
+  'ห้องนี้ปิดปรับปรุงอยู่',
+  'วันและเวลาที่นัดหมายไม่สะดวก',
+  'หอพักเต็มแล้วในช่วงนี้',
+  'ติดต่อกลับไม่ได้'
+];
+let rejectCtx = null;
+
+function openRejectModal(booking){
+  if(!booking) return;
+  rejectCtx = booking;
+  document.getElementById('rejectWho').textContent =
+    `${booking.userName || 'นักศึกษา'} · ${booking.roomLabel || 'ยังไม่ระบุห้อง'}`;
+  document.getElementById('rejectNote').value = '';
+  const err = document.getElementById('rejectErr');
+  err.textContent = ''; err.style.display = 'none';
+
+  const quick = document.getElementById('rejectQuick');
+  quick.innerHTML = REJECT_PRESETS.map(t=>
+    `<button type="button" class="ra-q" data-rjq="${escapeAttr(t)}">+ ${escapeHtml(t)}</button>`).join('');
+  quick.querySelectorAll('[data-rjq]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      // กดปุ่มแล้วเติมข้อความลงในช่อง เจ้าของหอพิมพ์ต่อได้เลย
+      document.getElementById('rejectNote').value = btn.dataset.rjq;
+      document.getElementById('rejectNote').focus();
+    });
+  });
+
+  document.getElementById('rejectModal').classList.add('open');
+  setTimeout(()=> document.getElementById('rejectNote').focus(), 150);
+}
+
+function closeRejectModal(){
+  document.getElementById('rejectModal')?.classList.remove('open');
+  rejectCtx = null;
+}
+document.getElementById('closeRejectModal')?.addEventListener('click', closeRejectModal);
+document.getElementById('rejectCancel')?.addEventListener('click', closeRejectModal);
+document.getElementById('rejectModal')?.addEventListener('click', (e)=>{
+  if(e.target.id === 'rejectModal') closeRejectModal();
+});
+
+document.getElementById('rejectConfirm')?.addEventListener('click', async ()=>{
+  if(!rejectCtx) return;
+  const note = document.getElementById('rejectNote').value.trim();
+  const err  = document.getElementById('rejectErr');
+  if(note.length < 5){
+    err.textContent = 'กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร เพื่อให้นักศึกษาเข้าใจสาเหตุ';
+    err.style.display = 'block';
+    document.getElementById('rejectNote').focus();
+    return;
+  }
+  const btn = document.getElementById('rejectConfirm');
+  btn.disabled = true;
+  try{
+    await updateBookingStatus(rejectCtx.id, 'cancelled', note);
+    closeRejectModal();
+    toast('ปฏิเสธคำขอนัดหมายแล้ว พร้อมแจ้งเหตุผลให้นักศึกษาทราบ','success');
+    renderBookings(); renderStats(); renderListings();
+  }catch(e){
+    console.error(e);
+    err.textContent = 'ทำรายการไม่สำเร็จ: ' + (e.message || '');
+    err.style.display = 'block';
+  }finally{ btn.disabled = false; }
+});
 
 async function renderBookings(){
   const box = document.getElementById('bookingList');
@@ -2615,30 +2803,24 @@ async function renderBookings(){
 
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:34px 10px"><div class="emoji">📌</div>
-        <p>ยังไม่มีคำขอนัดพบ<br><small class="muted">เมื่อนักศึกษากดปุ่ม "นัดพบห้องนี้" ในหน้าหอของคุณ คำขอจะมาแสดงที่นี่ทันที</small></p></div>`;
+        <p>ยังไม่มีคำขอนัดหมาย<br><small class="muted">เมื่อนักศึกษากดปุ่ม "นัดหมายห้องนี้" ในหน้าหอของคุณ คำขอจะมาแสดงที่นี่ทันที</small></p></div>`;
       return;
     }
     box.innerHTML = list.map(bookingItemHtml).join('');
 
     box.querySelectorAll('[data-bkok]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
-        if(!confirm('ยืนยันรับนัดห้องนี้?\n\nระบบจะตัดจำนวนห้องว่างลง 1 ห้องอัตโนมัติ')) return;
+        if(!confirm('ยืนยันรับนัดหมายห้องนี้?\n\nระบบจะตัดจำนวนห้องว่างลง 1 ห้องอัตโนมัติ')) return;
         try{
           await updateBookingStatus(btn.dataset.bkok, 'confirmed');
-          toast('ยืนยันรับนัดแล้ว','success');
+          toast('ยืนยันรับนัดหมายแล้ว','success');
           renderBookings(); renderStats(); renderListings();
         }catch(err){ console.error(err); toast('ยืนยันไม่สำเร็จ: '+(err.message||''),'error'); }
       });
     });
     box.querySelectorAll('[data-bkno]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('ปฏิเสธคำขอนัดพบนี้?')) return;
-        try{
-          await updateBookingStatus(btn.dataset.bkno, 'cancelled');
-          toast('ปฏิเสธคำขอนัดพบแล้ว','success');
-          renderBookings();
-        }catch(err){ console.error(err); toast('ทำรายการไม่สำเร็จ: '+(err.message||''),'error'); }
-      });
+      const b = list.find(x=> x.id === btn.dataset.bkno);
+      btn.addEventListener('click', ()=> openRejectModal(b));
     });
     box.querySelectorAll('[data-bkchat]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -2648,7 +2830,7 @@ async function renderBookings(){
     });
   }catch(err){
     console.error(err);
-    box.innerHTML = `<div class="chat-empty">โหลดคำขอนัดพบไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
+    box.innerHTML = `<div class="chat-empty">โหลดคำขอนัดหมายไม่สำเร็จ: ${escapeHtml(err.message||'')}</div>`;
   }
 }
 
@@ -2656,16 +2838,16 @@ async function renderBookings(){
 // หอพักที่ผู้ดูแลระบบสั่งซ่อนไว้ (ตอนนี้หอใหม่เผยแพร่ทันที ไม่ต้องรออนุมัติแล้ว)
 // ---------------------------------------------------------------------------
 // ===========================================================================
-// รายงานการนัดพบปะ
+// รายงานการนัดหมาย
 //
-// แสดงเฉพาะรายการที่เจ้าของหอ "กดยืนยันรับนัดแล้ว" (status = confirmed)
+// แสดงเฉพาะรายการที่เจ้าของหอ "กดยืนยันรับนัดหมายแล้ว" (status = confirmed)
 // คำขอที่ยังรอ หรือที่ยกเลิกไป จะไม่นับเป็นนัดหมายจริง จึงไม่เอามาลงรายงาน
 //
 // คอลัมน์:
 //   วันที่  = วันที่นักศึกษาเลือกไว้ว่าจะมาดูห้อง (ถ้าไม่ได้เลือก ใช้วันที่ส่งคำขอ)
 //   ห้อง   = เลขห้องจากผัง ถ้าไม่มีก็ใช้ชื่อประเภทห้อง
-//   ผู้นัด  = ชื่อนักศึกษา
-//   เวลา   = เวลาที่นักศึกษากดส่งคำขอ (ฟอร์มนัดยังไม่มีช่องให้เลือกเวลานัด)
+//   ผู้นัดหมาย  = ชื่อนักศึกษา
+//   เวลา   = เวลาที่นักศึกษาระบุว่าสะดวกเข้าชมห้อง (v44) ถ้าไม่ได้ระบุ ใช้เวลาที่ส่งคำขอแทน
 // ===========================================================================
 let reportRows = [];
 
@@ -2673,7 +2855,7 @@ let reportRows = [];
 function reportDateKey(b){
   if(b.visitDate) return String(b.visitDate).slice(0, 10);
   const d = new Date(b.createdAt);
-  // ใช้เวลาท้องถิ่น ไม่ใช่ UTC ไม่งั้นนัดช่วงดึกจะเพี้ยนไปอีกวัน
+  // ใช้เวลาท้องถิ่น ไม่ใช่ UTC มิฉะนั้นนัดหมายช่วงดึกจะเพี้ยนไปอีกวัน
   const pad = (n)=> String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
@@ -2684,7 +2866,11 @@ function reportDateText(b){
       { day:'numeric', month:'short', year:'numeric' });
   }catch(e){ return key; }
 }
+// v44: ถ้านักศึกษาระบุเวลานัดหมายมา ให้ใช้เวลานั้น (ตรงกับความหมายของคอลัมน์มากกว่า)
+// หากไม่ได้ระบุ จึงใช้เวลาที่ส่งคำขอเป็นค่าสำรองเหมือนเดิม
 function reportTimeText(b){
+  const t = String(b.visitTime || '').trim().slice(0,5);
+  if(/^\d{1,2}:\d{2}$/.test(t)) return t + ' น.';
   try{
     return new Date(b.createdAt).toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }) + ' น.';
   }catch(e){ return '-'; }
@@ -2735,8 +2921,8 @@ function applyReportFilter(){
   if(!rows.length){
     body.innerHTML = `<tr><td colspan="4" class="rp-empty">${
       reportRows.length === 0
-        ? 'ยังไม่มีนัดที่ยืนยันแล้ว — เมื่อคุณกด "ยืนยันรับนัด" ในหน้าคำขอนัดพบ รายการจะมาแสดงที่นี่'
-        : (from || to) ? 'ไม่มีนัดในช่วงวันที่ที่เลือก — ลองขยายช่วงวันที่ดู' : 'ไม่มีรายการ'
+        ? 'ยังไม่มีนัดหมายที่ยืนยันแล้ว — เมื่อคุณกด "ยืนยันรับนัดหมาย" ในหน้าคำขอนัดหมาย รายการจะมาแสดงที่นี่'
+        : (from || to) ? 'ไม่มีนัดหมายในช่วงวันที่ที่เลือก — ลองขยายช่วงวันที่ดู' : 'ไม่มีรายการ'
     }</td></tr>`;
     return;
   }
@@ -2754,15 +2940,15 @@ function downloadReportCsv(){
   const rows = filteredReportRows();
   if(!rows.length){ toast('ไม่มีรายการให้บันทึก','error'); return; }
   const esc = (v)=> `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
-  const lines = [['วันที่','ห้อง','ผู้นัด','เบอร์ติดต่อ','เวลา'].map(esc).join(',')];
+  const lines = [['วันที่','ห้อง','ผู้นัดหมาย','เบอร์ติดต่อ','เวลา'].map(esc).join(',')];
   rows.forEach(b=> lines.push([
     reportDateText(b), reportRoomText(b), b.userName || '', b.contactPhone || '', reportTimeText(b)
   ].map(esc).join(',')));
-  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 ไม่งั้นภาษาไทยจะเป็นตัวต่างดาว
+  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 มิฉะนั้นภาษาไทยจะเป็นตัวต่างดาว
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `รายงานการนัดพบปะ-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `รายงานการนัดหมาย-${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
 }
@@ -2780,8 +2966,8 @@ document.getElementById('rpCsv')?.addEventListener('click', downloadReportCsv);
 // ===========================================================================
 // สรุปการเช่า — สมุดบันทึกผู้เช่าที่เจ้าของหอกรอกเองทั้งหมด
 //
-// ตั้งใจไม่ดึงข้อมูลจากใบนัดพบในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดพบผ่านเว็บ
-// (เดินมาที่หอเอง / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดพบอย่างเดียว
+// ตั้งใจไม่ดึงข้อมูลจากใบนัดหมายหมายในเว็บ เพราะผู้เช่าจริงหลายคนไม่ได้นัดหมายผ่านเว็บ
+// (เดินมาที่หอเอง / โทรมา / รุ่นพี่แนะนำ) ถ้าดึงจากใบนัดหมายหมายอย่างเดียว
 // ตารางจะไม่ตรงกับความจริงของหอ
 //
 // วิธีใช้: กด "+ เพิ่มรายการเช่า" ได้แถวว่างมา แล้วพิมพ์ลงในช่องได้เลย
@@ -3029,7 +3215,7 @@ function downloadRentalCsv(){
     rentalDateText(r.rentDate), r.contractNo, r.roomNo, r.tenantName, r.tenantPhone,
     r.contractUrl ? 'แนบแล้ว' : 'ยังไม่แนบ'
   ].map(esc).join(',')));
-  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 ไม่งั้นภาษาไทยจะเป็นตัวต่างดาว
+  // ﻿ = BOM ให้ Excel รู้ว่าเป็น UTF-8 มิฉะนั้นภาษาไทยจะเป็นตัวต่างดาว
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3232,7 +3418,7 @@ async function renderOwners(){
     // บัญชีผู้ดูแลระบบ = ดูแลระบบอย่างเดียว (v34)
     //
     // เหลือเมนูแค่ 2 อัน: "หอพักทั้งหมดในระบบ" กับ "รายชื่อเจ้าของหอ"
-    // เมนูฝั่งเจ้าของหอ (หน้าหอพักของฉัน / คำขอนัดพบ / ข้อความ / รายงาน /
+    // เมนูฝั่งเจ้าของหอ (หน้าหอพักของฉัน / คำขอนัดหมาย / ข้อความ / รายงาน /
     // สรุปการเช่า / หอพักที่ถูกซ่อน) ถูกเอาออกทั้งหมด เพราะเป็นงานของเจ้าของหอ
     // ไม่ใช่ของผู้ดูแลระบบ — และผู้ดูแลระบบเพิ่มหอ/แก้ไขหอไม่ได้อยู่แล้ว
     //
@@ -3266,19 +3452,19 @@ async function renderOwners(){
       if(ov) ov.style.display = 'block';
       await renderListings();
       await renderOwners();
-      return;   // ไม่โหลดของฝั่งเจ้าของหอเลย (หน้าหอ/คำขอนัดพบ/แชท)
+      return;   // ไม่โหลดของฝั่งเจ้าของหอเลย (หน้าหอ/คำขอนัดหมาย/แชท)
     }
 
     await renderOwnerPage();
     await renderOwnerThreads(); refreshOwnerUnread();
     setInterval(refreshOwnerUnread, 30000);
 
-    // คำขอนัดพบ — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
+    // คำขอนัดหมาย — โหลดครั้งแรก + ติดตามแบบเรียลไทม์ (มีคำขอใหม่เด้งทันทีไม่ต้องรีเฟรช)
     await renderBookings(); refreshBookingBadge();
     let lastBookingCount = null;
     watchBookings(ME.uid, (list)=>{
       if(lastBookingCount !== null && list.length > lastBookingCount){
-        toast('🔔 มีคำขอนัดพบใหม่เข้ามา!','success');
+        toast('🔔 มีคำขอนัดหมายใหม่เข้ามา!','success');
       }
       lastBookingCount = list.length;
       renderBookings(); refreshBookingBadge();
