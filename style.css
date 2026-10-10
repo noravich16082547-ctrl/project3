@@ -87,7 +87,9 @@ button{ font-family: inherit; cursor:pointer; }
     radial-gradient(circle at 85% 20%, rgba(46,155,214,.20), transparent 45%),
     linear-gradient(180deg, var(--forest) 0%, var(--forest-2) 100%);
   color: var(--white);
-  padding: 56px 0 40px;
+  /* v48: ลดช่องว่างด้านบน ภาพประกอบจะได้ขยับขึ้นใกล้แถบเมนูมากขึ้น
+     ด้านล่างยังต้องเหลือที่ไว้ให้ช่องค้นหาที่ซ้อนขึ้นมาทับ (margin-top:-34px) */
+  padding: 28px 0 40px;
   position: relative;
   overflow: hidden;
 }
@@ -1097,14 +1099,40 @@ footer{ margin-bottom: 0; }
   display:flex; margin-top:7px; font-size:.78rem; color:var(--ink-soft); text-align:center;
 }
 .db-colx span{ flex:1 1 0; min-width:0; }
-/* ปีกำกับใต้ชื่อเดือน — ขึ้นเฉพาะช่องแรกและเดือนมกราคม */
-.db-colx small{ display:block; font-size:.86em; opacity:.72; }
 /* 12 เดือนในแถวเดียว ตัวหนังสือต้องเล็กลงไม่ให้ชนกัน */
 .db-colx.is-dense{ font-size:.72rem; }
 @media (max-width:900px){ .db-colx.is-dense{ font-size:.62rem; } }
 @media (max-width:560px){
   .db-colx.is-dense{ font-size:.55rem; }
   .db-colx.is-dense span{ letter-spacing:-.02em; }
+}
+
+/* ---- หัวการ์ดที่มีช่องเลือกปีอยู่ด้านขวา (v48) ---- */
+.db-card-head{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:14px; flex-wrap:wrap;
+}
+.db-card-head > div:first-child{ min-width:0; }
+.db-year{
+  display:inline-flex; align-items:center; gap:7px; flex-shrink:0;
+  font-size:.84rem; color:var(--ink-soft); font-weight:600;
+}
+.db-year select{
+  padding:6px 10px; border-radius:var(--radius-sm); border:1px solid var(--line);
+  background:var(--sage-bg); font-family:inherit; font-size:.86rem; color:var(--ink);
+}
+
+/* ---- ห้องว่างแยกตามประเภทห้อง (v48) ---- */
+.db-types{ list-style:none; margin:14px 0 0; padding:0; display:grid; gap:14px; }
+.db-type-head{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:10px; margin-bottom:6px; font-size:.88rem;
+}
+.db-type-name{ font-weight:600; }
+.db-type-num strong{ font-family:var(--font-display); font-size:1.05rem; color:var(--forest); }
+.db-type-foot{
+  display:flex; justify-content:space-between; gap:10px;
+  margin-top:5px; font-size:.78rem; color:var(--ink-soft);
 }
 
 /* ---- มาตรวัดความครบถ้วน ---- */

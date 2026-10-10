@@ -120,10 +120,8 @@ async function renderStats(){
 // สีแท่งกราฟรายเดือน — ฟ้าเข้มของเว็บ ผ่านเกณฑ์ความต่างจากพื้นขาว
 const DB_BAR = '#16709F';
 
-// จำนวนเดือนย้อนหลังที่แสดงในกราฟคำขอนัดหมาย
-// v47: ขยายเป็น 12 เดือน เพื่อให้เห็นรอบปีการศึกษาเต็มรอบ
-// (ช่วงเปิดเทอมคนหาหอเยอะ ช่วงปิดเทอมเงียบ — ดู 6 เดือนจะไม่เห็นรูปแบบนี้)
-const DB_MONTHS = 12;
+// ปีที่กำลังแสดงอยู่ในกราฟคำขอนัดหมายรายเดือน (ค.ศ.) — เปลี่ยนได้จากช่องเลือกปี
+let dbChartYear = new Date().getFullYear();
 
 const DB_BOOKING_STATUS = {
   pending:   { label:'รอดำเนินการ', color:'#E8A317' },
@@ -205,7 +203,7 @@ function dbColumnsHtml(points, opts){
     <div class="db-colrow${dense ? ' is-dense' : ''}">${cols}</div>
     <div class="db-colbase"></div>
     <div class="db-colx${dense ? ' is-dense' : ''}">${points.map(p=>
-      `<span>${escapeHtml(p.label)}${p.yearMark ? `<small>${escapeHtml(p.yearMark)}</small>` : ''}</span>`).join('')}</div>
+      `<span>${escapeHtml(p.label)}</span>`).join('')}</div>
   </div>`;
 }
 
@@ -233,22 +231,20 @@ function dbTableHtml(head, rows){
 }
 
 // ---------------------------------------------------------------------------
-// นับคำขอนัดหมายย้อนหลังรายเดือน
+// นับคำขอนัดหมายรายเดือนของปีหนึ่ง ๆ (มกราคม -> ธันวาคม)
+//
+// v48: เปลี่ยนจาก "ย้อนหลัง 12 เดือนนับจากเดือนนี้" มาเป็น "ทั้งปีปฏิทิน"
+// เพราะแบบเดิมคร่อม 2 ปี ต้องมีป้ายปีกำกับ และเทียบปีต่อปีไม่ได้
+// แบบนี้เรียง ม.ค. ถึง ธ.ค. เสมอ อ่านง่ายและเทียบข้ามปีได้ตรง ๆ
 // ---------------------------------------------------------------------------
-function dbMonthlyBookings(list, months){
-  const now = new Date();
+function dbMonthlyBookings(list, year){
   const out = [];
-  for(let i = months - 1; i >= 0; i--){
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  for(let m = 0; m < 12; m++){
+    const d = new Date(year, m, 1);
     out.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
+      key:   `${year}-${m}`,
       label: d.toLocaleDateString('th-TH', { month:'short' }),
       full:  d.toLocaleDateString('th-TH', { month:'long', year:'numeric' }),
-      // ช่วง 12 เดือนคร่อม 2 ปี จึงกำกับปีไว้ที่ช่องแรกและทุกเดือนมกราคม
-      // ไม่งั้นดูไม่ออกว่าแท่งไหนเป็นของปีไหน
-      yearMark: (i === months - 1 || d.getMonth() === 0)
-        ? d.toLocaleDateString('th-TH', { year:'2-digit' }).replace(/\D/g, '')
-        : '',
       value: 0
     });
   }
@@ -260,6 +256,19 @@ function dbMonthlyBookings(list, months){
   });
   return out;
 }
+
+// ปีทั้งหมดที่มีคำขอนัดหมาย (รวมปีปัจจุบันเสมอ) เรียงจากใหม่ไปเก่า
+function dbBookingYears(list){
+  const years = new Set([new Date().getFullYear()]);
+  (list || []).forEach(b=>{
+    const y = new Date(b.createdAt).getFullYear();
+    if(y > 2000 && y < 2200) years.add(y);
+  });
+  return [...years].sort((a, b)=> b - a);
+}
+
+// ปีพุทธศักราชสำหรับแสดงผล
+function dbThaiYear(y){ return y + 543; }
 
 // ---------------------------------------------------------------------------
 // ความครบถ้วนของข้อมูลหอพัก — เช็กทีละข้อว่ากรอกอะไรไปแล้วบ้าง
@@ -343,8 +352,31 @@ async function renderDashboard(){
     });
   });
 
+  // ห้องแยกตามประเภท (แอร์/พัดลม) — รวมทุกหอถ้าเป็นผู้ดูแลระบบ
+  const byType = {};
+  dorms.forEach(d=>{
+    eachRoomCell(normalizeFloorPlan(d.floorPlan)).forEach(({ cell })=>{
+      const code = cell.type || '_';
+      if(!byType[code]) byType[code] = { total:0, vacant:0, price:null };
+      byType[code].total++;
+      if(normalizeRoomStatus(cell.status) === 'vacant') byType[code].vacant++;
+      if(byType[code].price == null){
+        const t = roomTypes(d).find(r=> r.code === code);
+        if(t && t.price) byType[code].price = t.price;
+      }
+    });
+  });
+  // เรียงตามลำดับประเภทมาตรฐานก่อน แล้วค่อยประเภทอื่น ๆ
+  const typeRows = Object.keys(byType)
+    .sort((a, b)=> ROOM_TYPE_ORDER.indexOf(a) - ROOM_TYPE_ORDER.indexOf(b))
+    .map(code=> Object.assign({ code }, byType[code],
+      { label: ROOM_TYPE_META[code] ? ROOM_TYPE_META[code].label : 'ไม่ระบุประเภท',
+        icon:  ROOM_TYPE_META[code] ? ROOM_TYPE_META[code].icon  : '🚪' }));
+
   const occupied = st.booked + st.reserved;
-  const months   = dbMonthlyBookings(bookings, DB_MONTHS);
+  const years    = dbBookingYears(bookings);
+  if(!years.includes(dbChartYear)) dbChartYear = years[0];
+  const months   = dbMonthlyBookings(bookings, dbChartYear);
   const focus    = isAdmin ? null : (dorms.find(d=> d.id === activeOwnerDormId) || dorms[0]);
   const checks   = dbChecklist(focus);
   const checkOk  = checks.filter(c=> c.ok).length;
@@ -395,6 +427,30 @@ async function renderDashboard(){
           statusRows.map(r=> [r.label, dbNum(r.value), dbPct(r.value, st.total) + '%'])) : ''}
     </section>
 
+    <!-- v48: เติมช่องว่างในแถวบน — ข้อมูลที่เจ้าของหอใช้ตอบคำถามนักศึกษาบ่อยที่สุด
+         คือ "ห้องแบบไหนยังว่างอยู่บ้าง" -->
+    <section class="db-card">
+      <h3>ห้องว่างแยกตามประเภทห้อง</h3>
+      <p class="muted">ข้อมูลที่นักศึกษาถามบ่อยที่สุดเวลาติดต่อเข้ามา</p>
+      ${typeRows.length ? `
+        <ul class="db-types">${typeRows.map(t=>`
+          <li>
+            <div class="db-type-head">
+              <span class="db-type-name">${t.icon} ห้อง${escapeHtml(t.label)}</span>
+              <span class="db-type-num"><strong>${dbNum(t.vacant)}</strong> / ${dbNum(t.total)} ห้อง</span>
+            </div>
+            <div class="db-meter-track"><span style="width:${dbPct(t.vacant, t.total)}%"></span></div>
+            <div class="db-type-foot">
+              <span>ว่าง ${dbPct(t.vacant, t.total)}%</span>
+              ${t.price ? `<span>${dbNum(t.price)} บาท/เดือน</span>` : '<span class="muted">ยังไม่ได้ใส่ราคา</span>'}
+            </div>
+          </li>`).join('')}</ul>
+        ${dbTableHtml(['ประเภทห้อง','ว่าง (ห้อง)','ทั้งหมด (ห้อง)'],
+            typeRows.map(t=> ['ห้อง' + t.label, dbNum(t.vacant), dbNum(t.total)]))}`
+        : `<p class="muted" style="font-size:.88rem;margin:10px 0 0">
+             ยังไม่ได้ทำผังห้องพัก จึงยังไม่มีข้อมูลห้องแยกตามประเภท</p>`}
+    </section>
+
     <section class="db-card">
       <h3>ผลการตอบคำขอนัดหมาย</h3>
       <p class="muted">คำขอทั้งหมดที่เคยเข้ามา แบ่งตามผลลัพธ์</p>
@@ -406,8 +462,17 @@ async function renderDashboard(){
     <!-- v47: กราฟรายเดือนกินเต็มแถว เพราะ 12 แท่งต้องการความกว้าง
          ถ้าบีบอยู่ในคอลัมน์เดียวกับการ์ดอื่น ชื่อเดือนจะชนกันจนอ่านไม่ออก -->
     <section class="db-card db-span">
-      <h3>คำขอนัดหมายย้อนหลัง ${DB_MONTHS} เดือน</h3>
-      <p class="muted">นับจากวันที่นักศึกษากดส่งคำขอ — ครบรอบปี จึงเทียบช่วงเปิดเทอมกับปิดเทอมได้</p>
+      <div class="db-card-head">
+        <div>
+          <h3>คำขอนัดหมายรายเดือน พ.ศ. ${dbThaiYear(dbChartYear)}</h3>
+          <p class="muted">นับจากวันที่นักศึกษากดส่งคำขอ — เรียงตั้งแต่มกราคมถึงธันวาคม</p>
+        </div>
+        ${years.length > 1 ? `
+          <label class="db-year">ปี
+            <select id="dbYear">${years.map(y=>
+              `<option value="${y}" ${y === dbChartYear ? 'selected' : ''}>พ.ศ. ${dbThaiYear(y)}</option>`).join('')}</select>
+          </label>` : ''}
+      </div>
       ${dbColumnsHtml(months, { unit:'รายการ' })}
       ${dbTableHtml(['เดือน','จำนวนคำขอ'], months.map(m=> [m.full, dbNum(m.value)]))}
     </section>
@@ -436,6 +501,12 @@ async function renderDashboard(){
       </div>
     </section>
   </div>`;
+
+  // เปลี่ยนปีแล้ววาดกราฟใหม่
+  document.getElementById('dbYear')?.addEventListener('change', (e)=>{
+    dbChartYear = +e.target.value;
+    renderDashboard();
+  });
 
   // ปุ่ม "ไปจัดการ" — พาไปแท็บที่เกี่ยวข้องเลย ไม่ต้องไปหาเมนูเอง
   box.querySelectorAll('[data-dbgo]').forEach(btn=>{
@@ -1452,6 +1523,25 @@ function bindPlanEditor(box, d){
 // ก็ไม่ได้บอกว่าครบแค่ไหน นักศึกษาตีความไม่ตรงกัน
 const ROOM_AMEN_PRESETS = ['แอร์','พัดลม','เครื่องทำน้ำอุ่น','ตู้เย็น','ทีวี','ระเบียง',
                            'เตียง','ตู้เสื้อผ้า','โต๊ะเขียนหนังสือ','ห้องน้ำในตัว','อินเทอร์เน็ต'];
+
+// ---------------------------------------------------------------------------
+// v48: ชุดของในห้องของแต่ละประเภท ไม่ต้องมีตัวเลือกที่ซ้ำกับชื่อประเภทห้องเอง
+//
+// "ห้องแอร์" ย่อมมีแอร์อยู่แล้ว การมีปุ่ม "แอร์" ให้ติ๊กอีกจึงซ้ำซ้อน
+// และถ้าเจ้าของหอเผลอไม่ติ๊ก นักศึกษาจะเห็นห้องแอร์ที่ไม่มีแอร์ในรายการของในห้อง
+// (ห้องพัดลมก็เช่นกัน)
+//
+// ตัวเลือกของอีกฝั่งยังอยู่ เพราะห้องแอร์บางห้องมีพัดลมเพิ่มให้ด้วยจริง ๆ
+// ---------------------------------------------------------------------------
+function amenPresetsFor(code){
+  const own = (ROOM_TYPE_META[code] && ROOM_TYPE_META[code].label) || '';
+  return ROOM_AMEN_PRESETS.filter(a => a !== own);
+}
+// ตัดของที่ซ้ำกับชื่อประเภทห้องออกจากรายการที่บันทึกไว้ (ข้อมูลเก่าที่เคยติ๊กไว้)
+function stripOwnTypeAmen(code, list){
+  const own = (ROOM_TYPE_META[code] && ROOM_TYPE_META[code].label) || '';
+  return (list || []).filter(a => String(a).trim() !== own);
+}
 // ---------------------------------------------------------------------------
 // ตัวเลือก "ของในห้องแต่ละประเภท" (แอร์/พัดลม) — ใช้ทั้งในฟอร์มข้อมูลพื้นฐานของหอ
 // และฟอร์ม "เพิ่มหอพักใหม่" (v41) ทำงานในกล่อง root ของตัวเองเท่านั้น จะได้ไม่ชนกัน
@@ -1471,11 +1561,13 @@ function typeAmenEditorHtml(){
 function mountTypeAmenEditor(root, initialFor){
   const state = {};
   if(!root) return { values: ()=> ({}) };
-  ROOM_TYPE_ORDER.forEach(code=>{ state[code] = cleanAmenList(initialFor ? initialFor(code) : []); });
+  ROOM_TYPE_ORDER.forEach(code=>{
+    state[code] = stripOwnTypeAmen(code, cleanAmenList(initialFor ? initialFor(code) : []));
+  });
   const render = (code)=>{
     const quick = root.querySelector(`[data-taquick="${code}"]`);
     if(quick){
-      quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
+      quick.innerHTML = amenPresetsFor(code).map(a=>{
         const on = state[code].some(x=>x.toLowerCase() === a.toLowerCase());
         return `<button type="button" class="ra-q ${on?'on':''}" data-taq="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
       }).join('');
@@ -1491,7 +1583,7 @@ function mountTypeAmenEditor(root, initialFor){
     // ป้ายของที่พิมพ์เอง (ของที่มีปุ่มลัดอยู่แล้วไม่ต้องโชว์ซ้ำ)
     const chips = root.querySelector(`[data-tachips="${code}"]`);
     if(chips){
-      const extra = state[code].filter(x=>!ROOM_AMEN_PRESETS.some(a=>a.toLowerCase() === x.toLowerCase()));
+      const extra = state[code].filter(x=>!amenPresetsFor(code).some(a=>a.toLowerCase() === x.toLowerCase()));
       chips.innerHTML = extra.map(a=>`
         <span class="ef-chip">${escapeHtml(a)}
           <button type="button" data-tarm="${escapeHtml(a)}" title="ลบ">✕</button>
@@ -1509,6 +1601,10 @@ function mountTypeAmenEditor(root, initialFor){
     if(!input) return;
     const v = (input.value||'').trim().slice(0,30);
     if(!v) return;
+    const own = (ROOM_TYPE_META[code] && ROOM_TYPE_META[code].label) || '';
+    if(v === own){
+      toast(`ห้อง${own}มี${own}อยู่แล้ว ไม่ต้องเพิ่มซ้ำ`,'error'); input.value=''; return;
+    }
     if(state[code].some(x=>x.toLowerCase() === v.toLowerCase())){ toast('เพิ่มรายการนี้ไปแล้ว','error'); input.value=''; return; }
     if(state[code].length >= 20){ toast('เพิ่มได้สูงสุด 20 รายการต่อประเภทห้อง','error'); return; }
     state[code].push(v); input.value=''; render(code);
@@ -1559,8 +1655,11 @@ document.getElementById('rmType')?.addEventListener('change', (e)=>{
   const prevDef = typeAmenFor(dorm, editRoomPrevType);
   if(!editRoomAmen.length || sameAmenList(editRoomAmen, prevDef)){
     editRoomAmen = typeAmenFor(dorm, newType);
-    renderRoomAmen();
   }
+  // v48: ของที่ซ้ำกับชื่อประเภทห้องใหม่ต้องหลุดออก และต้องวาดปุ่มใหม่เสมอ
+  // เพราะรายการปุ่มลัดเปลี่ยนไปตามประเภทห้องที่เลือก
+  editRoomAmen = stripOwnTypeAmen(newType, editRoomAmen);
+  renderRoomAmen();
   editRoomPrevType = newType;
   updateRoomAmenHint();
 });
@@ -1646,7 +1745,10 @@ function renderRoomAmen(){
   // ปุ่มเลือกเร็ว
   const quick = document.getElementById('rmAmenQuick');
   if(quick){
-    quick.innerHTML = ROOM_AMEN_PRESETS.map(a=>{
+    // v48: ห้องที่เลือกประเภทไว้แล้ว ไม่ต้องมีปุ่มที่ซ้ำกับชื่อประเภทห้องนั้น
+    const sel = document.getElementById('rmType');
+    const presets = (sel && sel.value) ? amenPresetsFor(sel.value) : ROOM_AMEN_PRESETS;
+    quick.innerHTML = presets.map(a=>{
       const on = editRoomAmen.some(x=>x.toLowerCase() === a.toLowerCase());
       return `<button type="button" class="ra-q ${on?'on':''}" data-amen="${escapeHtml(a)}">${on?'✓ ':'+ '}${escapeHtml(a)}</button>`;
     }).join('');
@@ -1752,8 +1854,9 @@ const ROOM_STATUS_HINT = {
     '"มีผู้นัดหมายแล้ว" ก็ต่อเมื่อคุณกด "ยืนยันรับนัดหมาย" ในเมนูคำขอนัดหมาย',
   reserved:
     'มีนักศึกษานัดหมายเข้ามาดูห้องนี้แล้ว แต่ยังไม่ได้ทำสัญญาเช่า<br>' +
-    'นักศึกษาคนอื่นจะเห็นเป็นสีเหลืองและกดนัดหมายห้องนี้ไม่ได้ — ' +
-    'หากนักศึกษาไม่มาตามนัดหมาย ให้เปลี่ยนกลับเป็น "ว่าง" เพื่อเปิดรับนัดหมายอีกครั้ง',
+    '<strong>นักศึกษาคนอื่นยังกดนัดหมายห้องนี้ซ้ำได้</strong> — เพราะการนัดหมายคือการนัดหมายเข้าชมห้อง ' +
+    'ไม่ใช่การจอง ผู้ที่นัดหมายไว้ก่อนอาจไม่มาหรือไม่เช่าก็ได้<br>' +
+    'เมื่อมีผู้เช่าเข้าอยู่จริงแล้ว ให้เปลี่ยนเป็น "ไม่ว่าง" เพื่อปิดรับนัดหมาย',
   booked:
     'ห้องนี้มีผู้เช่าอยู่แล้ว นักศึกษาจะเห็นเป็นสีแดงและกดนัดหมายไม่ได้',
   closed:

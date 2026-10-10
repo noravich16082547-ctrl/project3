@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=47">
+<link rel="stylesheet" href="style.css?v=48">
 </head>
 <body>
 
@@ -428,8 +428,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=47"></script>
-<script src="app.js?v=47"></script>
+<script src="db.js?v=48"></script>
+<script src="app.js?v=48"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -821,7 +821,8 @@ function openDetail(id){
           return `หอพักนี้มี ${d.floorPlan.floors.length} ชั้น รวม ${s.total} ห้อง · ` +
                  `<strong>ว่าง ${s.vacant} ห้อง</strong>` +
                  (parts.length ? ` · ${parts.join(' · ')}` : ''); })()}
-        <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>สามารถกดนัดหมายได้ทันที
+        <br>กดที่ห้องเพื่อดูรายละเอียด — <strong>ห้องสีเขียว</strong>และ<strong>ห้องสีเหลือง</strong>กดนัดหมายได้
+        (สีเหลืองคือมีผู้นัดหมายไว้แล้ว แต่ยังนัดหมายซ้ำได้)
       </p>
       <div id="planBox">${floorPlanHtml(d.floorPlan, { bookable:true, myUserId: myProfile && myProfile.uid, pendingCells: myPendingCells })}</div>
     ` : `
@@ -1130,10 +1131,6 @@ function refreshPlanBox(dorm){
 // v44: บอกนักศึกษาว่าทำไมห้องนี้จึงนัดหมายไม่ได้ แยกตามสถานะจริงของห้อง
 function roomUnavailableText(status){
   switch(normalizeRoomStatus(status)){
-    case 'reserved':
-      return 'ห้องนี้มีผู้นัดหมายไว้แล้ว จึงยังไม่เปิดรับนัดหมายเพิ่ม — ' +
-             'หากการนัดหมายดังกล่าวไม่สำเร็จ ห้องจะกลับมาเป็นสีเขียวอีกครั้ง ' +
-             'ระหว่างนี้สามารถเลือกห้องอื่นที่เป็นสีเขียวได้';
     case 'closed':
       return 'ห้องนี้ปิดปรับปรุงอยู่ จึงยังไม่เปิดให้เช่าในขณะนี้ — ' +
              'กรุณาเลือกห้องอื่นที่เป็นสีเขียว หรือสอบถามกำหนดการเปิดกับเจ้าของหอพักโดยตรง';
@@ -1153,6 +1150,8 @@ function openRoomInfo(dorm, cellId){
   const price = (legacyType && legacyType.price) || cell.price || null;
   const mine = myProfile && cell.userId === myProfile.uid;
 
+  // v48: "มีผู้นัดหมายแล้ว" ยังกดนัดหมายซ้ำได้ จึงนับรวมเป็นห้องที่นัดหมายได้
+  const canBook  = isRoomBookable(cell.status);
   const isVacant = normalizeRoomStatus(cell.status) === 'vacant';
   // ห้องยังว่าง แต่เราขอนัดหมายไว้แล้วและเจ้าของหอยังไม่ยืนยัน (v35)
   const waiting = isVacant && myPendingCells.includes(cell.id);
@@ -1179,18 +1178,21 @@ function openRoomInfo(dorm, cellId){
 
     ${cell.note ? `<p class="muted" style="font-size:.84rem;margin-top:10px">📝 ${escapeHtml(cell.note)}</p>` : ''}
 
-    ${isVacant
+    ${canBook
       ? (waiting ? `<div class="ri-note">${escapeHtml(
           'คุณได้ส่งคำขอนัดหมายห้องนี้ไว้แล้ว อยู่ระหว่างรอเจ้าของหอพักยืนยัน — ' +
           'ห้องยังคงว่างอยู่จนกว่าเจ้าของหอพักจะกดยืนยัน ' +
-          'ตรวจสอบสถานะหรือยกเลิกได้ที่เมนู "การนัดหมายของฉัน"')}</div>` : '')
+          'ตรวจสอบสถานะหรือยกเลิกได้ที่เมนู "การนัดหมายของฉัน"')}</div>`
+        : (isVacant ? '' : `<div class="ri-note">${escapeHtml(
+            'ห้องนี้มีผู้นัดหมายเข้าชมไว้แล้ว แต่ยังนัดหมายซ้ำได้ — การนัดหมายคือการนัดหมายเข้าชมห้อง ' +
+            'ไม่ใช่การจอง ผู้ที่นัดหมายไว้ก่อนอาจไม่ได้เช่าห้องนี้')}</div>`))
       : `<div class="ri-note">${escapeHtml(
         mine ? 'เจ้าของหอพักยืนยันนัดหมายห้องนี้กับคุณแล้ว — ยกเลิกได้ที่เมนู "การนัดหมายของฉัน"'
              : roomUnavailableText(cell.status))}</div>`}
 
     <div class="ri-actions">
-      ${isVacant ? `<button class="btn btn-primary" id="riBook">📌 นัดหมาย</button>` : ''}
-      <button class="btn btn-outline ${isVacant?'':'btn-block'}" id="riChat">💬 สอบถามห้องนี้</button>
+      ${canBook ? `<button class="btn btn-primary" id="riBook">📌 นัดหมาย</button>` : ''}
+      <button class="btn btn-outline ${canBook?'':'btn-block'}" id="riChat">💬 สอบถามห้องนี้</button>
     </div>
   `;
   document.getElementById('roomInfoModal').classList.add('open');

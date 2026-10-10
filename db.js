@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -833,6 +833,17 @@ const ROOM_STATUS_META = {
   closed:   { label:'ปิดปรับปรุง',      short:'ปิดปรับปรุง', cls:'st-closed',   color:'#8C96A0' }
 };
 const ROOM_STATUS_ORDER = ['vacant','reserved','booked','closed'];
+
+// ---------------------------------------------------------------------------
+// v48: สถานะที่นักศึกษายังกดนัดหมายได้
+//
+// "มีผู้นัดหมายแล้ว" ยังนัดหมายซ้ำได้ เพราะการนัดหมายคือการนัดหมายเข้าชมห้อง ไม่ใช่การจอง
+// ผู้ที่นัดหมายไว้ก่อนอาจไม่มาหรือไม่เช่าก็ได้ ถ้าปิดรับนัดหมายตั้งแต่คนแรก
+// ห้องจะหายจากสายตานักศึกษาคนอื่นทั้งที่หอยังปล่อยห้องนั้นอยู่
+// ส่วน "ไม่ว่าง" (มีผู้เช่าแล้ว) และ "ปิดปรับปรุง" ยังกดไม่ได้เหมือนเดิม
+// ---------------------------------------------------------------------------
+const ROOM_BOOKABLE = ['vacant', 'reserved'];
+function isRoomBookable(status){ return ROOM_BOOKABLE.includes(normalizeRoomStatus(status)); }
 const MAX_ROOM_PHOTOS = 8;   // รูปต่อห้องสูงสุด
 
 // สถานะเก่าจากเวอร์ชันก่อน ๆ ที่ไม่ได้ใช้ชื่อเดียวกับตอนนี้
@@ -910,8 +921,13 @@ function normalizeTypeAmen(obj){
   const out = {};
   if(obj && typeof obj === 'object'){
     Object.keys(obj).slice(0,10).forEach(k=>{
-      const list = cleanAmenList(obj[k]);
-      if(list.length) out[String(k).slice(0,20)] = list;
+      const key = String(k).slice(0,20);
+      // v48: ตัดของที่ซ้ำกับชื่อประเภทห้องเองออก
+      // ("ห้องแอร์" มีแอร์อยู่แล้ว ไม่ต้องขึ้นเป็นของในห้องอีก)
+      // ทำตรงนี้ที่เดียว ข้อมูลเก่าที่เคยติ๊กไว้จึงหายไปเองทั้งฝั่งเจ้าของหอและฝั่งนักศึกษา
+      const own = (ROOM_TYPE_META[key] && ROOM_TYPE_META[key].label) || '';
+      const list = cleanAmenList(obj[k]).filter(a => a !== own);
+      if(list.length) out[key] = list;
     });
   }
   return out;
@@ -921,7 +937,10 @@ function typeAmenFor(planOrDorm, type){
   if(!type) return [];
   const plan = planOrDorm && planOrDorm.floorPlan ? planOrDorm.floorPlan : planOrDorm;
   const m = (plan && plan.typeAmen) || {};
-  return Array.isArray(m[type]) ? m[type].slice() : [];
+  if(!Array.isArray(m[type])) return [];
+  // v48: กันไว้อีกชั้นตรงจุดที่อ่านไปแสดงผล เผื่อผังที่ส่งเข้ามายังไม่ผ่าน normalizeFloorPlan()
+  const own = (ROOM_TYPE_META[type] && ROOM_TYPE_META[type].label) || '';
+  return m[type].filter(a => String(a).trim() !== own);
 }
 // ของในห้องที่ใช้จริงของห้องหนึ่ง — ของที่กรอกเองก่อน ไม่มีค่อยใช้ของประเภทห้อง
 function effectiveRoomAmen(planOrDorm, cell){
@@ -984,7 +1003,7 @@ function vacantRoomCells(plan){
   ((plan && plan.floors) || []).forEach(f=>{
     (f.rows||[]).forEach(r=>{
       (r.cells||[]).forEach(c=>{
-        if((c.k||'room') === 'room' && c.status === 'vacant') out.push({ ...c, floorName: f.name });
+        if((c.k||'room') === 'room' && isRoomBookable(c.status)) out.push({ ...c, floorName: f.name });
       });
     });
   });
@@ -1002,7 +1021,9 @@ function floorPlanLegendHtml(opts){
   const o = opts || {};
   const items = ROOM_STATUS_ORDER.map(s=>{
     const m = ROOM_STATUS_META[s];
-    return `<span class="fp-lg"><i class="fp-swatch ${m.cls}"></i>${m.label}</span>`;
+    // v48: บอกตรงนี้ด้วยว่าห้องสีเหลืองยังกดนัดหมายซ้ำได้
+    const note = (s === 'reserved') ? ' <small>(ยังนัดหมายซ้ำได้)</small>' : '';
+    return `<span class="fp-lg"><i class="fp-swatch ${m.cls}"></i>${m.label}${note}</span>`;
   });
   // v44: ในโหมดแก้ไข เพิ่มคำอธิบายช่องสีจางที่ยังไม่ได้ตั้งค่า
   if(o.edit) items.push('<span class="fp-lg"><i class="fp-swatch st-unset"></i>ยังไม่ได้ตั้งค่า</span>');
@@ -1022,9 +1043,9 @@ function planCellHtml(cell, opts){
   const mine = o.myUserId && cell.userId === o.myUserId;
   // ห้องที่ "เรา" ส่งคำขอนัดหมายไว้แต่เจ้าของหอยังไม่ยืนยัน — ห้องยังว่าง (เขียว) อยู่
   // แต่ตีกรอบไว้ให้เจ้าตัวรู้ว่าเคยกดไปแล้ว จะได้ไม่กดซ้ำโดยไม่รู้ตัว
-  const myPending = !mine && st === 'vacant' &&
+  const myPending = !mine && isRoomBookable(st) &&
                     Array.isArray(o.pendingCells) && o.pendingCells.includes(cell.id);
-  const canBook = o.bookable && st === 'vacant';
+  const canBook = o.bookable && isRoomBookable(st);
   const amen = (cell.amen && cell.amen.length) ? cell.amen.filter(Boolean)
              : ((o.typeAmen && o.typeAmen[cell.type]) || []);
   // v44: ห้องที่เจ้าของหอยังไม่เคยกดบันทึก = ห้องเปล่าที่เพิ่งกด "+ เพิ่มห้อง" มา
@@ -1037,6 +1058,7 @@ function planCellHtml(cell, opts){
   // ราคา/ของในห้องไม่ได้พิมพ์ลงบนช่องแล้ว แต่ยังอยู่ใน tooltip ตอนเอาเมาส์ชี้
   const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
               (cell.price ? ' · ' + fmtBaht(cell.price) + ' บาท/เดือน' : '') +
+              (st === 'reserved' ? ' · มีผู้นัดหมายไว้แล้ว แต่ยังนัดหมายซ้ำได้' : '') +
               (myPending ? ' · คุณส่งคำขอนัดหมายห้องนี้ไว้แล้ว รอเจ้าของหอพักยืนยัน' : '') +
               (unset ? ' · ยังไม่ได้ตั้งค่าห้องนี้ — กดเพื่อกรอกเลขห้องและสถานะ'
                      : (o.edit && cell.editedAt ? ' · ตั้งค่าล่าสุด ' + fmtSince(cell.editedAt) : '')) +
