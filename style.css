@@ -1730,7 +1730,10 @@ footer{ margin-bottom: 0; }
 }
 .ha-tag-1{ top:9%;  left:-7%; }
 .ha-tag-2{ top:40%; right:-8%; animation-delay:-1.6s; }
-.ha-tag-3{ bottom:-5%; left:12%; animation-delay:-3.2s; }
+/* v49: ยกป้ายนี้ขึ้นมาอยู่ในกรอบภาพ
+   ของเดิมห้อยลงใต้ภาพ (bottom:-5%) ไปชนขอบขาวของช่องค้นหาที่ซ้อนขึ้นมาพอดี
+   ย้ายมาวางทับถนนในภาพแทน เหมือนป้ายอีก 2 อันที่วางทับตัวภาพอยู่แล้ว */
+.ha-tag-3{ bottom:9%; left:15%; animation-delay:-3.2s; }   /* เลี่ยงรูปคนขับรถที่มุมซ้ายล่าง */
 
 .ha-star{ animation: haTwinkle 3.6s ease-in-out infinite; }
 .ha-win{ animation: haWin 6s ease-in-out infinite; }
