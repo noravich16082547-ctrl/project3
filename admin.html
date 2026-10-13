@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>หลังบ้าน — DormCRU</title>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=51">
 <!-- แผนที่ปักหมุด (Leaflet + OpenStreetMap) ไม่ต้องใช้ API key และไม่มีค่าใช้จ่าย -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -157,9 +157,7 @@
             <!-- v43: พิมพ์ราคาเองได้ทันที ไม่มีลูกศรขึ้น-ลง -->
             <input type="text" inputmode="numeric" id="fPriceFan" class="num-plain" placeholder="เช่น 2600">
             <div class="pt-cap">
-              <span class="pt-cap-lb">เข้าพักได้</span>
-              <input type="text" inputmode="numeric" id="fCapMinFan" class="num-plain cap-in" placeholder="1">
-              <span class="pt-cap-dash">–</span>
+              <span class="pt-cap-lb">เข้าพักได้สูงสุด</span>
               <input type="text" inputmode="numeric" id="fCapMaxFan" class="num-plain cap-in" placeholder="2">
               <span class="pt-cap-lb">คน</span>
             </div>
@@ -168,9 +166,7 @@
             <span>❄️ ห้องแอร์</span>
             <input type="text" inputmode="numeric" id="fPriceAir" class="num-plain" placeholder="เช่น 4000">
             <div class="pt-cap">
-              <span class="pt-cap-lb">เข้าพักได้</span>
-              <input type="text" inputmode="numeric" id="fCapMinAir" class="num-plain cap-in" placeholder="1">
-              <span class="pt-cap-dash">–</span>
+              <span class="pt-cap-lb">เข้าพักได้สูงสุด</span>
               <input type="text" inputmode="numeric" id="fCapMaxAir" class="num-plain cap-in" placeholder="2">
               <span class="pt-cap-lb">คน</span>
             </div>
@@ -179,8 +175,8 @@
         <div class="form-hint">
           กรอกเฉพาะแบบที่หอมี — มีทั้งสองแบบ หน้าหอฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา
           เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
-          ช่อง "เข้าพักได้" คือจำนวนคนที่อยู่ห้องแบบนั้นได้ เช่น <strong>1 – 2</strong> นักศึกษาจะเห็นว่า "เข้าพักได้ 1-2 คน"
-          — เว้นว่างได้ถ้ายังไม่อยากระบุ<br>
+          ช่อง "เข้าพักได้สูงสุด" คือจำนวนคนที่อยู่ห้องแบบนั้นได้มากที่สุด เช่น ใส่ <strong>2</strong>
+          นักศึกษาจะเห็นว่า "เข้าพักได้สูงสุด 2 คน" — เว้นว่างได้ถ้ายังไม่อยากระบุ<br>
           เว้นราคาว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง" แทน
         </div>
       </div>
@@ -498,9 +494,9 @@
 <div class="site-contact-bar" id="siteContactBar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=50"></script>
-<script src="app.js?v=50"></script>
-<script src="admin.js?v=50"></script>
+<script src="db.js?v=51"></script>
+<script src="app.js?v=51"></script>
+<script src="admin.js?v=51"></script>
 <script>
 try{ document.getElementById('siteContactBar').innerHTML = siteContactBarHtml(); }catch(e){ console.error(e); }
 </script>

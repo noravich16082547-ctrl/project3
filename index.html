@@ -6,7 +6,7 @@
 <title>DormCRU — หาหอพักใกล้ราชภัฏเชียงราย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=51">
 </head>
 <body>
 
@@ -21,7 +21,9 @@
 <section class="hero">
   <div class="container">
     <div>
-      <h1>หาหอพักใกล้ราชภัฏเชียงราย ในที่เดียว</h1>
+      <!-- แบ่งเป็นช่วงคำด้วย .nb เพื่อไม่ให้เบราว์เซอร์ตัดกลางคำไทย
+           (ถ้าปล่อยเป็นข้อความยาวก้อนเดียว จะได้ "...ใกล้ / เคียง..." ซึ่งอ่านสะดุด) -->
+      <h1><span class="nb">ระบบสืบค้นหอพัก</span><span class="nb">บริเวณใกล้เคียง</span><span class="nb">มหาวิทยาลัยราชภัฏเชียงราย</span></h1>
       <p class="lead">หอพักรอบมหาวิทยาลัยที่เจ้าของหอลงข้อมูลเอง ดูราคา ห้องว่าง รูปห้องจริง และเส้นทางจากมหาวิทยาลัย แล้วสนทนาหรือนัดหมายกับหอพักได้โดยตรง</p>
     </div>
     <!-- ภาพตกแต่งหัวเว็บ: วิวหอพักยามค่ำใต้ดอยเชียงราย (ตกแต่งอย่างเดียว ไม่มีตัวเลข) -->
@@ -428,8 +430,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="db.js?v=50"></script>
-<script src="app.js?v=50"></script>
+<script src="db.js?v=51"></script>
+<script src="app.js?v=51"></script>
 <script>
 console.log('DormCRU index build v4');
 
@@ -486,7 +488,7 @@ function dormCardHtml(d){
     <div class="card-body">
       <h3 data-open="${d.id}" style="cursor:pointer">${escapeHtml(d.name)}</h3>
       <div class="card-meta">${km != null
-        ? `<span class="walk-chip">🛵 ห่างมหาวิทยาลัย ${distanceLabel(km)} · ${travelLabel(km)}</span>`
+        ? `<span class="walk-chip">🛵 ห่างมหาวิทยาลัย ${distanceLabel(km)} · ${travelLabel(km, {short:true})}</span>`
         : `<span class="walk-chip">📍 บ้านดู่ · ใกล้ มร.ชร.</span>`}</div>
       <div class="card-meta">${cardRatingHtml(d.id)}${facilityIcons(d.facilities)}</div>
       ${d.updatedAt
@@ -663,7 +665,7 @@ function nearbyHtml(d){
       <span class="nb-ic">🎓</span>
       <span class="nb-name">มหาวิทยาลัยราชภัฏเชียงราย</span>
       <span class="nb-dist">
-        ${km != null ? `${distanceLabel(km)} · 🛵 ${travelLabel(km)} · ` : ''}
+        ${km != null ? `${distanceLabel(km)} · 🛵 ${travelLabel(km, {short:true})} · ` : ''}
         ${dir
           ? `<a href="${dir}" target="_blank" rel="noopener">ดูเส้นทาง</a>`
           : `<span class="muted">${NO_PIN_TEXT}</span>`}
@@ -690,7 +692,7 @@ function roomCapRowsHtml(d){
   if(!rows.length) return '';
   return `<ul class="pc-caps">${rows.map(r=>
     `<li><span>${ROOM_TYPE_META[r.code] ? ROOM_TYPE_META[r.code].icon + ' ' : ''}ห้อง${escapeHtml(r.label)}</span>
-         <strong>เข้าพักได้ ${escapeHtml(capacityLabel(r))}</strong></li>`).join('')}</ul>`;
+         <strong>เข้าพักได้สูงสุด ${escapeHtml(capacityLabel(r))}</strong></li>`).join('')}</ul>`;
 }
 
 function roomRowsHtml(d){
@@ -1167,7 +1169,7 @@ function openRoomInfo(dorm, cellId){
 
     ${price ? `<div class="ri-price">${fmtBaht(price)} <span>บาท/เดือน</span></div>` : ''}
     ${capacityLabel(legacyType)
-      ? `<p class="ri-cap">👥 ห้องแบบนี้เข้าพักได้ ${escapeHtml(capacityLabel(legacyType))}</p>` : ''}
+      ? `<p class="ri-cap">👥 ห้องแบบนี้เข้าพักได้สูงสุด ${escapeHtml(capacityLabel(legacyType))}</p>` : ''}
 
     ${(cell.photos && cell.photos.length) ? `
       <h4 class="ri-h">รูปภายในห้องนี้</h4>
@@ -1183,9 +1185,15 @@ function openRoomInfo(dorm, cellId){
           'คุณได้ส่งคำขอนัดหมายห้องนี้ไว้แล้ว อยู่ระหว่างรอเจ้าของหอพักยืนยัน — ' +
           'ห้องยังคงว่างอยู่จนกว่าเจ้าของหอพักจะกดยืนยัน ' +
           'ตรวจสอบสถานะหรือยกเลิกได้ที่เมนู "การนัดหมายของฉัน"')}</div>`
-        : (isVacant ? '' : `<div class="ri-note">${escapeHtml(
-            'ห้องนี้มีผู้นัดหมายเข้าชมไว้แล้ว แต่ยังนัดหมายซ้ำได้ — การนัดหมายคือการนัดหมายเข้าชมห้อง ' +
-            'ไม่ใช่การจอง ผู้ที่นัดหมายไว้ก่อนอาจไม่ได้เช่าห้องนี้')}</div>`))
+        : (isVacant ? '' : `<div class="ri-note is-alert">
+            <strong>⚠ ห้องนี้มีผู้นัดหมายเข้าชมไว้แล้ว${
+              cell.reservedAt ? ' เมื่อ ' + escapeHtml(fmtSince(cell.reservedAt)) : ''} — แต่คุณยังนัดหมายซ้ำได้</strong>
+            <span>${escapeHtml(
+              'การนัดหมายคือการนัดหมายเข้าชมห้อง ไม่ใช่การจอง ' +
+              'ผู้ที่นัดหมายไว้ก่อนอาจไม่มาตามที่นัดหมายไว้ หรือมาดูแล้วไม่ได้เช่าห้องนี้')}</span>
+            ${cell.reservedAt ? `<span class="ri-when">🕒 นัดหมายไว้เมื่อ ${
+              escapeHtml(fmtUpdatedTitle(cell.reservedAt))}</span>` : ''}
+          </div>`))
       : `<div class="ri-note">${escapeHtml(
         mine ? 'เจ้าของหอพักยืนยันนัดหมายห้องนี้กับคุณแล้ว — ยกเลิกได้ที่เมนู "การนัดหมายของฉัน"'
              : roomUnavailableText(cell.status))}</div>`}

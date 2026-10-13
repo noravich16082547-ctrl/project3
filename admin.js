@@ -36,21 +36,19 @@ document.addEventListener('keypress', (e)=>{
   if(e.key && e.key.length === 1 && !/[0-9๐-๙]/.test(e.key)) e.preventDefault();
 }, true);
 
-// อ่านช่อง "เข้าพักได้ _ – _ คน" ของทั้งห้องพัดลมและห้องแอร์
-// prefix คือคำนำหน้า id เช่น 'opfCap' -> opfCapMinFan / opfCapMaxFan / opfCapMinAir ...
-// คืน { fan:{min,max}|null, air:{min,max}|null } หรือ null ถ้าเจ้าของหอกรอกเลขเพี้ยน
+// อ่านช่อง "จำนวนผู้เข้าพักได้สูงสุด" ของทั้งห้องพัดลมและห้องแอร์
+// prefix คือคำนำหน้า id เช่น 'opfCap' -> opfCapMaxFan / opfCapMaxAir
+// คืน { fan:{max}|null, air:{max}|null } หรือ null ถ้าเจ้าของหอกรอกเลขเพี้ยน
+// v51: เหลือช่องเดียว ของเดิมเป็นช่วงต่ำสุด-สูงสุด ซึ่งช่องต่ำสุดไม่มีความหมายในทางปฏิบัติ
 function readCapInputs(prefix){
   const out = {};
   for(const [code, C, th] of [['fan','Fan','ห้องพัดลม'], ['air','Air','ห้องแอร์']]){
-    const lo = document.getElementById(`${prefix}Min${C}`);
-    const hi = document.getElementById(`${prefix}Max${C}`);
-    const rawLo = lo ? plainNumber(lo.value) : '';
-    const rawHi = hi ? plainNumber(hi.value) : '';
-    if(rawLo === '' && rawHi === ''){ out[code] = null; continue; }
-    const cap = roomCapacity({ capMin: rawLo === '' ? null : +rawLo,
-                               capMax: rawHi === '' ? null : +rawHi });
+    const el  = document.getElementById(`${prefix}Max${C}`);
+    const raw = el ? plainNumber(el.value) : '';
+    if(raw === ''){ out[code] = null; continue; }
+    const cap = roomCapacity({ capMax: +raw });
     if(!cap){
-      toast(`จำนวนผู้เข้าพัก${th}ต้องเป็นตัวเลข 1-${CAP_MAX} คน`, 'error');
+      toast(`จำนวนผู้เข้าพักได้สูงสุดของ${th}ต้องเป็นตัวเลข 1-${CAP_MAX} คน`, 'error');
       return null;
     }
     out[code] = cap;
@@ -123,6 +121,46 @@ const DB_BAR = '#16709F';
 // ปีที่กำลังแสดงอยู่ในกราฟคำขอนัดหมายรายเดือน (ค.ศ.) — เปลี่ยนได้จากช่องเลือกปี
 let dbChartYear = new Date().getFullYear();
 
+// ---------------------------------------------------------------------------
+// ช่วงเวลาที่เลือกดูในแดชบอร์ด (v51)
+//
+// '' = ทั้งหมด (ตั้งแต่เปิดหอ) · 'YYYY-M' = เฉพาะเดือนนั้น
+// มีผลกับทุกตัวเลขที่นับจาก "คำขอนัดหมาย" ได้แก่ การ์ดคำขอนัดหมาย
+// ผลการตอบคำขอ และรายการสิ่งที่ต้องจัดการ
+//
+// ส่วนจำนวนห้องและสถานะห้องเป็น "สถานะ ณ ปัจจุบัน" ของผังห้อง
+// ระบบไม่ได้เก็บประวัติย้อนหลังว่าเดือนนั้นห้องไหนว่างอยู่บ้าง
+// จึงกรองตามเดือนไม่ได้ และกำกับไว้บนการ์ดว่าเป็นข้อมูล ณ ปัจจุบัน
+// ---------------------------------------------------------------------------
+let dbPeriod = '';
+
+// รายชื่อเดือนที่มีคำขอนัดหมาย เรียงจากใหม่ไปเก่า
+function dbPeriodOptions(list){
+  const seen = new Map();
+  (list || []).forEach(b=>{
+    const d = new Date(b.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if(!seen.has(key)){
+      seen.set(key, { key, at: d.getFullYear() * 12 + d.getMonth(),
+        label: d.toLocaleDateString('th-TH', { month:'long', year:'numeric' }) });
+    }
+  });
+  return [...seen.values()].sort((a, b)=> b.at - a.at);
+}
+
+// กรองคำขอนัดหมายตามช่วงเวลาที่เลือก
+function dbFilterByPeriod(list, period){
+  if(!period) return list || [];
+  return (list || []).filter(b=>{
+    const d = new Date(b.createdAt);
+    return `${d.getFullYear()}-${d.getMonth()}` === period;
+  });
+}
+function dbPeriodLabel(period, opts){
+  const hit = (opts || []).find(o=> o.key === period);
+  return hit ? hit.label : 'ทั้งหมด';
+}
+
 const DB_BOOKING_STATUS = {
   pending:   { label:'รอดำเนินการ', color:'#E8A317' },
   confirmed: { label:'ยืนยันแล้ว',  color:'#2E9E5B' },
@@ -137,10 +175,13 @@ function dbPct(part, whole){ return whole > 0 ? Math.round(part / whole * 100) :
 // การ์ดตัวเลขสรุป (stat tile)
 // ตัวเลขเดี่ยว ๆ ไม่ควรทำเป็นกราฟแท่งแท่งเดียว — ใช้ตัวเลขใหญ่ ๆ อ่านตรง ๆ ดีกว่า
 // ---------------------------------------------------------------------------
-function dbTileHtml({ icon, label, value, unit, note, tone }){
+// asof = true -> ติดป้าย "ณ ปัจจุบัน" เพราะตัวเลขนี้เป็นสถานะล่าสุด
+//                 ย้อนดูรายเดือนไม่ได้ (ระบบไม่ได้เก็บประวัติไว้) — v51
+function dbTileHtml({ icon, label, value, unit, note, tone, asof }){
   return `
   <div class="db-tile${tone ? ' tone-' + tone : ''}">
-    <div class="db-tile-label">${icon ? icon + ' ' : ''}${escapeHtml(label)}</div>
+    <div class="db-tile-label">${icon ? icon + ' ' : ''}${escapeHtml(label)}${
+      asof ? '<span class="db-asof">ณ ปัจจุบัน</span>' : ''}</div>
     <div class="db-tile-value">${escapeHtml(String(value))}${unit ? `<span class="db-tile-unit">${escapeHtml(unit)}</span>` : ''}</div>
     ${note ? `<div class="db-tile-note">${note}</div>` : ''}
   </div>`;
@@ -333,6 +374,12 @@ async function renderDashboard(){
     });
   });
 
+  // v51: ตัวกรองช่วงเวลา — ตัวเลขที่นับจากคำขอนัดหมายทั้งหมดใช้ชุดที่กรองแล้ว
+  const periodOpts = dbPeriodOptions(bookings);
+  if(dbPeriod && !periodOpts.some(o=> o.key === dbPeriod)) dbPeriod = '';
+  const allBookings = bookings;
+  bookings = dbFilterByPeriod(bookings, dbPeriod);
+
   const pending   = bookings.filter(b=> b.status === 'pending').length;
   const confirmed = bookings.filter(b=> b.status === 'confirmed').length;
   const cancelled = bookings.filter(b=> b.status === 'cancelled').length;
@@ -341,16 +388,6 @@ async function renderDashboard(){
   let rSum = 0, rCount = 0;
   Object.values(ratings).forEach(r=>{ rSum += (r.avg || 0) * (r.count || 0); rCount += (r.count || 0); });
   const avgRating = rCount ? Math.round(rSum / rCount * 10) / 10 : null;
-
-  // รายได้โดยประมาณต่อเดือน = ห้องที่มีผู้เช่าอยู่ × ราคาของประเภทห้องนั้น
-  let income = 0;
-  dorms.forEach(d=>{
-    eachRoomCell(normalizeFloorPlan(d.floorPlan)).forEach(({ cell })=>{
-      if(normalizeRoomStatus(cell.status) !== 'booked') return;
-      const t = roomTypes(d).find(r=> r.code === cell.type);
-      income += (t && t.price) || minPrice(d) || 0;
-    });
-  });
 
   // ห้องแยกตามประเภท (แอร์/พัดลม) — รวมทุกหอถ้าเป็นผู้ดูแลระบบ
   const byType = {};
@@ -373,10 +410,10 @@ async function renderDashboard(){
       { label: ROOM_TYPE_META[code] ? ROOM_TYPE_META[code].label : 'ไม่ระบุประเภท',
         icon:  ROOM_TYPE_META[code] ? ROOM_TYPE_META[code].icon  : '🚪' }));
 
-  const occupied = st.booked + st.reserved;
-  const years    = dbBookingYears(bookings);
+  // กราฟรายเดือนใช้ข้อมูลทั้งหมดเสมอ ไม่งั้นเลือกเดือนแล้วกราฟจะเหลือแท่งเดียว
+  const years    = dbBookingYears(allBookings);
   if(!years.includes(dbChartYear)) dbChartYear = years[0];
-  const months   = dbMonthlyBookings(bookings, dbChartYear);
+  const months   = dbMonthlyBookings(allBookings, dbChartYear);
   const focus    = isAdmin ? null : (dorms.find(d=> d.id === activeOwnerDormId) || dorms[0]);
   const checks   = dbChecklist(focus);
   const checkOk  = checks.filter(c=> c.ok).length;
@@ -401,26 +438,46 @@ async function renderDashboard(){
   }));
 
   box.innerHTML = `
+  <div class="db-filter">
+    <label class="db-year">ช่วงเวลา
+      <select id="dbPeriod">
+        <option value="" ${dbPeriod ? '' : 'selected'}>ทั้งหมด</option>
+        ${periodOpts.map(o=>
+          `<option value="${escapeAttr(o.key)}" ${o.key === dbPeriod ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+      </select>
+    </label>
+    <span class="db-filter-note">${dbPeriod
+      ? `กำลังดูคำขอนัดหมายเฉพาะเดือน<strong>${escapeHtml(dbPeriodLabel(dbPeriod, periodOpts))}</strong>
+         (${dbNum(bookings.length)} จาก ${dbNum(allBookings.length)} รายการ)<br>
+         ตัวเลขที่ติดป้าย “ณ ปัจจุบัน” เป็นสถานะล่าสุดของหอ ย้อนดูรายเดือนไม่ได้`
+      : 'กำลังดูคำขอนัดหมายทั้งหมดตั้งแต่เปิดหอพัก'}</span>
+  </div>
+
   <div class="db-tiles">
-    ${dbTileHtml({ icon:'🏠', label: isAdmin ? 'หอพักในระบบ' : 'หอพักของฉัน', value: dbNum(dorms.length), unit:'แห่ง' })}
+    ${dbTileHtml({ icon:'🏠', label: isAdmin ? 'หอพักในระบบ' : 'หอพักของฉัน', value: dbNum(dorms.length), unit:'แห่ง',
+                   asof: !!dbPeriod })}
     ${dbTileHtml({ icon:'🚪', label:'ห้องพักทั้งหมด', value: dbNum(st.total), unit:'ห้อง',
+                   asof: !!dbPeriod,
                    note: st.total ? `ว่าง ${dbNum(st.vacant)} ห้อง` : 'ยังไม่ได้ทำผังห้องพัก' })}
-    ${dbTileHtml({ icon:'📊', label:'อัตราการเข้าพัก', value: dbPct(occupied, st.total), unit:'%',
-                   note: st.total ? `มีผู้เช่าหรือผู้นัดหมาย ${dbNum(occupied)} จาก ${dbNum(st.total)} ห้อง` : '—' })}
-    ${dbTileHtml({ icon:'📌', label:'คำขอรอดำเนินการ', value: dbNum(pending), unit:'รายการ',
-                   tone: pending ? 'warn' : '', note:`คำขอทั้งหมด ${dbNum(bookings.length)} รายการ` })}
+    <!-- v51: เปลี่ยนจากเปอร์เซ็นต์การเข้าพัก เป็นจำนวนห้องจริง เพราะเปอร์เซ็นต์
+         ไม่ได้บอกว่าเหลือห้องให้ปล่อยอีกกี่ห้อง ซึ่งเป็นตัวเลขที่เจ้าของหอใช้จริง -->
+    ${dbTileHtml({ icon:'📊', label:'ห้องที่มีผู้เข้าพัก', value: dbNum(st.booked), unit:'ห้อง',
+                   asof: !!dbPeriod,
+                   note: st.total ? `เหลือห้องว่างอีก ${dbNum(st.vacant)} ห้อง จากทั้งหมด ${dbNum(st.total)} ห้อง`
+                                  : 'ยังไม่ได้ทำผังห้องพัก' })}
+    ${dbTileHtml({ icon:'📌', label:'คำขอนัดหมาย', value: dbNum(bookings.length), unit:'รายการ',
+                   tone: pending ? 'warn' : '',
+                   note: pending ? `รอดำเนินการ ${dbNum(pending)} รายการ` : 'ไม่มีรายการรอดำเนินการ' })}
     ${isAdmin ? '' : dbTileHtml({ icon:'💬', label:'ข้อความที่ยังไม่ได้อ่าน', value: dbNum(unread), unit:'ข้อความ',
-                   tone: unread ? 'warn' : '' })}
+                   asof: !!dbPeriod, tone: unread ? 'warn' : '' })}
     ${dbTileHtml({ icon:'⭐', label:'คะแนนรีวิวเฉลี่ย', value: avgRating == null ? '—' : avgRating,
-                   unit: avgRating == null ? '' : 'เต็ม 5',
+                   unit: avgRating == null ? '' : 'เต็ม 5', asof: !!dbPeriod,
                    note: rCount ? `จาก ${dbNum(rCount)} รีวิว` : 'ยังไม่มีรีวิว' })}
-    ${dbTileHtml({ icon:'💰', label:'รายได้โดยประมาณ', value: dbNum(income), unit:'บาท/เดือน',
-                   note:'คิดจากห้องที่มีผู้เช่าอยู่ × ราคาห้อง' })}
   </div>
 
   <div class="db-grid">
     <section class="db-card">
-      <h3>สถานะห้องพัก</h3>
+      <h3>สถานะห้องพัก <span class="db-asof">ณ ปัจจุบัน</span></h3>
       <p class="muted">แบ่งตามสถานะที่ตั้งไว้ในผังห้องพัก — สีเดียวกับในผัง</p>
       ${dbStackHtml(statusRows, { unit:'ห้อง', empty:'ยังไม่ได้ทำผังห้องพัก จึงยังไม่มีข้อมูลสถานะห้อง' })}
       ${st.total ? dbTableHtml(['สถานะ','จำนวน (ห้อง)','สัดส่วน'],
@@ -430,7 +487,7 @@ async function renderDashboard(){
     <!-- v48: เติมช่องว่างในแถวบน — ข้อมูลที่เจ้าของหอใช้ตอบคำถามนักศึกษาบ่อยที่สุด
          คือ "ห้องแบบไหนยังว่างอยู่บ้าง" -->
     <section class="db-card">
-      <h3>ห้องว่างแยกตามประเภทห้อง</h3>
+      <h3>ห้องว่างแยกตามประเภทห้อง <span class="db-asof">ณ ปัจจุบัน</span></h3>
       <p class="muted">ข้อมูลที่นักศึกษาถามบ่อยที่สุดเวลาติดต่อเข้ามา</p>
       ${typeRows.length ? `
         <ul class="db-types">${typeRows.map(t=>`
@@ -453,7 +510,9 @@ async function renderDashboard(){
 
     <section class="db-card">
       <h3>ผลการตอบคำขอนัดหมาย</h3>
-      <p class="muted">คำขอทั้งหมดที่เคยเข้ามา แบ่งตามผลลัพธ์</p>
+      <p class="muted">${dbPeriod
+        ? `คำขอของเดือน${escapeHtml(dbPeriodLabel(dbPeriod, periodOpts))} แบ่งตามผลลัพธ์`
+        : 'คำขอทั้งหมดที่เคยเข้ามา แบ่งตามผลลัพธ์'}</p>
       ${dbStackHtml(bkRows, { unit:'รายการ', empty:'ยังไม่มีคำขอนัดหมายเข้ามา' })}
       ${bookings.length ? dbTableHtml(['ผลลัพธ์','จำนวน (รายการ)','สัดส่วน'],
           bkRows.map(r=> [r.label, dbNum(r.value), dbPct(r.value, bookings.length) + '%'])) : ''}
@@ -501,6 +560,12 @@ async function renderDashboard(){
       </div>
     </section>
   </div>`;
+
+  // เปลี่ยนช่วงเวลาแล้ววาดใหม่ทั้งหน้า
+  document.getElementById('dbPeriod')?.addEventListener('change', (e)=>{
+    dbPeriod = e.target.value;
+    renderDashboard();
+  });
 
   // เปลี่ยนปีแล้ววาดกราฟใหม่
   document.getElementById('dbYear')?.addEventListener('change', (e)=>{
@@ -678,10 +743,7 @@ async function renderOwnerPage(){
             <input type="text" inputmode="numeric" id="opfPrice${C}" class="num-plain"
                    placeholder="${ph}" value="${price || ''}">
             <div class="pt-cap">
-              <span class="pt-cap-lb">เข้าพักได้</span>
-              <input type="text" inputmode="numeric" class="num-plain cap-in"
-                     id="opfCapMin${C}" placeholder="1" value="${cap.min || ''}">
-              <span class="pt-cap-dash">–</span>
+              <span class="pt-cap-lb">เข้าพักได้สูงสุด</span>
               <input type="text" inputmode="numeric" class="num-plain cap-in"
                      id="opfCapMax${C}" placeholder="2" value="${cap.max || ''}">
               <span class="pt-cap-lb">คน</span>
@@ -692,8 +754,8 @@ async function renderOwnerPage(){
         <div class="form-hint">
           กรอกเฉพาะแบบที่หอมี — หอที่มีทั้งสองแบบ การ์ดฝั่งนักศึกษาจะขึ้นเป็นช่วงราคา
           เช่น <strong>2,600 - 4,000 บาท/เดือน</strong><br>
-          ช่อง "เข้าพักได้" คือจำนวนคนที่อยู่ห้องแบบนั้นได้ เช่น <strong>1 – 2</strong> จะขึ้นให้นักศึกษาเห็นว่า "เข้าพักได้ 1-2 คน"
-          — อยู่ได้คนเดียวก็กรอกช่องแรกช่องเดียว หรือเว้นว่างทั้งคู่ถ้ายังไม่อยากระบุ<br>
+          ช่อง "เข้าพักได้สูงสุด" คือจำนวนคนที่อยู่ห้องแบบนั้นได้มากที่สุด เช่น ใส่ <strong>2</strong>
+          นักศึกษาจะเห็นว่า "เข้าพักได้สูงสุด 2 คน" — เว้นว่างได้ถ้ายังไม่อยากระบุ<br>
           เว้นราคาว่างทั้งคู่ได้ หน้าหอจะขึ้นว่า "สอบถามกับหอโดยตรง"
         </div>
       </div>
@@ -776,7 +838,7 @@ async function renderOwnerPage(){
                   <div class="muted" style="font-size:.82rem">${r.total > 0
                     ? `ทั้งหมด ${r.total} ห้อง`
                     : 'จำนวนห้องดูจากผังห้องพักด้านล่าง'}</div>
-                  ${capacityLabel(r) ? `<div class="muted" style="font-size:.82rem">👥 เข้าพักได้ ${capacityLabel(r)}</div>` : ''}
+                  ${capacityLabel(r) ? `<div class="muted" style="font-size:.82rem">👥 เข้าพักได้สูงสุด ${capacityLabel(r)}</div>` : ''}
                 </div>
                 <div class="op-room-price">${fmtBaht(r.price)} <span>บาท/เดือน</span></div>
                 ${r.total > 0 ? `
@@ -1916,6 +1978,9 @@ document.getElementById('rmSave')?.addEventListener('click', async ()=>{
     if(newStatus !== 'booked' && newStatus !== 'reserved'){
       target.cell.bookingId = null; target.cell.userId = null;
     }
+    // v51: ตั้งเป็น "มีผู้นัดหมายแล้ว" เอง ก็ประทับเวลาไว้ด้วย
+    // นักศึกษาจะได้เห็นว่ามีคนนัดหมายไว้ตั้งแต่เมื่อไหร่ เหมือนกรณีที่ระบบตั้งให้
+    target.cell.reservedAt = (newStatus === 'reserved') ? Date.now() : null;
   }
 
   // v44: ประทับเวลาที่ตั้งค่าห้องนี้ ผังจะได้แยกห้องที่ตั้งค่าแล้วออกจากห้องเปล่า
@@ -2161,7 +2226,7 @@ function openViewDorm(d){
     ${hasRoomTypes(d)
       ? `<ul style="margin:0;padding-left:18px;font-size:.9rem">${roomTypes(d).map(r=>
           `<li>${escapeHtml(r.label)} — ${fmtBaht(r.price)} บาท/เดือน · ว่าง ${r.vacant}/${r.total}${
-            capacityLabel(r) ? ` · เข้าพักได้ ${capacityLabel(r)}` : ''}</li>`).join('')}</ul>`
+            capacityLabel(r) ? ` · เข้าพักได้สูงสุด ${capacityLabel(r)}` : ''}</li>`).join('')}</ul>`
       : (hasPrice(d)
           ? `<p style="font-size:.9rem">ราคาเริ่มต้น ${fmtBaht(minPrice(d))} บาท/เดือน${hasFloorPlan(d)?' · จำนวนห้องดูได้จากผังห้อง':''}</p>`
           : '<p class="muted" style="font-size:.88rem">ยังไม่ระบุ</p>')}
@@ -2266,7 +2331,6 @@ function openEdit(dorm){
   // จำนวนผู้เข้าพักต่อห้อง (v43)
   [['fan','Fan'], ['air','Air']].forEach(([code, C])=>{
     const cap = dorm ? (dormCapacity(dorm, code) || {}) : {};
-    document.getElementById('fCapMin'+C).value = cap.min || '';
     document.getElementById('fCapMax'+C).value = cap.max || '';
   });
   // ของในห้องแต่ละประเภท (v41) — ฟอร์มเพิ่มหอใหม่ก็ติ๊กได้เลย

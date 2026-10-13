@@ -10,7 +10,7 @@
    ========================================================================== */
 
 const SUPABASE_URL = "https://iekcsncnvpdtomhehxlw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTEwNTksImV4cCI6MjA5OTU4NzA1OX0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlla2NzbmNudnBkdG9taGVoeGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2ODUyNDgsImV4cCI6MjA2OTI2MTI0OH0.YLhNpTHffj4mqnwcBJ-MqJ7Ist0JGv_mtQwHHwTDYAA";
 
 // หมายเหตุเรื่องความปลอดภัย:
 // คีย์ด้านบนคือ "anon public key" ซึ่งออกแบบมาให้เปิดเผยในหน้าเว็บได้อยู่แล้ว
@@ -254,11 +254,16 @@ function travelMinutes(km){
   if(km == null) return null;
   return Math.max(1, Math.ceil(km * 1.3 / 25 * 60));
 }
-// ป้ายข้อความเวลาเดินทาง เช่น "ใช้เวลาเดินทาง 2 นาที"
-function travelLabel(km){
+// ป้ายข้อความเวลาเดินทาง เช่น "ใช้เวลาเดินทาง 2 นาที โดยรถจักรยานยนต์"
+// v51: ระบุพาหนะกำกับไว้ด้วย เพราะตัวเลขนี้คำนวณจากความเร็วเฉลี่ยของรถจักรยานยนต์
+// ถ้าไม่บอก นักศึกษาที่เดินหรือปั่นจักรยานจะเข้าใจผิดว่าใช้เวลาเท่านี้เหมือนกัน
+const TRAVEL_MODE = 'โดยรถจักรยานยนต์';
+function travelLabel(km, opts){
   const m = travelMinutes(km);
   if(m == null) return null;
-  return `ใช้เวลาเดินทาง ${m} นาที`;
+  const o = opts || {};
+  // o.short = true -> ใช้ในที่แคบ ๆ เช่น ป้ายบนการ์ด จะไม่ใส่พาหนะต่อท้าย
+  return `ใช้เวลาเดินทาง ${m} นาที` + (o.short ? '' : ' ' + TRAVEL_MODE);
 }
 // เก็บชื่อเดิมไว้ เผื่อมีโค้ดส่วนอื่นเรียกใช้อยู่
 function rideMinutes(km){ return travelMinutes(km); }
@@ -540,21 +545,23 @@ function cleanCap(v){
   const n = Math.floor(Number(v));
   return (isFinite(n) && n >= 1 && n <= CAP_MAX) ? n : null;
 }
-// คืน {min, max} จากรายการห้องหนึ่งรายการ — ข้างเดียวก็ได้ อีกข้างจะเท่ากัน
+// v51: เหลือค่าเดียวคือ "จำนวนผู้เข้าพักได้สูงสุด"
+//
+// ของเดิมให้กรอกช่วง (ต่ำสุด-สูงสุด) แต่ในทางปฏิบัติ "อย่างน้อยกี่คน" ไม่มีความหมาย
+// หอพักไม่ได้บังคับว่าต้องอยู่กี่คน มีแต่เพดานว่าอยู่ได้ไม่เกินกี่คน
+// ข้อมูลเก่าที่เคยกรอกเป็นช่วงไว้ จะใช้ค่าสูงสุดของช่วงนั้นเป็นคำตอบ
 function roomCapacity(room){
   if(!room) return null;
-  let min = cleanCap(room.capMin), max = cleanCap(room.capMax);
-  if(min == null && max == null) return null;
-  if(min == null) min = max;
-  if(max == null) max = min;
-  if(min > max){ const t = min; min = max; max = t; }
-  return { min, max };
+  const max = cleanCap(room.capMax);
+  if(max != null) return { max };
+  // ข้อมูลเก่าที่กรอกไว้แต่ช่องต่ำสุด ก็ถือเป็นเพดานไปก่อน
+  const min = cleanCap(room.capMin);
+  return min != null ? { max: min } : null;
 }
-// ข้อความอ่านง่าย เช่น "1-2 คน" หรือ "2 คน"
+// ข้อความอ่านง่าย เช่น "2 คน"
 function capacityLabel(room){
   const c = roomCapacity(room);
-  if(!c) return null;
-  return (c.min === c.max ? `${c.min}` : `${c.min}-${c.max}`) + ' คน';
+  return c ? `${c.max} คน` : null;
 }
 // หาจากหอ + รหัสประเภทห้อง ('fan' / 'air')
 function dormCapacity(dorm, code){
@@ -565,7 +572,7 @@ function dormCapacityLabel(dorm, code){
 }
 
 // สร้างรายการ rooms จากราคา 2 ช่อง โดยคงจำนวนห้อง/ห้องว่างเดิมไว้
-// caps = { fan:{min,max}, air:{min,max} } — ส่งมาหรือไม่ส่งก็ได้
+// caps = { fan:{max}, air:{max} } — ส่งมาหรือไม่ส่งก็ได้  (v51: เหลือเพดานเดียว)
 // ถ้าไม่ส่ง จะคงจำนวนผู้เข้าพักเดิมของหอไว้ ไม่ถูกล้างทิ้ง
 function buildPriceRooms(dorm, fanPrice, airPrice, caps){
   const prev = (dorm && dorm.rooms) || [];
@@ -582,13 +589,11 @@ function buildPriceRooms(dorm, fanPrice, airPrice, caps){
       vacant: o.vacant || 0
     };
     // จำนวนผู้เข้าพัก: ใช้ค่าที่ส่งมา ถ้าไม่ส่งมาเลยก็ใช้ค่าเดิมของหอ
-    // รับได้ทั้ง {min,max} และ {capMin,capMax} เพื่อให้เรียกใช้ง่ายจากทั้ง 2 ฟอร์ม
     const c = caps && caps[code];
     const cap = caps
-      ? roomCapacity(c ? { capMin: c.capMin != null ? c.capMin : c.min,
-                           capMax: c.capMax != null ? c.capMax : c.max } : null)
+      ? roomCapacity(c ? { capMax: c.capMax != null ? c.capMax : c.max } : null)
       : roomCapacity(o);
-    if(cap){ row.capMin = cap.min; row.capMax = cap.max; }
+    if(cap) row.capMax = cap.max;   // v51: ไม่เก็บ capMin อีกแล้ว
     out.push(row);
   });
   return out;
@@ -828,8 +833,8 @@ function amenityGridHtml(codes){
 // ใช้สีชุดเดียวกับผังห้องพัก ผู้ใช้จะได้ไม่ต้องจำสองชุด (v45)
 const ROOM_STATUS_META = {
   vacant:   { label:'ว่าง',             short:'ว่าง',       cls:'st-vacant',   color:'#2E9E5B' },
-  reserved: { label:'มีผู้นัดหมายแล้ว', short:'มีผู้นัดหมาย', cls:'st-reserved', color:'#E8A317' },
-  booked:   { label:'ไม่ว่าง',          short:'ไม่ว่าง',    cls:'st-booked',   color:'#E03B2F' },
+  reserved: { label:'มีผู้นัดหมายแล้ว', short:'มีผู้นัดหมาย', cls:'st-reserved', color:'#EF6B52' },
+  booked:   { label:'ไม่ว่าง',          short:'ไม่ว่าง',    cls:'st-booked',   color:'#B3261E' },
   closed:   { label:'ปิดปรับปรุง',      short:'ปิดปรับปรุง', cls:'st-closed',   color:'#8C96A0' }
 };
 const ROOM_STATUS_ORDER = ['vacant','reserved','booked','closed'];
@@ -889,6 +894,9 @@ function normalizeFloorPlan(plan){
               ? c.photos.filter(u=>typeof u === 'string' && u.trim()).slice(0, MAX_ROOM_PHOTOS)
               : [],
             bookingId: c.bookingId || null, userId: c.userId || null,
+            // v51: เวลาที่ห้องนี้ถูกนัดหมาย (ฐานข้อมูลตั้งให้เองตอนเจ้าของหอกดยืนยัน)
+            // ใช้บอกนักศึกษาว่ามีคนนัดหมายไว้ตั้งแต่เมื่อไหร่ ไม่มีข้อมูลส่วนตัวของคนนั้นติดมาด้วย
+            reservedAt: Number(c.reservedAt) > 0 ? Number(c.reservedAt) : null,
             // v44: เวลาที่เจ้าของหอกดบันทึกห้องนี้ครั้งล่าสุด
             // ใช้แยกให้เห็นว่าห้องไหนตั้งค่าแล้ว ห้องไหนยังเป็นห้องเปล่าที่เพิ่งกดเพิ่มมา
             // *** ถ้าลืมใส่ตรงนี้ เครื่องหมายจะหายทุกครั้งที่บันทึกผัง ***
@@ -1058,7 +1066,9 @@ function planCellHtml(cell, opts){
   // ราคา/ของในห้องไม่ได้พิมพ์ลงบนช่องแล้ว แต่ยังอยู่ใน tooltip ตอนเอาเมาส์ชี้
   const tip = (cell.no ? ('ห้อง ' + cell.no) : 'ห้อง') + ' · ' + meta.label +
               (cell.price ? ' · ' + fmtBaht(cell.price) + ' บาท/เดือน' : '') +
-              (st === 'reserved' ? ' · มีผู้นัดหมายไว้แล้ว แต่ยังนัดหมายซ้ำได้' : '') +
+              (st === 'reserved'
+                ? ' · มีผู้นัดหมายไว้แล้ว' + (cell.reservedAt ? ' เมื่อ ' + fmtSince(cell.reservedAt) : '') +
+                  ' แต่ยังนัดหมายซ้ำได้' : '') +
               (myPending ? ' · คุณส่งคำขอนัดหมายห้องนี้ไว้แล้ว รอเจ้าของหอพักยืนยัน' : '') +
               (unset ? ' · ยังไม่ได้ตั้งค่าห้องนี้ — กดเพื่อกรอกเลขห้องและสถานะ'
                      : (o.edit && cell.editedAt ? ' · ตั้งค่าล่าสุด ' + fmtSince(cell.editedAt) : '')) +

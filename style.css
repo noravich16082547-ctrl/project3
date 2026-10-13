@@ -108,7 +108,10 @@ button{ font-family: inherit; cursor:pointer; }
   background: rgba(46,155,214,.14); border:1px solid rgba(46,155,214,.40);
   padding:5px 12px; border-radius:999px; margin-bottom: 14px;
 }
-.hero h1{ color: var(--white); font-size: clamp(1.8rem, 3.1vw, 3rem); max-width: 18ch; }
+/* v51: หัวข้อยาวขึ้น จึงลดขนาดตัวอักษรและขยายความกว้างที่ยอมให้ขึ้นบรรทัดใหม่ */
+.hero h1{ color: var(--white); font-size: clamp(1.55rem, 2.5vw, 2.4rem); max-width: 24ch; line-height:1.3; }
+/* ช่วงคำที่ห้ามตัดกลาง — ภาษาไทยไม่มีช่องว่างคั่น เบราว์เซอร์จึงตัดผิดที่ได้ */
+.hero h1 .nb{ white-space:nowrap; }
 .hero p.lead{ color: rgba(255,255,255,.82); max-width: 52ch; font-size:1.02rem; }
 
 
@@ -919,9 +922,10 @@ footer{ margin-bottom: 0; }
 .fp-lg{ display:inline-flex; align-items:center; gap:6px; }
 .fp-swatch{ width:13px; height:13px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.12); }
 .fp-swatch.st-vacant{ background:#2E9E5B; }
-/* v44: สถานะห้องเพิ่มเป็น 4 แบบ */
-.fp-swatch.st-reserved{ background:#E8A317; }
-.fp-swatch.st-booked{ background:#E03B2F; }
+/* v44: สถานะห้องเพิ่มเป็น 4 แบบ · v51: สถานะ "มีผู้นัดหมาย" เปลี่ยนจากเหลืองเป็นแดงอ่อน
+   และ "ไม่ว่าง" เข้มขึ้น เพื่อให้แยกสองสถานะนี้ออกจากกันได้ทั้งที่เป็นแดงทั้งคู่ */
+.fp-swatch.st-reserved{ background:#EF6B52; }
+.fp-swatch.st-booked{ background:#B3261E; }
 .fp-swatch.st-closed{ background:#8C96A0; }
 .fp-swatch.st-unset{ background:#fff; border:1px dashed #9AA7B2; }
 
@@ -950,9 +954,22 @@ footer{ margin-bottom: 0; }
 .fp-price{ font-size:.68rem; opacity:.8; }
 
 .fp-room.st-vacant{ background:#2E9E5B; color:#fff; }
-.fp-room.st-reserved{ background:#E8A317; color:#fff; }
-.fp-room.st-booked{ background:#E03B2F; color:#fff; }
+.fp-room.st-booked{ background:#B3261E; color:#fff; }
 .fp-room.st-closed{ background:#8C96A0; color:#fff; }
+
+/* ---------------------------------------------------------------------------
+   v51: "มีผู้นัดหมายแล้ว" — แดงอ่อน + กรอบเส้นประสีขาวด้านใน
+
+   สองสถานะนี้เป็นแดงทั้งคู่ตามที่ขอ แต่แดงกับเขียวเป็นคู่สีที่ผู้มีภาวะตาบอดสี
+   แดง-เขียว (ซึ่งพบมากที่สุด) แยกออกจากกันได้ยากมาก จึงไม่ใช้สีสื่อความหมายอย่างเดียว
+     - ทุกช่องพิมพ์สถานะเป็นตัวหนังสือกำกับอยู่แล้ว
+     - ช่อง "มีผู้นัดหมาย" มีกรอบเส้นประเพิ่ม ซึ่งเห็นได้แม้พิมพ์ขาวดำ
+--------------------------------------------------------------------------- */
+.fp-room.st-reserved{
+  background:#EF6B52; color:#fff;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.95);
+  outline:2px dashed #B3261E; outline-offset:-2px;
+}
 
 /* ---------------------------------------------------------------------------
    v44: ห้องที่เจ้าของหอยังไม่เคยกดบันทึก (ผังโหมดแก้ไขเท่านั้น)
@@ -1021,14 +1038,36 @@ footer{ margin-bottom: 0; }
 .op-plan-sum{ display:flex; gap:14px; flex-wrap:wrap; font-size:.84rem; white-space:nowrap; }
 .op-plan-sum strong{ font-family:var(--font-display); }
 .st-vacant-txt{ color:#1F6D3D; }
-.st-reserved-txt{ color:#9A6B06; }
-.st-booked-txt{ color:#C22A1E; }
+.st-reserved-txt{ color:#C2402C; }
+.st-booked-txt{ color:#8E1B13; }
 .st-closed-txt{ color:#5E6872; }
 
 /* ===========================================================================
    แดชบอร์ด (v45)
    กราฟทุกตัววาดด้วย SVG/HTML ธรรมดา ไม่ได้ใช้ไลบรารีจากภายนอก
    =========================================================================== */
+/* ---- แถบเลือกช่วงเวลาของทั้งหน้า (v51) ---- */
+.db-filter{
+  display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap;
+  background:var(--sage-bg); border:1px solid var(--line);
+  border-radius:var(--radius); padding:12px 16px; margin-bottom:16px;
+}
+.db-filter .db-year{ color:var(--ink); }
+.db-filter .db-year select{ background:var(--white); }
+.db-filter-note{
+  font-size:.84rem; color:var(--ink-soft); line-height:1.5; min-width:0;
+}
+.db-filter-note strong{ color:var(--ink); font-weight:600; }
+
+/* ป้าย "ณ ปัจจุบัน" — ตัวเลขภาพรวมห้องพักเป็นสถานะล่าสุด ไม่ย้อนตามเดือนที่เลือก */
+.db-asof{
+  display:inline-block; vertical-align:middle; margin-left:7px;
+  font-family:var(--font-body); font-size:.7rem; font-weight:600;
+  color:var(--ink-soft); background:var(--sage-bg);
+  border:1px solid var(--line); border-radius:999px; padding:2px 9px;
+  white-space:nowrap;
+}
+
 .db-tiles{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
   gap:14px; margin-bottom:20px;
@@ -1354,8 +1393,8 @@ footer{ margin-bottom: 0; }
   vertical-align:middle; margin-left:6px; color:#fff;
 }
 .ri-pill.st-vacant{ background:#2E9E5B; }
-.ri-pill.st-reserved{ background:#E8A317; }
-.ri-pill.st-booked{ background:#E03B2F; }
+.ri-pill.st-reserved{ background:#EF6B52; }
+.ri-pill.st-booked{ background:#B3261E; }
 .ri-pill.st-closed{ background:#8C96A0; }
 .ri-price{
   font-family:var(--font-display); font-size:1.7rem; font-weight:700;
@@ -1365,6 +1404,21 @@ footer{ margin-bottom: 0; }
 .ri-note{
   margin-top:16px; background:var(--sage-bg); border-radius:var(--radius-sm);
   padding:11px 13px; font-size:.87rem; color:var(--ink-soft);
+}
+/* ---------------------------------------------------------------------------
+   v51: กล่องแจ้งเตือนแบบเด่น ใช้กับห้องที่มีผู้นัดหมายไว้แล้ว
+   ของเดิมเป็นกล่องฟ้าจาง ๆ กลืนไปกับพื้นหลังจนนักศึกษาอ่านข้าม
+   ทั้งที่เป็นข้อมูลสำคัญที่สุดในหน้าต่างนั้น
+--------------------------------------------------------------------------- */
+.ri-note.is-alert{
+  display:flex; flex-direction:column; gap:6px;
+  background:#FFF4EF; border:1px solid #F3B5A6; border-left:5px solid #EF6B52;
+  color:var(--ink); padding:13px 15px; font-size:.9rem; line-height:1.55;
+}
+.ri-note.is-alert strong{ color:#B3261E; font-size:.98rem; }
+.ri-note.is-alert .ri-when{
+  font-size:.82rem; color:var(--ink-soft);
+  border-top:1px dashed #F3B5A6; padding-top:7px; margin-top:1px;
 }
 
 @media (max-width:640px){
