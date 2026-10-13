@@ -627,7 +627,6 @@ footer{ margin-bottom: 0; }
 .bk-grid .k{ color: var(--ink-soft); }
 .bk-note{ background: var(--sage-bg); border-radius: var(--radius-sm); padding:9px 12px; font-size:.86rem; margin:8px 0; }
 .bk-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-.bk-mailstate{ font-size:.75rem; color: var(--ink-soft); }
 @media (max-width:640px){ .bk-grid{ grid-template-columns:1fr; } }
 
 /* ---- ป้ายบอกว่ารูปเป็นภาพประกอบ ไม่ใช่รูปห้องจริงของหอ ---- */
