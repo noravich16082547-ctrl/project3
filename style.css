@@ -922,10 +922,11 @@ footer{ margin-bottom: 0; }
 .fp-lg{ display:inline-flex; align-items:center; gap:6px; }
 .fp-swatch{ width:13px; height:13px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.12); }
 .fp-swatch.st-vacant{ background:#2E9E5B; }
-/* v44: สถานะห้องเพิ่มเป็น 4 แบบ · v51: สถานะ "มีผู้นัดหมาย" เปลี่ยนจากเหลืองเป็นแดงอ่อน
-   และ "ไม่ว่าง" เข้มขึ้น เพื่อให้แยกสองสถานะนี้ออกจากกันได้ทั้งที่เป็นแดงทั้งคู่ */
-.fp-swatch.st-reserved{ background:#EF6B52; }
-.fp-swatch.st-booked{ background:#B3261E; }
+/* v44: สถานะห้องเพิ่มเป็น 4 แบบ
+   v52: "มีผู้นัดหมาย" กลับมาเป็นสีเหลืองตามที่ขอ — เหมาะกับความหมายมากกว่าด้วย
+        (ห้องนี้ไม่ได้ปิดรับ แค่ให้ระวังว่ามีคนนัดหมายไว้ก่อน) และ "ไม่ว่าง" กลับเป็นแดงเดิม */
+.fp-swatch.st-reserved{ background:#E8A317; }
+.fp-swatch.st-booked{ background:#E03B2F; }
 .fp-swatch.st-closed{ background:#8C96A0; }
 .fp-swatch.st-unset{ background:#fff; border:1px dashed #9AA7B2; }
 
@@ -954,22 +955,25 @@ footer{ margin-bottom: 0; }
 .fp-price{ font-size:.68rem; opacity:.8; }
 
 .fp-room.st-vacant{ background:#2E9E5B; color:#fff; }
-.fp-room.st-booked{ background:#B3261E; color:#fff; }
+.fp-room.st-booked{ background:#E03B2F; color:#fff; }
 .fp-room.st-closed{ background:#8C96A0; color:#fff; }
 
 /* ---------------------------------------------------------------------------
-   v51: "มีผู้นัดหมายแล้ว" — แดงอ่อน + กรอบเส้นประสีขาวด้านใน
+   v52: "มีผู้นัดหมายแล้ว" กลับมาเป็นสีเหลือง
 
-   สองสถานะนี้เป็นแดงทั้งคู่ตามที่ขอ แต่แดงกับเขียวเป็นคู่สีที่ผู้มีภาวะตาบอดสี
-   แดง-เขียว (ซึ่งพบมากที่สุด) แยกออกจากกันได้ยากมาก จึงไม่ใช้สีสื่อความหมายอย่างเดียว
-     - ทุกช่องพิมพ์สถานะเป็นตัวหนังสือกำกับอยู่แล้ว
-     - ช่อง "มีผู้นัดหมาย" มีกรอบเส้นประเพิ่ม ซึ่งเห็นได้แม้พิมพ์ขาวดำ
+   ตัวหนังสือบนช่องนี้ต้องเป็นสีเข้ม ไม่ใช่สีขาวเหมือนช่องอื่น
+   ขาวบนเหลืองได้ค่าความต่างของสีแค่ 2.2:1 (เกณฑ์ขั้นต่ำคือ 4.5:1) อ่านไม่ออกกลางแดด
+   ส่วนตัวหนังสือสีเข้มบนเหลืองได้ 7.4:1 ผ่านสบาย
+
+   กรอบเส้นประยังอยู่ เพราะช่วยผู้ที่แยกสีได้ไม่ชัด และยังเห็นเมื่อพิมพ์ขาวดำ
 --------------------------------------------------------------------------- */
 .fp-room.st-reserved{
-  background:#EF6B52; color:#fff;
+  background:#E8A317; color:#16232E;
   box-shadow: inset 0 0 0 2px rgba(255,255,255,.95);
-  outline:2px dashed #B3261E; outline-offset:-2px;
+  outline:2px dashed #8A5300; outline-offset:-2px;
 }
+/* ช่องนี้ใช้ตัวหนังสือสีเข้ม เงาเรืองแสงสีขาวจึงไม่ต้องมี */
+.fp-room.st-reserved .fp-st{ opacity:.95; }
 
 /* ---------------------------------------------------------------------------
    v44: ห้องที่เจ้าของหอยังไม่เคยกดบันทึก (ผังโหมดแก้ไขเท่านั้น)
@@ -987,11 +991,29 @@ footer{ margin-bottom: 0; }
 /* กดได้ = ห้องว่างในฝั่งนักศึกษา */
 .fp-room.is-bookable{ cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
 .fp-room.is-bookable:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(31,58,46,.22); outline:2px solid var(--gold); }
+/* ---------------------------------------------------------------------------
+   ข้อความชี้แนะตอนเอาเมาส์ชี้ช่องห้อง
+
+   v52: ทำเป็นแถบทึบปิดท้ายช่อง ไม่ใช่ตัวหนังสือลอยทับของเดิม
+   ของเดิมวางซ้อนบรรทัดสถานะพอดี พอข้อความยาวขึ้นเป็นสองบรรทัด
+   ตัวหนังสือสองชุดจะทับกันจนอ่านไม่ออกทั้งคู่
+   พื้นแถบใช้สีดำโปร่ง จึงอ่านออกทั้งบนช่องเขียว เหลือง และแดง โดยไม่ต้องตั้งสีแยกทีละสถานะ
+--------------------------------------------------------------------------- */
 .fp-room.is-bookable::after{
-  content:'กดเพื่อนัดหมาย'; position:absolute; bottom:3px; left:0; right:0;
-  font-size:.62rem; opacity:0; transition:opacity .12s ease;
+  content:'กดเพื่อนัดหมาย';
+  position:absolute; left:0; right:0; bottom:0; padding:3px 4px 4px;
+  background:rgba(0,0,0,.52); color:#fff; white-space:pre-line;
+  border-radius:0 0 var(--radius-sm) var(--radius-sm);
+  font-size:.6rem; line-height:1.2; font-weight:600;
+  opacity:0; transition:opacity .12s ease;
 }
-.fp-room.is-bookable:hover::after{ opacity:.75; }
+/* ห้องที่มีผู้นัดหมายไว้แล้ว บอกให้ชัดว่ายังนัดหมายได้อยู่
+   ("กดเพื่อนัดหมาย" เฉย ๆ ไม่ได้ตอบคำถามที่นักศึกษาสงสัยตอนเห็นช่องสีเหลือง)
+   \00000A = ขึ้นบรรทัดใหม่ — กำหนดจุดตัดเอง ไม่งั้นเบราว์เซอร์จะตัดเหลือ "ได้" โดด ๆ บรรทัดล่าง */
+.fp-room.st-reserved.is-bookable::after{ content:'ยังสามารถ\00000Aนัดหมายได้'; }
+.fp-room.is-bookable:hover::after{ opacity:1; }
+/* ซ่อนบรรทัดสถานะตอนแถบชี้แนะขึ้นมา ไม่ให้ขอบตัวหนังสือโผล่พ้นแถบ */
+.fp-room.is-bookable:hover .fp-st{ visibility:hidden; }
 .fp-room.is-mine{ outline:3px solid var(--gold); outline-offset:-3px; }
 /* ห้องที่เราส่งคำขอนัดหมายไว้ แต่เจ้าของหอยังไม่ยืนยัน — ยังว่างอยู่ (เขียว) แค่ตีกรอบไข่ปลาไว้ (v35) */
 .fp-room.is-waiting{ outline:3px dashed rgba(255,255,255,.85); outline-offset:-4px; }
@@ -1038,8 +1060,8 @@ footer{ margin-bottom: 0; }
 .op-plan-sum{ display:flex; gap:14px; flex-wrap:wrap; font-size:.84rem; white-space:nowrap; }
 .op-plan-sum strong{ font-family:var(--font-display); }
 .st-vacant-txt{ color:#1F6D3D; }
-.st-reserved-txt{ color:#C2402C; }
-.st-booked-txt{ color:#8E1B13; }
+.st-reserved-txt{ color:#8A5300; }   /* เหลืองเข้มพอให้อ่านบนพื้นขาวได้ (5.9:1) */
+.st-booked-txt{ color:#B3261E; }
 .st-closed-txt{ color:#5E6872; }
 
 /* ===========================================================================
@@ -1393,8 +1415,9 @@ footer{ margin-bottom: 0; }
   vertical-align:middle; margin-left:6px; color:#fff;
 }
 .ri-pill.st-vacant{ background:#2E9E5B; }
-.ri-pill.st-reserved{ background:#EF6B52; }
-.ri-pill.st-booked{ background:#B3261E; }
+/* ป้ายเหลืองใช้ตัวหนังสือสีเข้ม ด้วยเหตุผลเดียวกับช่องห้องในผัง */
+.ri-pill.st-reserved{ background:#E8A317; color:#16232E; }
+.ri-pill.st-booked{ background:#E03B2F; }
 .ri-pill.st-closed{ background:#8C96A0; }
 .ri-price{
   font-family:var(--font-display); font-size:1.7rem; font-weight:700;
@@ -1409,16 +1432,20 @@ footer{ margin-bottom: 0; }
    v51: กล่องแจ้งเตือนแบบเด่น ใช้กับห้องที่มีผู้นัดหมายไว้แล้ว
    ของเดิมเป็นกล่องฟ้าจาง ๆ กลืนไปกับพื้นหลังจนนักศึกษาอ่านข้าม
    ทั้งที่เป็นข้อมูลสำคัญที่สุดในหน้าต่างนั้น
+
+   v52: เปลี่ยนเป็นโทนเหลืองตามสีของสถานะห้อง — กล่องเตือนกับช่องห้องในผัง
+   จะได้เป็นสีเดียวกัน นักศึกษาเชื่อมโยงได้ทันทีว่าหมายถึงห้องสีนี้
+   ตัวหนังสือหัวข้อใช้เหลืองเข้ม (7.1:1 บนพื้นกล่อง) ไม่ใช่เหลืองสด
 --------------------------------------------------------------------------- */
 .ri-note.is-alert{
   display:flex; flex-direction:column; gap:6px;
-  background:#FFF4EF; border:1px solid #F3B5A6; border-left:5px solid #EF6B52;
+  background:#FFF8E8; border:1px solid #F0DCA8; border-left:5px solid #E8A317;
   color:var(--ink); padding:13px 15px; font-size:.9rem; line-height:1.55;
 }
-.ri-note.is-alert strong{ color:#B3261E; font-size:.98rem; }
+.ri-note.is-alert strong{ color:#7A4A00; font-size:.98rem; }
 .ri-note.is-alert .ri-when{
   font-size:.82rem; color:var(--ink-soft);
-  border-top:1px dashed #F3B5A6; padding-top:7px; margin-top:1px;
+  border-top:1px dashed #F0DCA8; padding-top:7px; margin-top:1px;
 }
 
 @media (max-width:640px){
